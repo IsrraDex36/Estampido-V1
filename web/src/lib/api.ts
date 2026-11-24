@@ -43,6 +43,11 @@ export function convertVideo(
     form.set("fit", fields.fit);
     form.set("includeAudio", String(fields.includeAudio));
     form.set("audioStartSec", String(fields.audioStartSec));
+    form.set("includeMetadata", String(fields.includeMetadata));
+    for (const key of ["packName", "publisher", "emojis"] as const) {
+      const v = fields[key]?.trim();
+      if (v) form.set(key, v);
+    }
 
     const xhr = new XMLHttpRequest();
     xhr.open("POST", "/api/convert");

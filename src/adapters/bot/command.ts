@@ -15,10 +15,7 @@ export const SAUDIO_USAGE = "Uso: /saudio [inicio] [duración] [crop|pad] [voz]"
  * Returns null if text isn't the command; throws with a user-facing message
  * on bad arguments.
  */
-export function parseSaudio(
-  text: string | null | undefined,
-  maxDuration = 5,
-): SaudioCommand | null {
+export function parseSaudio(text: string | null | undefined, maxDuration = 5): SaudioCommand | null {
   const parts = (text ?? "").trim().split(/\s+/);
   if (!/^[/!.]saudio$/i.test(parts[0] ?? "")) return null;
 
@@ -37,8 +34,7 @@ export function parseSaudio(
   }
   if (nums[0] !== undefined) cmd.startSec = nums[0];
   if (nums[1] !== undefined) {
-    if (nums[1] <= 0 || nums[1] > maxDuration)
-      throw new Error(`La duración debe estar entre 0 y ${maxDuration} s.`);
+    if (nums[1] <= 0 || nums[1] > maxDuration) throw new Error(`La duración debe estar entre 0 y ${maxDuration} s.`);
     cmd.durationSec = nums[1];
   }
   return cmd;
@@ -63,23 +59,15 @@ export interface KeyLike {
  * sender's phone-number JIDs is in `allowed` (digits). LID-only senders are
  * rejected unless Baileys provides the PN alt.
  */
-export function isAllowedSender(
-  key: KeyLike,
-  allowed: ReadonlySet<string>,
-): boolean {
+export function isAllowedSender(key: KeyLike, allowed: ReadonlySet<string>): boolean {
   if (key.fromMe) return true;
   const isGroup = key.remoteJid?.endsWith("@g.us");
-  const candidates = isGroup
-    ? [key.participant, key.participantAlt]
-    : [key.remoteJid, key.remoteJidAlt];
+  const candidates = isGroup ? [key.participant, key.participantAlt] : [key.remoteJid, key.remoteJidAlt];
   return candidates.some((j) => {
     const d = jidDigits(j);
-    return (
-      d !== null && j?.endsWith("@s.whatsapp.net") === true && allowed.has(d)
-    );
+    return d !== null && j?.endsWith("@s.whatsapp.net") === true && allowed.has(d);
   });
 }
 
 /** `/cancelar` (also `!cancelar`, `.cancelar`, `/cancel`). */
-export const isCancel = (text: string | null | undefined): boolean =>
-  /^[/!.]cancel(ar)?$/i.test((text ?? "").trim());
+export const isCancel = (text: string | null | undefined): boolean => /^[/!.]cancel(ar)?$/i.test((text ?? "").trim());

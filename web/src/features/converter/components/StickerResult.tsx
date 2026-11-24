@@ -61,6 +61,11 @@ export function StickerResult({ result, onReset }: StickerResultProps) {
         </Stat>
         <Stat label="Duración">{formatSeconds(sticker.durationMs / 1000, 2)}</Stat>
         <Stat label="Intentos de optimización">{sticker.attempts}</Stat>
+        <Stat label="Pack">
+          {sticker.metadata
+            ? `${sticker.metadata.packName} · ${sticker.metadata.publisher}${sticker.metadata.emojis.length ? ` · ${sticker.metadata.emojis.join(" ")}` : ""}`
+            : "Sin metadatos"}
+        </Stat>
         {audio && <Stat label="Audio">Opus · {formatBytes(audio.bytes)}</Stat>}
         <Separator className="my-2" />
         <Stat label="Fuente">

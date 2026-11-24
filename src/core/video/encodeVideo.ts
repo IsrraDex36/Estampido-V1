@@ -1,8 +1,4 @@
-import {
-  DEFAULT_FIT,
-  type FitMode,
-  STICKER_LIMITS,
-} from "../../config/limits.js";
+import { DEFAULT_FIT, type FitMode, STICKER_LIMITS } from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
 
 export interface EncodeVideoOptions {
@@ -20,11 +16,7 @@ export interface EncodeVideoOptions {
 }
 
 /** Build the -vf chain. Exported for unit testing. */
-export function buildVideoFilter(
-  fit: FitMode,
-  fps: number,
-  size: number,
-): string {
+export function buildVideoFilter(fit: FitMode, fps: number, size: number): string {
   const common = [`fps=${fps}`];
   if (fit === "pad") {
     return [

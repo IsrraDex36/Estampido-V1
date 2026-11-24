@@ -2,10 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import {
-  type EncodeAttempt,
-  fitToSize,
-} from "../../src/core/optimize/fitToSize.js";
+import { type EncodeAttempt, fitToSize } from "../../src/core/optimize/fitToSize.js";
 
 let dir: string;
 beforeEach(async () => {
@@ -22,8 +19,7 @@ const ladder: EncodeAttempt[] = [
 ];
 
 /** Fake encoder: size proportional to quality. */
-const fakeEncode = (out: string) => async (a: EncodeAttempt) =>
-  writeFile(out, Buffer.alloc(a.quality * 10));
+const fakeEncode = (out: string) => async (a: EncodeAttempt) => writeFile(out, Buffer.alloc(a.quality * 10));
 
 describe("fitToSize", () => {
   it("stops at first step that fits", async () => {
@@ -49,8 +45,6 @@ describe("fitToSize", () => {
   });
   it("first step fits → single attempt", async () => {
     const out = join(dir, "x.webp");
-    expect(
-      (await fitToSize(fakeEncode(out), out, 10_000, ladder)).attempts,
-    ).toBe(1);
+    expect((await fitToSize(fakeEncode(out), out, 10_000, ladder)).attempts).toBe(1);
   });
 });

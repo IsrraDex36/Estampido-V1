@@ -6,10 +6,7 @@ import { createApp } from "../../src/adapters/http/app.js";
 import type { ConvertResponse } from "../../src/adapters/http/contract.js";
 import { ResultStore } from "../../src/adapters/http/resultStore.js";
 import { UserInputError } from "../../src/core/errors.js";
-import type {
-  ConvertOptions,
-  ConvertResult,
-} from "../../src/pipeline/convert.js";
+import type { ConvertOptions, ConvertResult } from "../../src/pipeline/convert.js";
 
 let root: string;
 let store: ResultStore;
@@ -25,8 +22,7 @@ afterEach(async () => {
 const fakeConvert = vi.fn(async (o: ConvertOptions): Promise<ConvertResult> => {
   const webpPath = join(o.outDir, "sticker.webp");
   await writeFile(webpPath, "RIFF");
-  const audioPath =
-    o.audio === "none" ? undefined : join(o.outDir, "sticker.ogg");
+  const audioPath = o.audio === "none" ? undefined : join(o.outDir, "sticker.ogg");
   if (audioPath) await writeFile(audioPath, "OggS");
   return {
     webpPath,
@@ -50,6 +46,7 @@ const fakeConvert = vi.fn(async (o: ConvertOptions): Promise<ConvertResult> => {
         frames: 75,
         durationMs: 5000,
         attempts: 1,
+        metadata: null,
       },
       audio: audioPath ? { bytes: 4, codec: "opus" } : undefined,
       elapsedMs: 1,
@@ -57,19 +54,14 @@ const fakeConvert = vi.fn(async (o: ConvertOptions): Promise<ConvertResult> => {
   };
 });
 
-function form(
-  fields: Record<string, string>,
-  file?: File,
-  audio?: File,
-): FormData {
+function form(fields: Record<string, string>, file?: File, audio?: File): FormData {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   if (file) fd.set("video", file);
   if (audio) fd.set("audio", audio);
   return fd;
 }
-const video = () =>
-  new File([new Uint8Array(10)], "clip.mp4", { type: "video/mp4" });
+const video = () => new File([new Uint8Array(10)], "clip.mp4", { type: "video/mp4" });
 
 describe("POST /api/convert", () => {
   it("converts and returns servable URLs", async () => {
@@ -168,9 +160,7 @@ describe("replacement audio + errors", () => {
       method: "POST",
       body: form({ includeAudio: "false" }, video(), audio),
     });
-    expect(fakeConvert).toHaveBeenLastCalledWith(
-      expect.objectContaining({ audio: "none" }),
-    );
+    expect(fakeConvert).toHaveBeenLastCalledWith(expect.objectContaining({ audio: "none" }));
   });
 
   it("415 for non-audio replacement", async () => {
@@ -187,9 +177,7 @@ describe("replacement audio + errors", () => {
     const userErr = createApp({
       store,
       convert: async () => {
-        throw new UserInputError(
-          "El archivo de audio elegido no tiene sonido.",
-        );
+        throw new UserInputError("El archivo de audio elegido no tiene sonido.");
       },
     });
     const r1 = await userErr.request("/api/convert", {
@@ -235,9 +223,7 @@ describe("GET /api/results", () => {
 describe("ResultStore", () => {
   it("resolve only allows whitelisted files under valid ids", () => {
     const id = "123e4567-e89b-12d3-a456-426614174000";
-    expect(store.resolve(id, "sticker.webp")).toBe(
-      join(root, id, "sticker.webp"),
-    );
+    expect(store.resolve(id, "sticker.webp")).toBe(join(root, id, "sticker.webp"));
     expect(store.resolve(id, "input")).toBeNull();
     expect(store.resolve("../x", "sticker.webp")).toBeNull();
   });

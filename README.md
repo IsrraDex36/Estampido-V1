@@ -17,6 +17,7 @@ npm test
 # CLI
 npm run cli -- convert video.mp4 -s 2 -d 4 -o out/      # sticker + audio del video
 npm run cli -- convert video.mp4 -a voz.ogg --crop         # audio propio
+npm run cli -- convert video.mp4 --pack "Mis memes" --author Isra --emoji 😂,🔊
 npm run cli -- doctor                                      # verifica dependencias
 # o compilada: npm run build && node dist/adapters/cli/index.js convert …
 
@@ -25,7 +26,7 @@ npm --prefix web install
 npm run dev          # abre http://localhost:5173
 
 # Bot WhatsApp (Baileys, usar número secundario)
-SVA_ALLOWED=<tu_numero> npm run bot           # /saudio [inicio] [duración] [crop|pad] [voz] · /cancelar
+SVA_ALLOWED=<tu_numero> SVA_PACK="Mis memes" npm run bot   # /saudio [inicio] [duración] [crop|pad] [voz] · /cancelar
 SVA_ALLOWED=<tu_numero> npm run bot:capture   # + volcado de mensajes desconocidos (campo 134)
 ```
 

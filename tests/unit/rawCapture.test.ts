@@ -4,14 +4,8 @@ import { join } from "node:path";
 import { proto, type WAMessage } from "baileys";
 import { describe, expect, it } from "vitest";
 import { saveCapture } from "../../src/adapters/bot/capture.js";
-import {
-  findMediaCandidates,
-  sniffExtension,
-} from "../../src/adapters/bot/mediaExtract.js";
-import {
-  installRawCapture,
-  takeRawFor,
-} from "../../src/adapters/bot/rawCapture.js";
+import { findMediaCandidates, sniffExtension } from "../../src/adapters/bot/mediaExtract.js";
+import { installRawCapture, takeRawFor } from "../../src/adapters/bot/rawCapture.js";
 import { encodeBytesField } from "../../src/utils/protobufRaw.js";
 
 /** Simulated sound sticker: field 134 → FutureProof{1: Message{stickerMessage, ?}}. */
@@ -44,18 +38,13 @@ describe("installRawCapture", () => {
   });
 
   it("ignores lossless messages", () => {
-    const decoded = proto.Message.decode(
-      proto.Message.encode({ conversation: "hola" }).finish(),
-    );
+    const decoded = proto.Message.decode(proto.Message.encode({ conversation: "hola" }).finish());
     expect(takeRawFor(decoded)).toBeUndefined();
   });
 
   it("is idempotent", () => {
     installRawCapture();
-    expect(
-      proto.Message.decode(proto.Message.encode({ conversation: "x" }).finish())
-        .conversation,
-    ).toBe("x");
+    expect(proto.Message.decode(proto.Message.encode({ conversation: "x" }).finish()).conversation).toBe("x");
   });
 });
 
@@ -82,17 +71,12 @@ describe("saveCapture", () => {
       const raw = fakeSoundSticker();
       const msg = { key: { id: "M" }, message: {} } as WAMessage;
       const data = Buffer.from("RIFF\0\0\0\0WEBPVP8X");
-      const dir = await saveCapture(
-        root,
-        msg,
-        { raw, droppedTopLevel: [134], droppedBytes: 1, at: 0 },
-        async (c) => ({
-          path: c.path,
-          mediaType: "sticker",
-          ext: "webp",
-          data,
-        }),
-      );
+      const dir = await saveCapture(root, msg, { raw, droppedTopLevel: [134], droppedBytes: 1, at: 0 }, async (c) => ({
+        path: c.path,
+        mediaType: "sticker",
+        ext: "webp",
+        data,
+      }));
       expect(await readdir(dir)).toContain("media-134_1_26.webp");
     } finally {
       await rm(root, { recursive: true, force: true });
@@ -115,13 +99,9 @@ describe("saveCapture", () => {
       };
       const dir = await saveCapture(root, msg, entry, async () => null); // no network in unit tests
       expect((await readdir(dir)).sort()).toEqual(["capture.json", "raw.bin"]);
-      const json = JSON.parse(
-        await readFile(join(dir, "capture.json"), "utf8"),
-      );
+      const json = JSON.parse(await readFile(join(dir, "capture.json"), "utf8"));
       expect(json.droppedTopLevelFields).toEqual([134]);
-      expect(json.innerDecodedByBaileys["134"].stickerMessage.mimetype).toBe(
-        "image/webp",
-      );
+      expect(json.innerDecodedByBaileys["134"].stickerMessage.mimetype).toBe("image/webp");
       expect(json.media[0]).toMatchObject({
         path: "134.1.26",
         downloaded: null,

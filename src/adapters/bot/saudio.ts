@@ -4,10 +4,7 @@ import { join } from "node:path";
 import type { proto, WAMessage, WASocket } from "baileys";
 import { INPUT_LIMITS } from "../../config/limits.js";
 import { UserInputError } from "../../core/errors.js";
-import {
-  convertVideoToSoundSticker,
-  type ReplacementAudio,
-} from "../../pipeline/convert.js";
+import { convertVideoToSoundSticker, type ReplacementAudio } from "../../pipeline/convert.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { parseSaudio, SAUDIO_USAGE, type SaudioCommand } from "./command.js";
 import { type Downloader, downloadLimited } from "./media.js";
@@ -16,19 +13,12 @@ import { PendingAudioStore, senderKey } from "./pending.js";
 const jobs = new Semaphore(1);
 
 /** The video to convert: the message itself, or the one it quotes. */
-export function videoOf(
-  m: proto.IMessage | null | undefined,
-): proto.Message.IVideoMessage | undefined {
-  return (
-    m?.videoMessage ??
-    m?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage ??
-    undefined
-  );
+export function videoOf(m: proto.IMessage | null | undefined): proto.Message.IVideoMessage | undefined {
+  return m?.videoMessage ?? m?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage ?? undefined;
 }
 
 const userMessage = (err: unknown): string =>
-  err instanceof UserInputError ||
-  (err instanceof Error && err.message.startsWith("Argumento"))
+  err instanceof UserInputError || (err instanceof Error && err.message.startsWith("Argumento"))
     ? err.message
     : "No pude convertir ese video 😕";
 
@@ -37,7 +27,11 @@ const userMessage = (err: unknown): string =>
  * video is downloaded now and the next voice note/audio from the same sender
  * (within the TTL) becomes the sticker's sound.
  */
-export function createSaudio(sock: WASocket, download?: Downloader) {
+export function createSaudio(
+  sock: WASocket,
+  download?: Downloader,
+  metadataDefaults: { packName?: string; publisher?: string } = {},
+) {
   const pending = new PendingAudioStore(undefined, (key) => {
     const jid = key.split("|")[0];
     if (jid)
@@ -46,8 +40,7 @@ export function createSaudio(sock: WASocket, download?: Downloader) {
       });
   });
 
-  const reply = (to: WAMessage, text: string) =>
-    sock.sendMessage(to.key.remoteJid as string, { text }, { quoted: to });
+  const reply = (to: WAMessage, text: string) => sock.sendMessage(to.key.remoteJid as string, { text }, { quoted: to });
   const react = (to: WAMessage, text: string) =>
     sock.sendMessage(to.key.remoteJid as string, {
       react: { text, key: to.key },
@@ -69,16 +62,17 @@ export function createSaudio(sock: WASocket, download?: Downloader) {
         name: "sticker",
         ...segment,
         audio,
+        metadata: {
+          packName: metadataDefaults.packName,
+          // Sender's WhatsApp display name, so "author" shows who made it.
+          publisher: metadataDefaults.publisher ?? origin.pushName ?? undefined,
+        },
       }),
     );
 
     // Fallback delivery (works today): sticker + voice note. Native sound
     // sticker (field 134) pending capture analysis — see docs/PROTOCOLO.md.
-    await sock.sendMessage(
-      jid,
-      { sticker: { url: result.webpPath } },
-      { quoted: origin },
-    );
+    await sock.sendMessage(jid, { sticker: { url: result.webpPath } }, { quoted: origin });
     if (result.audioPath) {
       await sock.sendMessage(jid, {
         audio: { url: result.audioPath },
@@ -87,9 +81,7 @@ export function createSaudio(sock: WASocket, download?: Downloader) {
       });
     }
     const s = result.stats.sticker;
-    const notes = result.warnings.length
-      ? `\n⚠️ ${result.warnings.join("\n⚠️ ")}`
-      : "";
+    const notes = result.warnings.length ? `\n⚠️ ${result.warnings.join("\n⚠️ ")}` : "";
     await reply(
       origin,
       `✔ ${(s.bytes / 1024).toFixed(0)} KB · ${s.fps} fps · q${s.quality} · ${(s.durationMs / 1000).toFixed(1)} s${notes}`,
@@ -110,10 +102,7 @@ export function createSaudio(sock: WASocket, download?: Downloader) {
 
     const video = videoOf(msg.message);
     if (!video) {
-      await reply(
-        msg,
-        `Envía un video con el texto /saudio, o responde a un video. ${SAUDIO_USAGE}`,
-      );
+      await reply(msg, `Envía un video con el texto /saudio, o responde a un video. ${SAUDIO_USAGE}`);
       return;
     }
 
@@ -124,13 +113,7 @@ export function createSaudio(sock: WASocket, download?: Downloader) {
       const videoPath = join(dir, "input");
       await writeFile(
         videoPath,
-        await downloadLimited(
-          video,
-          "video",
-          INPUT_LIMITS.maxVideoBytes,
-          "El video",
-          download,
-        ),
+        await downloadLimited(video, "video", INPUT_LIMITS.maxVideoBytes, "El video", download),
       );
 
       if (cmd.customAudio) {
@@ -169,13 +152,7 @@ export function createSaudio(sock: WASocket, download?: Downloader) {
       const audioPath = join(job.dir, "audio-input");
       await writeFile(
         audioPath,
-        await downloadLimited(
-          audio,
-          "audio",
-          INPUT_LIMITS.maxAudioBytes,
-          "El audio",
-          download,
-        ),
+        await downloadLimited(audio, "audio", INPUT_LIMITS.maxAudioBytes, "El audio", download),
       );
       await convertAndSend(job.origin, job.dir, job.videoPath, job.cmd, {
         file: audioPath,

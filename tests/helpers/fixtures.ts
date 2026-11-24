@@ -24,8 +24,7 @@ export async function makeVideo(
     "-i",
     `testsrc2=size=${width}x${height}:rate=${fps}:duration=${seconds}`,
   ];
-  if (audio)
-    args.push("-f", "lavfi", "-i", `sine=frequency=440:duration=${seconds}`);
+  if (audio) args.push("-f", "lavfi", "-i", `sine=frequency=440:duration=${seconds}`);
   args.push("-c:v", "libx264", "-pix_fmt", "yuv420p");
   if (audio) args.push("-c:a", "aac", "-shortest");
   args.push(out);

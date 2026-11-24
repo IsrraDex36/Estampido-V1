@@ -1,22 +1,12 @@
 import type { Readable } from "node:stream";
-import {
-  downloadContentFromMessage,
-  type MediaType,
-  type proto,
-} from "baileys";
+import { downloadContentFromMessage, type MediaType, type proto } from "baileys";
 import { formatMB, UserInputError } from "../../core/errors.js";
 
-type Downloadable = (
-  | proto.Message.IVideoMessage
-  | proto.Message.IAudioMessage
-) & {
+type Downloadable = (proto.Message.IVideoMessage | proto.Message.IAudioMessage) & {
   fileLength?: number | { toNumber(): number } | null;
 };
 
-export type Downloader = (
-  msg: Downloadable,
-  type: MediaType,
-) => Promise<AsyncIterable<Buffer> & Partial<Readable>>;
+export type Downloader = (msg: Downloadable, type: MediaType) => Promise<AsyncIterable<Buffer> & Partial<Readable>>;
 
 const declaredSize = (msg: Downloadable): number | null => {
   const v = msg.fileLength;
@@ -37,8 +27,7 @@ export async function downloadLimited(
   what: string,
   download: Downloader = (m, t) => downloadContentFromMessage(m, t),
 ): Promise<Buffer> {
-  const tooBig = () =>
-    new UserInputError(`${what} supera el límite de ${formatMB(maxBytes)}.`);
+  const tooBig = () => new UserInputError(`${what} supera el límite de ${formatMB(maxBytes)}.`);
   const declared = declaredSize(msg);
   if (declared !== null && declared > maxBytes) throw tooBig();
 

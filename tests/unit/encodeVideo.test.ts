@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  buildVideoArgs,
-  buildVideoFilter,
-} from "../../src/core/video/encodeVideo.js";
+import { buildVideoArgs, buildVideoFilter } from "../../src/core/video/encodeVideo.js";
 
 describe("buildVideoFilter", () => {
   it("pads with transparent color", () => {

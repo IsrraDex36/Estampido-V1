@@ -3,10 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildProgram, outputName } from "../../src/adapters/cli/program.js";
-import type {
-  ConvertOptions,
-  ConvertResult,
-} from "../../src/pipeline/convert.js";
+import type { ConvertOptions, ConvertResult } from "../../src/pipeline/convert.js";
 
 let out: string;
 beforeEach(async () => {
@@ -38,6 +35,7 @@ const fakeResult = (o: ConvertOptions): ConvertResult => ({
       frames: 75,
       durationMs: 5000,
       attempts: 1,
+      metadata: null,
     },
     audio:
       o.audio === "none"
@@ -76,17 +74,7 @@ async function runCli(args: string[]) {
 
 describe("sva convert", () => {
   it("maps flags to pipeline options", async () => {
-    const { convert, logs } = await runCli([
-      "convert",
-      "clip.mov",
-      "-s",
-      "1.5",
-      "-d",
-      "3",
-      "--crop",
-      "-o",
-      out,
-    ]);
+    const { convert, logs } = await runCli(["convert", "clip.mov", "-s", "1.5", "-d", "3", "--crop", "-o", out]);
     expect(convert).toHaveBeenCalledWith(
       expect.objectContaining({
         name: "clip",
@@ -102,16 +90,7 @@ describe("sva convert", () => {
   });
 
   it("--audio file with offset, --no-audio", async () => {
-    const a = await runCli([
-      "convert",
-      "v.mp4",
-      "-a",
-      "voz.ogg",
-      "--audio-start",
-      "2",
-      "-o",
-      out,
-    ]);
+    const a = await runCli(["convert", "v.mp4", "-a", "voz.ogg", "--audio-start", "2", "-o", out]);
     expect(a.convert.mock.calls[0]?.[0].audio).toEqual({
       file: expect.stringMatching(/voz\.ogg$/),
       startSec: 2,
@@ -127,14 +106,7 @@ describe("sva convert", () => {
   });
 
   it("rejects invalid duration before converting", async () => {
-    const { convert, errors, exitCode } = await runCli([
-      "convert",
-      "v.mp4",
-      "-d",
-      "0",
-      "-o",
-      out,
-    ]);
+    const { convert, errors, exitCode } = await runCli(["convert", "v.mp4", "-d", "0", "-o", out]);
     expect(convert).not.toHaveBeenCalled();
     expect(exitCode).not.toBe(0);
     expect(errors).toMatch(/--duration debe ser/);

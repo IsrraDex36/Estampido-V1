@@ -1,8 +1,5 @@
 import { describe, expect, it } from "vitest";
-import {
-  parseFrameRate,
-  parseProbeOutput,
-} from "../../src/core/probe/probe.js";
+import { parseFrameRate, parseProbeOutput } from "../../src/core/probe/probe.js";
 
 describe("parseFrameRate", () => {
   it.each([

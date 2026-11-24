@@ -106,7 +106,7 @@ sticker-video-audio/
 ### Fase 3 — Optimización + metadata + CLI (optimizador ✅ adelantado)
 
 - [x] `core/optimize`: loop de calidad 80→30 y fps 15→10 hasta quedar en ≤500 KB
-- [ ] `core/metadata`: EXIF de pack/autor (formato `sticker-pack-id`, compatible con WhatsApp)
+- [x] `core/metadata`: EXIF de pack/autor/emojis (TIFF con el tag `0x5741` y JSON `sticker-pack-*`) incrustado sin recodificar (`core/webp/chunks.ts`). Sus bytes se reservan dentro de los 500 KB. Verificado con `webpmux`. Disponible en CLI (`--pack --author --emoji --no-metadata`), web, API y bot (`SVA_PACK`/`SVA_AUTHOR`; el autor por defecto es el nombre de quien lo pide)
 - [x] `adapters/cli`: `sva convert <video> [-s] [-d] [--crop] [-a archivo] [--no-audio] [-o] [-n] [--json]` + `sva doctor`. Códigos de salida: 0 ok, 1 interno, 2 entrada inválida
 - [x] Reporte final: tamaño, fps, calidad usada, duración y origen del audio
 
@@ -137,7 +137,7 @@ sticker-video-audio/
 - [x] Fallback: sticker + nota de voz (`/saudio`, con control de acceso `SVA_ALLOWED`)
 - [x] Límite de descarga en el bot: 50 MB para video y 20 MB para audio. Se rechaza antes de descargar por `fileLength` y se corta en pleno stream si el tamaño declarado no coincide
 - [x] Errores de usuario tipados (`UserInputError`) con mensajes claros en API (422), bot y CLI (exit 2). Los errores internos no filtran detalles
-- [ ] Comandos desde la propia cuenta del bot (`messages.upsert` de tipo `append`)
+- [x] Comandos desde la propia cuenta del bot. Los de tiempo real llegan como `notify` + `fromMe`. Los enviados con el bot apagado llegan como `append` y se aceptan si tienen ≤ 5 min. Los mensajes del propio bot se excluyen por ID registrado _antes_ de enviar, así no hay bucles
 - [ ] Prueba entre 2 dispositivos
 
 > ⚠️ Usar un **número secundario** para las pruebas: Baileys es no oficial y hay riesgo de baneo.

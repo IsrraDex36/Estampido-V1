@@ -10,5 +10,4 @@ export class UserInputError extends Error {
   }
 }
 
-export const formatMB = (bytes: number): string =>
-  `${Math.round(bytes / 1024 / 1024)} MB`;
+export const formatMB = (bytes: number): string => `${Math.round(bytes / 1024 / 1024)} MB`;

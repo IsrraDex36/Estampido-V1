@@ -22,11 +22,7 @@ export interface WebpInfo {
 const u24 = (b: Buffer, o: number): number => b.readUIntLE(o, 3);
 
 export function inspectWebp(buf: Buffer): WebpInfo {
-  if (
-    buf.length < 12 ||
-    buf.toString("ascii", 0, 4) !== "RIFF" ||
-    buf.toString("ascii", 8, 12) !== "WEBP"
-  ) {
+  if (buf.length < 12 || buf.toString("ascii", 0, 4) !== "RIFF" || buf.toString("ascii", 8, 12) !== "WEBP") {
     throw new Error("Not a WebP file");
   }
 
@@ -89,5 +85,4 @@ export function inspectWebp(buf: Buffer): WebpInfo {
   return info;
 }
 
-export const totalDurationMs = (info: WebpInfo): number =>
-  info.frames.reduce((sum, f) => sum + f.durationMs, 0);
+export const totalDurationMs = (info: WebpInfo): number => info.frames.reduce((sum, f) => sum + f.durationMs, 0);

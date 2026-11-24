@@ -3,19 +3,12 @@ import { basename, extname, resolve } from "node:path";
 import { Command, InvalidArgumentError } from "commander";
 import { STICKER_LIMITS } from "../../config/limits.js";
 import { UserInputError } from "../../core/errors.js";
-import {
-  type ConvertOptions,
-  type ConvertResult,
-  convertVideoToSoundSticker,
-} from "../../pipeline/convert.js";
+import { type ConvertOptions, type ConvertResult, convertVideoToSoundSticker } from "../../pipeline/convert.js";
 import { checkDeps } from "../../utils/deps.js";
 import { formatReport } from "./format.js";
 
 const seconds =
-  (
-    label: string,
-    { min = 0, max = Number.POSITIVE_INFINITY, exclusiveMin = false } = {},
-  ) =>
+  (label: string, { min = 0, max = Number.POSITIVE_INFINITY, exclusiveMin = false } = {}) =>
   (value: string): number => {
     const n = Number(value);
     const low = exclusiveMin ? n <= min : n < min;
@@ -46,9 +39,7 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
 
   const program = new Command()
     .name("sva")
-    .description(
-      "Video → sticker WebP animado para WhatsApp + pista de audio (sound sticker)",
-    )
+    .description("Video → sticker WebP animado para WhatsApp + pista de audio (sound sticker)")
     .version(version)
     .exitOverride()
     .configureOutput({
@@ -58,9 +49,7 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
 
   program
     .command("convert")
-    .description(
-      "Convierte un video en sticker (.webp ≤ 500 KB) + audio (.ogg Opus)",
-    )
+    .description("Convierte un video en sticker (.webp ≤ 500 KB) + audio (.ogg Opus)")
     .argument("<video>", "video de entrada")
     .option("-s, --start <seg>", "inicio del segmento", seconds("--start"), 0)
     .option(
@@ -74,22 +63,15 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
       STICKER_LIMITS.defaultDurationSec,
     )
     .option("--crop", "recortar al centro en vez de padding transparente")
-    .option(
-      "-a, --audio <archivo>",
-      "usar el sonido de otro archivo (audio o video)",
-    )
-    .option(
-      "--audio-start <seg>",
-      "inicio dentro del archivo de --audio",
-      seconds("--audio-start"),
-      0,
-    )
+    .option("-a, --audio <archivo>", "usar el sonido de otro archivo (audio o video)")
+    .option("--audio-start <seg>", "inicio dentro del archivo de --audio", seconds("--audio-start"), 0)
     .option("--no-audio", "solo sticker, sin audio")
     .option("-o, --out <dir>", "carpeta de salida", ".")
-    .option(
-      "-n, --name <nombre>",
-      "nombre base de los archivos (por defecto, el del video)",
-    )
+    .option("-n, --name <nombre>", "nombre base de los archivos (por defecto, el del video)")
+    .option("--pack <nombre>", "nombre del pack (metadatos de WhatsApp)")
+    .option("--author <nombre>", "autor del pack (metadatos de WhatsApp)")
+    .option("--emoji <lista>", "hasta 3 emojis separados por coma, p. ej. 😂,🔊")
+    .option("--no-metadata", "no incrustar metadatos de pack/autor")
     .option("--json", "imprimir el resultado como JSON")
     .action(async (video: string, o) => {
       const outDir = resolve(o.out);
@@ -108,22 +90,25 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
         durationSec: o.duration,
         fit: o.crop ? "crop" : "pad",
         audio,
+        metadata:
+          o.metadata === false
+            ? false
+            : {
+                packName: o.pack,
+                publisher: o.author,
+                emojis: typeof o.emoji === "string" ? o.emoji.split(",") : undefined,
+              },
       });
       log(o.json ? JSON.stringify(result, null, 2) : formatReport(result));
     });
 
   program
     .command("doctor")
-    .description(
-      "Verifica ffmpeg/ffprobe y los encoders libwebp_anim + libopus",
-    )
+    .description("Verifica ffmpeg/ffprobe y los encoders libwebp_anim + libopus")
     .action(async () => {
       const checks = await checkDeps();
       for (const c of checks) log(`${c.ok ? "✔" : "✘"} ${c.name}: ${c.detail}`);
-      if (checks.some((c) => !c.ok))
-        throw new UserInputError(
-          "Faltan dependencias. Usa `brew install ffmpeg-full`.",
-        );
+      if (checks.some((c) => !c.ok)) throw new UserInputError("Faltan dependencias. Usa `brew install ffmpeg-full`.");
     });
 
   return program;
@@ -131,8 +116,6 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
 
 export async function readVersion(): Promise<string> {
   // Same relative depth from src/adapters/cli and dist/adapters/cli.
-  const pkg = JSON.parse(
-    await readFile(new URL("../../../package.json", import.meta.url), "utf8"),
-  );
+  const pkg = JSON.parse(await readFile(new URL("../../../package.json", import.meta.url), "utf8"));
   return String(pkg.version);
 }

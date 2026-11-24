@@ -7,12 +7,12 @@ const boolish = z
 
 export const convertFieldsSchema = z.object({
   startSec: z.coerce.number().min(0).default(0),
-  durationSec: z.coerce
-    .number()
-    .min(API_LIMITS.minDurationSec)
-    .max(API_LIMITS.maxDurationSec)
-    .default(5),
+  durationSec: z.coerce.number().min(API_LIMITS.minDurationSec).max(API_LIMITS.maxDurationSec).default(5),
   fit: z.enum(["pad", "crop"]).default("pad"),
   includeAudio: boolish.default(true),
   audioStartSec: z.coerce.number().min(0).default(0),
+  includeMetadata: boolish.default(true),
+  packName: z.string().max(128).optional(),
+  publisher: z.string().max(128).optional(),
+  emojis: z.string().max(64).optional(),
 }) satisfies z.ZodType<ConvertRequestFields, unknown>;

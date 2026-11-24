@@ -5,23 +5,11 @@ import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { UserInputError } from "../../core/errors.js";
-import {
-  type ConvertOptions,
-  type ConvertResult,
-  convertVideoToSoundSticker,
-} from "../../pipeline/convert.js";
+import { type ConvertOptions, type ConvertResult, convertVideoToSoundSticker } from "../../pipeline/convert.js";
 import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
-import {
-  API_LIMITS,
-  type ApiErrorBody,
-  type ConvertResponse,
-} from "./contract.js";
-import {
-  ResultStore,
-  SERVABLE_FILES,
-  type ServableFile,
-} from "./resultStore.js";
+import { API_LIMITS, type ApiErrorBody, type ConvertResponse } from "./contract.js";
+import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
 import { convertFieldsSchema } from "./schema.js";
 
 export interface AppDeps {
@@ -50,74 +38,36 @@ export function createApp(deps: AppDeps = {}): Hono {
     bodyLimit({
       maxSize: API_LIMITS.maxUploadBytes + API_LIMITS.maxAudioBytes + 64 * 1024,
       onError: (c) =>
-        c.json(
-          fail(
-            "too_large",
-            `El archivo supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`,
-          ),
-          413,
-        ),
+        c.json(fail("too_large", `El archivo supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`), 413),
     }),
     async (c) => {
-      if (jobs.pending >= maxQueue)
-        return c.json(
-          fail("busy", "Servidor ocupado, intenta en un momento."),
-          503,
-        );
+      if (jobs.pending >= maxQueue) return c.json(fail("busy", "Servidor ocupado, intenta en un momento."), 503);
 
       const body = await c.req.parseBody();
       const file = body.video;
-      if (!(file instanceof File))
-        return c.json(fail("missing_file", "Falta el campo 'video'."), 400);
+      if (!(file instanceof File)) return c.json(fail("missing_file", "Falta el campo 'video'."), 400);
       if (!file.type.startsWith("video/")) {
-        return c.json(
-          fail(
-            "bad_type",
-            `Tipo no soportado: ${file.type || "desconocido"}. Sube un video.`,
-          ),
-          415,
-        );
+        return c.json(fail("bad_type", `Tipo no soportado: ${file.type || "desconocido"}. Sube un video.`), 415);
       }
 
       if (file.size > API_LIMITS.maxUploadBytes) {
-        return c.json(
-          fail(
-            "too_large",
-            `El video supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`,
-          ),
-          413,
-        );
+        return c.json(fail("too_large", `El video supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`), 413);
       }
 
       // Optional replacement audio: any audio, or a video whose sound we reuse.
-      const audioFile =
-        body.audio instanceof File && body.audio.size > 0 ? body.audio : null;
+      const audioFile = body.audio instanceof File && body.audio.size > 0 ? body.audio : null;
       if (audioFile) {
         if (!/^(audio|video)\//.test(audioFile.type)) {
-          return c.json(
-            fail(
-              "bad_type",
-              `Audio no soportado: ${audioFile.type || "desconocido"}.`,
-            ),
-            415,
-          );
+          return c.json(fail("bad_type", `Audio no soportado: ${audioFile.type || "desconocido"}.`), 415);
         }
         if (audioFile.size > API_LIMITS.maxAudioBytes) {
-          return c.json(
-            fail(
-              "too_large",
-              `El audio supera ${API_LIMITS.maxAudioBytes / 1024 / 1024} MB.`,
-            ),
-            413,
-          );
+          return c.json(fail("too_large", `El audio supera ${API_LIMITS.maxAudioBytes / 1024 / 1024} MB.`), 413);
         }
       }
 
       const parsed = convertFieldsSchema.safeParse(body);
       if (!parsed.success) {
-        const msg = parsed.error.issues
-          .map((i) => `${i.path.join(".")}: ${i.message}`)
-          .join("; ");
+        const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
         return c.json(fail("bad_options", msg), 400);
       }
       const opts = parsed.data;
@@ -130,10 +80,7 @@ export function createApp(deps: AppDeps = {}): Hono {
         let audioPath: string | undefined;
         if (audioFile && opts.includeAudio) {
           audioPath = join(job.dir, "audio-input");
-          await writeFile(
-            audioPath,
-            Buffer.from(await audioFile.arrayBuffer()),
-          );
+          await writeFile(audioPath, Buffer.from(await audioFile.arrayBuffer()));
         }
 
         const result = await jobs.run(() =>
@@ -149,6 +96,13 @@ export function createApp(deps: AppDeps = {}): Hono {
               : audioPath
                 ? { file: audioPath, startSec: opts.audioStartSec }
                 : "source",
+            metadata: opts.includeMetadata
+              ? {
+                  packName: opts.packName,
+                  publisher: opts.publisher,
+                  emojis: opts.emojis ? opts.emojis.split(",") : undefined,
+                }
+              : false,
           }),
         );
 
@@ -156,9 +110,7 @@ export function createApp(deps: AppDeps = {}): Hono {
         const response: ConvertResponse = {
           id: job.id,
           sticker: { url: `/api/results/${job.id}/sticker.webp`, ...s.sticker },
-          audio: s.audio
-            ? { url: `/api/results/${job.id}/sticker.ogg`, ...s.audio }
-            : null,
+          audio: s.audio ? { url: `/api/results/${job.id}/sticker.ogg`, ...s.audio } : null,
           source: s.source,
           segment: s.segment,
           warnings: result.warnings,
@@ -173,13 +125,7 @@ export function createApp(deps: AppDeps = {}): Hono {
         }
         if (err instanceof CommandError) {
           console.error("[convert]", err.message);
-          return c.json(
-            fail(
-              "unprocessable",
-              "No se pudo procesar el archivo. ¿Es un video válido?",
-            ),
-            422,
-          );
+          return c.json(fail("unprocessable", "No se pudo procesar el archivo. ¿Es un video válido?"), 422);
         }
         console.error("[convert]", err);
         return c.json(fail("internal", "Error interno al convertir."), 500);
@@ -192,23 +138,17 @@ export function createApp(deps: AppDeps = {}): Hono {
     const path = store.resolve(id, file);
     if (!path) return c.json(fail("not_found", "Archivo no encontrado."), 404);
     const info = await stat(path).catch(() => null);
-    if (!info)
-      return c.json(fail("expired", "El resultado expiró o no existe."), 404);
+    if (!info) return c.json(fail("expired", "El resultado expiró o no existe."), 404);
 
     const download = c.req.query("download") !== undefined;
-    return new Response(
-      Readable.toWeb(createReadStream(path)) as ReadableStream,
-      {
-        headers: {
-          "Content-Type": SERVABLE_FILES[file as ServableFile],
-          "Content-Length": String(info.size),
-          "Cache-Control": "private, max-age=1800",
-          ...(download
-            ? { "Content-Disposition": `attachment; filename="${file}"` }
-            : {}),
-        },
+    return new Response(Readable.toWeb(createReadStream(path)) as ReadableStream, {
+      headers: {
+        "Content-Type": SERVABLE_FILES[file as ServableFile],
+        "Content-Length": String(info.size),
+        "Cache-Control": "private, max-age=1800",
+        ...(download ? { "Content-Disposition": `attachment; filename="${file}"` } : {}),
       },
-    );
+    });
   });
 
   return app;

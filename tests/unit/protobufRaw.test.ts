@@ -47,9 +47,7 @@ describe("decodeRaw", () => {
       encodeBytesField(134, futureProof),
     ]);
     expect(fieldNumbers(buf)).toEqual([1, 134]);
-    expect(Object.keys(proto.Message.decode(buf).toJSON())).toEqual([
-      "conversation",
-    ]);
+    expect(Object.keys(proto.Message.decode(buf).toJSON())).toEqual(["conversation"]);
 
     const tree = rawTree(buf);
     const f134 = tree.find((t) => t.field === 134);

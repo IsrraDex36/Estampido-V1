@@ -4,10 +4,7 @@ import { join } from "node:path";
 import type { WAMessage } from "baileys";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { downloadLimited } from "../../src/adapters/bot/media.js";
-import {
-  PendingAudioStore,
-  senderKey,
-} from "../../src/adapters/bot/pending.js";
+import { PendingAudioStore, senderKey } from "../../src/adapters/bot/pending.js";
 import { UserInputError } from "../../src/core/errors.js";
 
 function fakeDownloader(chunks: number[]) {
@@ -24,38 +21,28 @@ function fakeDownloader(chunks: number[]) {
 describe("downloadLimited", () => {
   it("rejects from declared fileLength without downloading", async () => {
     const { fn } = fakeDownloader([10]);
-    await expect(
-      downloadLimited({ fileLength: 2000 }, "video", 1000, "El video", fn),
-    ).rejects.toThrow(/El video supera/);
+    await expect(downloadLimited({ fileLength: 2000 }, "video", 1000, "El video", fn)).rejects.toThrow(
+      /El video supera/,
+    );
     expect(fn).not.toHaveBeenCalled();
   });
 
   it("accepts Long-like fileLength", async () => {
     const { fn } = fakeDownloader([10]);
     await expect(
-      downloadLimited(
-        { fileLength: { toNumber: () => 5000 } },
-        "video",
-        1000,
-        "X",
-        fn,
-      ),
+      downloadLimited({ fileLength: { toNumber: () => 5000 } }, "video", 1000, "X", fn),
     ).rejects.toBeInstanceOf(UserInputError);
   });
 
   it("aborts mid-stream when declared size lies", async () => {
     const { fn, destroy } = fakeDownloader([600, 600, 600]);
-    await expect(
-      downloadLimited({ fileLength: 10 }, "audio", 1000, "El audio", fn),
-    ).rejects.toThrow(/supera/);
+    await expect(downloadLimited({ fileLength: 10 }, "audio", 1000, "El audio", fn)).rejects.toThrow(/supera/);
     expect(destroy).toHaveBeenCalled();
   });
 
   it("returns full buffer within limit", async () => {
     const { fn } = fakeDownloader([300, 300]);
-    expect((await downloadLimited({}, "video", 1000, "X", fn)).length).toBe(
-      600,
-    );
+    expect((await downloadLimited({}, "video", 1000, "X", fn)).length).toBe(600);
   });
 });
 
@@ -106,17 +93,12 @@ describe("PendingAudioStore", () => {
     const store = new PendingAudioStore(1000, onExpire);
     await store.set("chat|", await job());
     vi.advanceTimersByTime(1001);
-    expect(onExpire).toHaveBeenCalledWith(
-      "chat|",
-      expect.objectContaining({ cmd: expect.any(Object) }),
-    );
+    expect(onExpire).toHaveBeenCalledWith("chat|", expect.objectContaining({ cmd: expect.any(Object) }));
     expect(store.size).toBe(0);
   });
 
   it("senderKey separates group participants", () => {
-    expect(
-      senderKey({ remoteJid: "g@g.us", participant: "a@s.whatsapp.net" }),
-    ).not.toBe(
+    expect(senderKey({ remoteJid: "g@g.us", participant: "a@s.whatsapp.net" })).not.toBe(
       senderKey({ remoteJid: "g@g.us", participant: "b@s.whatsapp.net" }),
     );
   });

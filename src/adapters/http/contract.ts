@@ -11,6 +11,19 @@ export interface ConvertRequestFields {
   includeAudio: boolean;
   /** Start offset inside the replacement audio file (multipart field `audio`). */
   audioStartSec: number;
+  /** WhatsApp pack metadata; empty → server defaults. */
+  includeMetadata: boolean;
+  packName?: string;
+  publisher?: string;
+  /** Comma-separated, up to 3. */
+  emojis?: string;
+}
+
+export interface StickerMetadataView {
+  packId: string;
+  packName: string;
+  publisher: string;
+  emojis: string[];
 }
 
 export interface ConvertResponse {
@@ -25,6 +38,7 @@ export interface ConvertResponse {
     frames: number;
     durationMs: number;
     attempts: number;
+    metadata: StickerMetadataView | null;
   };
   audio: {
     url: string;

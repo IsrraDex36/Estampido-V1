@@ -1,5 +1,5 @@
 import { API_LIMITS, type FitMode } from "@contract";
-import { MusicIcon, TimerIcon, XIcon } from "lucide-react";
+import { MusicIcon, PackageIcon, TimerIcon, XIcon } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -172,6 +172,62 @@ export function ConvertOptionsForm({
           )}
         </div>
       )}
+
+      <div className="space-y-3 rounded-lg border p-3 sm:col-span-2">
+        <div className="flex items-center justify-between gap-4">
+          <Label htmlFor="metadata" className="flex flex-col items-start gap-0.5">
+            <span className="flex items-center gap-1.5">
+              <PackageIcon className="size-4" /> Metadatos del pack
+            </span>
+            <span className="text-xs font-normal text-muted-foreground">
+              Lo que WhatsApp muestra al ver la info del sticker
+            </span>
+          </Label>
+          <Switch
+            id="metadata"
+            checked={options.includeMetadata}
+            disabled={disabled}
+            onCheckedChange={(includeMetadata) => onChange({ includeMetadata })}
+          />
+        </div>
+        {options.includeMetadata && (
+          <div className="grid gap-3 sm:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="pack">Pack</Label>
+              <Input
+                id="pack"
+                maxLength={128}
+                placeholder="Sticker Video Audio"
+                value={options.packName ?? ""}
+                disabled={disabled}
+                onChange={(e) => onChange({ packName: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="publisher">Autor</Label>
+              <Input
+                id="publisher"
+                maxLength={128}
+                placeholder="sva"
+                value={options.publisher ?? ""}
+                disabled={disabled}
+                onChange={(e) => onChange({ publisher: e.target.value })}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="emojis">Emojis (máx. 3)</Label>
+              <Input
+                id="emojis"
+                maxLength={64}
+                placeholder="😂,🔊"
+                value={options.emojis ?? ""}
+                disabled={disabled}
+                onChange={(e) => onChange({ emojis: e.target.value })}
+              />
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

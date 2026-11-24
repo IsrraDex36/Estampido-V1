@@ -13,8 +13,7 @@ function resolveBinary(name: "ffmpeg" | "ffprobe", envVar: string): string {
 }
 
 export const ffmpegPath = (): string => resolveBinary("ffmpeg", "FFMPEG_PATH");
-export const ffprobePath = (): string =>
-  resolveBinary("ffprobe", "FFPROBE_PATH");
+export const ffprobePath = (): string => resolveBinary("ffprobe", "FFPROBE_PATH");
 
 export interface RunResult {
   stdout: string;
@@ -57,23 +56,14 @@ export function run(
 
     child.on("error", (err) => {
       clearTimeout(timer);
-      reject(
-        new CommandError(
-          `Failed to start ${bin}: ${err.message}`,
-          bin,
-          null,
-          "",
-        ),
-      );
+      reject(new CommandError(`Failed to start ${bin}: ${err.message}`, bin, null, ""));
     });
     child.on("close", (code, signal) => {
       clearTimeout(timer);
       if (code === 0) return resolve({ stdout, stderr });
       const tail = stderr.trim().split("\n").slice(-5).join("\n");
       const why = signal ? `killed by ${signal}` : `exit code ${code}`;
-      reject(
-        new CommandError(`${bin} failed (${why}):\n${tail}`, bin, code, stderr),
-      );
+      reject(new CommandError(`${bin} failed (${why}):\n${tail}`, bin, code, stderr));
     });
   });
 }

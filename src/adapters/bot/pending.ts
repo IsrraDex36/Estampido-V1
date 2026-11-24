@@ -17,27 +17,18 @@ export interface PendingJob {
  * temp dir. `onExpire` lets the bot tell the user.
  */
 export class PendingAudioStore {
-  private readonly jobs = new Map<
-    string,
-    PendingJob & { timer: NodeJS.Timeout }
-  >();
+  private readonly jobs = new Map<string, PendingJob & { timer: NodeJS.Timeout }>();
 
   constructor(
     readonly ttlMs = 2 * 60 * 1000,
-    private readonly onExpire: (
-      key: string,
-      job: PendingJob,
-    ) => void = () => {},
+    private readonly onExpire: (key: string, job: PendingJob) => void = () => {},
   ) {}
 
   get size(): number {
     return this.jobs.size;
   }
 
-  async set(
-    key: string,
-    job: Omit<PendingJob, "expiresAt">,
-  ): Promise<PendingJob> {
+  async set(key: string, job: Omit<PendingJob, "expiresAt">): Promise<PendingJob> {
     await this.discard(key);
     const full = { ...job, expiresAt: Date.now() + this.ttlMs };
     const timer = setTimeout(() => {
@@ -69,5 +60,4 @@ export class PendingAudioStore {
 }
 
 /** Per-chat, per-sender key (groups: participant inside the group). */
-export const senderKey = (key: WAMessage["key"]): string =>
-  `${key.remoteJid ?? "?"}|${key.participant ?? ""}`;
+export const senderKey = (key: WAMessage["key"]): string => `${key.remoteJid ?? "?"}|${key.participant ?? ""}`;

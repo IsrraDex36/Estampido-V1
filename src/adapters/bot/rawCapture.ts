@@ -28,11 +28,7 @@ export function installRawCapture(): void {
   const original = proto.Message.decode;
 
   // Nested decodes are called with (Reader, length): only wrap top-level buffers.
-  proto.Message.decode = function wrapped(
-    this: unknown,
-    r: unknown,
-    l?: number,
-  ) {
+  proto.Message.decode = function wrapped(this: unknown, r: unknown, l?: number) {
     const msg = original.call(this, r as Uint8Array, l);
     if (r instanceof Uint8Array && l === undefined) {
       try {
@@ -63,15 +59,10 @@ export function installRawCapture(): void {
  * survived, else the most recent unclaimed lossy decode (objects may be
  * re-created by Baileys between decode and the upsert event).
  */
-export function takeRawFor(
-  message: object | null | undefined,
-): RawDecode | undefined {
-  const attached = message
-    ? (message as Record<symbol, RawDecode | undefined>)[RAW]
-    : undefined;
+export function takeRawFor(message: object | null | undefined): RawDecode | undefined {
+  const attached = message ? (message as Record<symbol, RawDecode | undefined>)[RAW] : undefined;
   const now = Date.now();
-  while (recent.length && now - (recent[0] as RawDecode).at > TTL_MS)
-    recent.shift();
+  while (recent.length && now - (recent[0] as RawDecode).at > TTL_MS) recent.shift();
   if (attached) {
     const i = recent.indexOf(attached);
     if (i >= 0) recent.splice(i, 1);

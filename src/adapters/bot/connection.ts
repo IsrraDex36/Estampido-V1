@@ -16,11 +16,7 @@ export interface ConnectOptions {
 }
 
 /** Connect with QR login and auto-reconnect (except on logout). */
-export async function connect({
-  authDir,
-  onReady,
-  logLevel = "warn",
-}: ConnectOptions): Promise<void> {
+export async function connect({ authDir, onReady, logLevel = "warn" }: ConnectOptions): Promise<void> {
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version } = await fetchLatestBaileysVersion().catch(() => ({
     version: undefined,
@@ -38,9 +34,7 @@ export async function connect({
   sock.ev.on("creds.update", saveCreds);
   sock.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
     if (qr) {
-      console.log(
-        "\nEscanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:\n",
-      );
+      console.log("\nEscanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:\n");
       qrcode.generate(qr, { small: true });
     }
     if (connection === "open") {
@@ -48,15 +42,9 @@ export async function connect({
       onReady(sock);
     }
     if (connection === "close") {
-      const code = (
-        lastDisconnect?.error as
-          | { output?: { statusCode?: number } }
-          | undefined
-      )?.output?.statusCode;
+      const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
       if (code === DisconnectReason.loggedOut) {
-        console.error(
-          `✘ Sesión cerrada. Borra ${authDir} y vuelve a vincular.`,
-        );
+        console.error(`✘ Sesión cerrada. Borra ${authDir} y vuelve a vincular.`);
         process.exit(1);
       }
       console.warn(`Conexión cerrada (código ${code ?? "?"}). Reconectando…`);

@@ -109,8 +109,7 @@ export function rawTree(buf: Buffer, depth = 0, maxHex = 64): RawTree[] {
       };
     const v = f.value as Buffer;
     if (f.wire === 2) {
-      if (isPrintable(v))
-        return { field: f.field, wire: 2, string: v.toString("utf8") };
+      if (isPrintable(v)) return { field: f.field, wire: 2, string: v.toString("utf8") };
       const nested = depth < 12 ? tryDecodeRaw(v) : null;
       if (nested && nested.length > 0) {
         return {
@@ -121,8 +120,7 @@ export function rawTree(buf: Buffer, depth = 0, maxHex = 64): RawTree[] {
         };
       }
     }
-    const hex =
-      v.subarray(0, maxHex).toString("hex") + (v.length > maxHex ? "…" : "");
+    const hex = v.subarray(0, maxHex).toString("hex") + (v.length > maxHex ? "…" : "");
     return { field: f.field, wire: f.wire, hex, bytes: v.length };
   });
 }
@@ -144,14 +142,8 @@ export function encodeVarint(n: number | bigint): Buffer {
 
 /** Encode a length-delimited field (wire type 2). */
 export function encodeBytesField(field: number, payload: Uint8Array): Buffer {
-  return Buffer.concat([
-    encodeVarint((field << 3) | 2),
-    encodeVarint(payload.length),
-    Buffer.from(payload),
-  ]);
+  return Buffer.concat([encodeVarint((field << 3) | 2), encodeVarint(payload.length), Buffer.from(payload)]);
 }
 
 /** Top-level field numbers present in a message. */
-export const fieldNumbers = (buf: Buffer): number[] => [
-  ...new Set(decodeRaw(buf).map((f) => f.field)),
-];
+export const fieldNumbers = (buf: Buffer): number[] => [...new Set(decodeRaw(buf).map((f) => f.field))];

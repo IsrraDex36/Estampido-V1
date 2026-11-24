@@ -36,8 +36,7 @@ export class ResultStore {
   }
 
   async remove(id: string): Promise<void> {
-    if (ID_RE.test(id))
-      await rm(join(this.root, id), { recursive: true, force: true });
+    if (ID_RE.test(id)) await rm(join(this.root, id), { recursive: true, force: true });
   }
 
   async sweep(now = Date.now()): Promise<number> {

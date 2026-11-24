@@ -8,6 +8,10 @@ import { installRawCapture } from "./rawCapture.js";
  *
  *   SVA_ALLOWED=595981234567,5215512345678 npm run bot          # /saudio
  *   SVA_ALLOWED=... npm run bot -- --capture                     # + reverse-engineering dumps
+ *
+ * Optional: SVA_PACK / SVA_AUTHOR (sticker metadata; author defaults to the sender's name).
+ * Commands work from allowed numbers and from the bot's own account (fromMe),
+ * including ones sent while the bot was offline (≤ 5 min old).
  */
 const capture = process.argv.includes("--capture");
 const allowed = new Set(
@@ -31,5 +35,6 @@ await connect({
       allowed,
       capture,
       captureDir: resolve("captures"),
+      metadata: { packName: process.env.SVA_PACK || undefined, publisher: process.env.SVA_AUTHOR || undefined },
     }),
 });

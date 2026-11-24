@@ -9,6 +9,10 @@ const DEFAULT_OPTIONS: ConverterOptions = {
   fit: "pad",
   includeAudio: true,
   audioStartSec: 0,
+  includeMetadata: true,
+  packName: "",
+  publisher: "",
+  emojis: "",
 };
 
 /** Client-side checks before upload; returns an error message or null. */

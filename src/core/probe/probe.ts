@@ -43,11 +43,8 @@ export function parseFrameRate(rate: string | undefined): number {
 }
 
 function rotationOf(stream: Stream): number {
-  const fromSide = stream.side_data_list?.find(
-    (d) => typeof d.rotation === "number",
-  )?.rotation;
-  const raw =
-    typeof fromSide === "number" ? fromSide : Number(stream.tags?.rotate ?? 0);
+  const fromSide = stream.side_data_list?.find((d) => typeof d.rotation === "number")?.rotation;
+  const raw = typeof fromSide === "number" ? fromSide : Number(stream.tags?.rotate ?? 0);
   return ((Math.round(raw) % 360) + 360) % 360;
 }
 
@@ -58,12 +55,9 @@ export function parseProbeOutput(json: string): MediaInfo {
 
   let width = video?.width ?? 0;
   let height = video?.height ?? 0;
-  if (video && rotationOf(video) % 180 === 90)
-    [width, height] = [height, width];
+  if (video && rotationOf(video) % 180 === 90) [width, height] = [height, width];
 
-  const fps =
-    parseFrameRate(video?.avg_frame_rate) ||
-    parseFrameRate(video?.r_frame_rate);
+  const fps = parseFrameRate(video?.avg_frame_rate) || parseFrameRate(video?.r_frame_rate);
   const durationSec = Number(data.format.duration ?? video?.duration ?? 0) || 0;
 
   return {

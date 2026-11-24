@@ -8,14 +8,10 @@ describe("run", () => {
   });
 
   it("rejects with CommandError on bad args", async () => {
-    await expect(
-      run(ffmpegPath(), ["-i", "/nonexistent.mp4"]),
-    ).rejects.toBeInstanceOf(CommandError);
+    await expect(run(ffmpegPath(), ["-i", "/nonexistent.mp4"])).rejects.toBeInstanceOf(CommandError);
   });
 
   it("rejects when binary is missing", async () => {
-    await expect(run("definitely-not-a-binary-xyz", [])).rejects.toThrow(
-      /Failed to start/,
-    );
+    await expect(run("definitely-not-a-binary-xyz", [])).rejects.toThrow(/Failed to start/);
   });
 });

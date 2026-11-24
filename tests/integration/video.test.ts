@@ -64,14 +64,10 @@ describe("encodeVideo → animated WebP", () => {
 
     // Uniform frame timing (≤1 ms jitter from ms rounding).
     const durations = info.frames.map((f) => f.durationMs);
-    expect(Math.max(...durations) - Math.min(...durations)).toBeLessThanOrEqual(
-      1,
-    );
+    expect(Math.max(...durations) - Math.min(...durations)).toBeLessThanOrEqual(1);
 
     const { size } = await stat(out);
-    console.log(
-      `landscape.webp: ${(size / 1024).toFixed(1)} KB, ${info.frames.length} frames`,
-    );
+    console.log(`landscape.webp: ${(size / 1024).toFixed(1)} KB, ${info.frames.length} frames`);
   });
 
   it("clamps to short source and supports crop", async () => {
