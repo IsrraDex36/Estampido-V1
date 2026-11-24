@@ -3,10 +3,14 @@
  * web/ via the `@contract` path alias). Keep this file dependency-free.
  */
 export type FitMode = "pad" | "crop";
+export type MediaKind = "video" | "animated" | "image";
 
+/** Multipart: `media` (video, GIF or image; legacy name `video`) + optional `audio`. */
 export interface ConvertRequestFields {
+  /** Segment start in the source (videos/GIFs). */
   startSec: number;
-  durationSec: number;
+  /** Video: clip ≤ 5 s. GIF: sound ≤ 5 s. Image: sound ≤ 10 s. Omit → server default. */
+  durationSec?: number;
   fit: FitMode;
   includeAudio: boolean;
   /** Start offset inside the replacement audio file (multipart field `audio`). */
@@ -28,8 +32,10 @@ export interface StickerMetadataView {
 
 export interface ConvertResponse {
   id: string;
+  kind: MediaKind;
   sticker: {
     url: string;
+    animated: boolean;
     bytes: number;
     maxBytes: number;
     withinLimit: boolean;
@@ -45,6 +51,7 @@ export interface ConvertResponse {
     bytes: number;
     codec: "opus";
     origin: "video" | "file";
+    durationSec: number;
   } | null;
   source: {
     durationSec: number;
@@ -68,6 +75,9 @@ export const API_LIMITS = {
   /** Keep in sync with INPUT_LIMITS in src/config/limits.ts (asserted by tests). */
   maxUploadBytes: 50 * 1024 * 1024,
   maxAudioBytes: 20 * 1024 * 1024,
+  /** Video clip / GIF sound. */
   maxDurationSec: 5,
+  /** Sound length for image stickers. */
+  maxImageAudioSec: 10,
   minDurationSec: 0.5,
 } as const;

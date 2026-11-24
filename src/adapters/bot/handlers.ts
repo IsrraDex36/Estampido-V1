@@ -14,7 +14,9 @@ export interface BotConfig {
 }
 
 function textOf(m: proto.IMessage | null | undefined): string | undefined {
-  return m?.conversation ?? m?.extendedTextMessage?.text ?? m?.videoMessage?.caption ?? undefined;
+  return (
+    m?.conversation ?? m?.extendedTextMessage?.text ?? m?.videoMessage?.caption ?? m?.imageMessage?.caption ?? undefined
+  );
 }
 
 export function registerHandlers(sock: WASocket, config: BotConfig): void {

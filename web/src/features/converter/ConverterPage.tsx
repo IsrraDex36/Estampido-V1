@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ConversionProgress } from "./components/ConversionProgress";
 import { ConvertOptionsForm } from "./components/ConvertOptionsForm";
 import { StickerResult } from "./components/StickerResult";
-import { VideoDropzone } from "./components/VideoDropzone";
+import { MediaDropzone } from "./components/MediaDropzone";
 import { useConverter } from "./hooks/useConverter";
 
 /** Composition only: state lives in useConverter, visuals in components/. */
@@ -27,11 +27,13 @@ export function ConverterPage() {
     <div className="grid gap-6 lg:grid-cols-2">
       <Card>
         <CardHeader>
-          <CardTitle>1. Video</CardTitle>
-          <CardDescription>Elige el clip y el segmento (máx. 5 s).</CardDescription>
+          <CardTitle>1. Archivo</CardTitle>
+          <CardDescription>
+            Video (clip ≤ 5 s), GIF, o imagen con sonido (≤ 10 s).
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <VideoDropzone
+          <MediaDropzone
             file={c.file}
             previewUrl={c.previewUrl}
             disabled={c.busy}
@@ -39,9 +41,10 @@ export function ConverterPage() {
             onTimeUpdate={setCurrentTime}
             onDurationChange={setSourceDuration}
           />
-          {c.file && (
+          {c.file && c.inputKind && (
             <ConvertOptionsForm
               options={c.options}
+              inputKind={c.inputKind}
               disabled={c.busy}
               currentTime={currentTime}
               sourceDuration={sourceDuration}

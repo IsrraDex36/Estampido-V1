@@ -121,11 +121,13 @@ sticker-video-audio/
   - UX: `hooks/useSoundStickerPreview.ts` (tocar → reproduce; mute como en WhatsApp)
   - UI: `components/*` presentacionales + `ConverterPage.tsx` (solo compone)
 
-### Fase 4 — Entradas extra
+### Fase 4 — Entradas extra ✅
 
-- [ ] Imagen + audio (≤10 s) usando sharp
-- [ ] GIF → sticker
-- [ ] Recorte cuadrado inteligente (crop centrado vs. padding)
+- [x] Imagen + audio: WebP estático ≤ 100 KB, sonido ≤ 10 s (por defecto, lo que dure el audio). Con FFmpeg (`libwebp`), sin necesidad de sharp
+- [x] GIF y **WebP animado** → sticker animado. Conservan la transparencia y no se sube el fps por encima del de la fuente (así las duraciones de frame quedan uniformes). El sonido puede durar más que la animación porque esta se repite
+- [x] Detección automática del tipo (`classifyMedia`: video / animado / imagen) e ignora la portada (`attached_pic`) de los MP3
+- [x] Bot: imagen, GIF de WhatsApp (MP4 `gifPlayback`) y **responder a un sticker**. Si el medio no tiene sonido, pide audio automáticamente
+- [x] Recorte cuadrado: `pad` (por defecto) o `crop` centrado. Pendiente: recorte "inteligente" por contenido
 
 ### Fase 5 — Envío por WhatsApp (experimental) 🚧
 

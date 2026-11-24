@@ -7,7 +7,7 @@ import { parseStickerExif } from "../../src/core/metadata/stickerExif.js";
 import { probe } from "../../src/core/probe/probe.js";
 import { readExif } from "../../src/core/webp/chunks.js";
 import { inspectWebp } from "../../src/core/webp/inspect.js";
-import { convertVideoToSoundSticker } from "../../src/pipeline/convert.js";
+import { convertToSoundSticker } from "../../src/pipeline/convert.js";
 import { ffmpegPath, run } from "../../src/utils/ffmpeg.js";
 import { makeTempDir, makeVideo } from "../helpers/fixtures.js";
 
@@ -40,9 +40,9 @@ afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
-describe("convertVideoToSoundSticker", () => {
+describe("convertToSoundSticker", () => {
   it("produces ≤500 KB WebP + synced Opus audio", async () => {
-    const r = await convertVideoToSoundSticker({
+    const r = await convertToSoundSticker({
       input: withAudio,
       outDir: dir,
       name: "a",
@@ -58,7 +58,7 @@ describe("convertVideoToSoundSticker", () => {
   });
 
   it("warns and skips audio when source is silent", async () => {
-    const r = await convertVideoToSoundSticker({
+    const r = await convertToSoundSticker({
       input: silent,
       outDir: dir,
       name: "s",
@@ -70,7 +70,7 @@ describe("convertVideoToSoundSticker", () => {
   });
 
   it("audio: none → no audio file", async () => {
-    const r = await convertVideoToSoundSticker({
+    const r = await convertToSoundSticker({
       input: withAudio,
       outDir: dir,
       name: "n",
@@ -80,7 +80,7 @@ describe("convertVideoToSoundSticker", () => {
   });
 
   it("replacement audio file: works even for a silent video, from its own offset", async () => {
-    const r = await convertVideoToSoundSticker({
+    const r = await convertToSoundSticker({
       input: silent,
       outDir: dir,
       name: "v",
@@ -94,7 +94,7 @@ describe("convertVideoToSoundSticker", () => {
 
   it("rejects replacement without sound, or offset beyond it, before encoding", async () => {
     await expect(
-      convertVideoToSoundSticker({
+      convertToSoundSticker({
         input: withAudio,
         outDir: dir,
         name: "x",
@@ -102,7 +102,7 @@ describe("convertVideoToSoundSticker", () => {
       }),
     ).rejects.toThrow(/no tiene sonido/);
     await expect(
-      convertVideoToSoundSticker({
+      convertToSoundSticker({
         input: withAudio,
         outDir: dir,
         name: "x",
@@ -112,13 +112,13 @@ describe("convertVideoToSoundSticker", () => {
   });
 
   it("unreadable input → UserInputError", async () => {
-    await expect(convertVideoToSoundSticker({ input: join(dir, "nope.mp4"), outDir: dir })).rejects.toBeInstanceOf(
+    await expect(convertToSoundSticker({ input: join(dir, "nope.mp4"), outDir: dir })).rejects.toBeInstanceOf(
       UserInputError,
     );
   });
 
   it("embeds pack/author metadata without breaking the animation; webpmux agrees", async () => {
-    const r = await convertVideoToSoundSticker({
+    const r = await convertToSoundSticker({
       input: withAudio,
       outDir: dir,
       name: "meta",
@@ -141,7 +141,7 @@ describe("convertVideoToSoundSticker", () => {
   });
 
   it("metadata: false → no EXIF", async () => {
-    const r = await convertVideoToSoundSticker({
+    const r = await convertToSoundSticker({
       input: withAudio,
       outDir: dir,
       name: "nometa",
@@ -154,7 +154,7 @@ describe("convertVideoToSoundSticker", () => {
 
   it("invalid metadata fails before encoding", async () => {
     await expect(
-      convertVideoToSoundSticker({ input: withAudio, outDir: dir, name: "bad", metadata: { emojis: ["no"] } }),
+      convertToSoundSticker({ input: withAudio, outDir: dir, name: "bad", metadata: { emojis: ["no"] } }),
     ).rejects.toBeInstanceOf(UserInputError);
   });
 });

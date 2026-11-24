@@ -33,4 +33,11 @@ describe("buildVideoArgs", () => {
     expect(args).toContain("-an");
     expect(args.at(-1)).toBe("out.webp");
   });
+
+  it("seek: output puts -ss/-t after -i (animated WebP inputs)", () => {
+    const args = buildVideoArgs({ input: "a.webp", output: "o.webp", startSec: 0, durationSec: 2, seek: "output" });
+    expect(args.indexOf("-i")).toBeLessThan(args.indexOf("-ss"));
+    const def = buildVideoArgs({ input: "a.mp4", output: "o.webp", startSec: 0, durationSec: 2 });
+    expect(def.indexOf("-ss")).toBeLessThan(def.indexOf("-i"));
+  });
 });

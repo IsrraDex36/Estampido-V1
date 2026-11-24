@@ -2,7 +2,12 @@ import type { Readable } from "node:stream";
 import { downloadContentFromMessage, type MediaType, type proto } from "baileys";
 import { formatMB, UserInputError } from "../../core/errors.js";
 
-type Downloadable = (proto.Message.IVideoMessage | proto.Message.IAudioMessage) & {
+type Downloadable = (
+  | proto.Message.IVideoMessage
+  | proto.Message.IAudioMessage
+  | proto.Message.IImageMessage
+  | proto.Message.IStickerMessage
+) & {
   fileLength?: number | { toNumber(): number } | null;
 };
 
@@ -43,4 +48,33 @@ export async function downloadLimited(
     chunks.push(chunk);
   }
   return Buffer.concat(chunks);
+}
+
+/** Source media for /saudio, from the message itself or the one it quotes. */
+export interface SourceMedia {
+  type: Extract<MediaType, "video" | "image" | "sticker">;
+  message: Downloadable;
+  /** Images, stickers and WhatsApp GIFs carry no sound → ask for one. */
+  silent: boolean;
+  /** WhatsApp GIF (MP4 with gifPlayback): loops, so sound may outlast it. */
+  loops: boolean;
+  /** User-facing noun with article, e.g. "El video". */
+  label: string;
+}
+
+export function mediaOf(m: proto.IMessage | null | undefined): SourceMedia | undefined {
+  const quoted = m?.extendedTextMessage?.contextInfo?.quotedMessage;
+  for (const c of [m, quoted]) {
+    if (!c) continue;
+    if (c.videoMessage) {
+      const gif = c.videoMessage.gifPlayback === true;
+      return { type: "video", message: c.videoMessage, silent: gif, loops: gif, label: gif ? "El GIF" : "El video" };
+    }
+    if (c.imageMessage)
+      return { type: "image", message: c.imageMessage, silent: true, loops: false, label: "La imagen" };
+    if (c.stickerMessage) {
+      return { type: "sticker", message: c.stickerMessage, silent: true, loops: false, label: "El sticker" };
+    }
+  }
+  return undefined;
 }

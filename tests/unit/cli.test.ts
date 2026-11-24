@@ -14,6 +14,7 @@ afterEach(async () => {
 });
 
 const fakeResult = (o: ConvertOptions): ConvertResult => ({
+  kind: "video",
   webpPath: join(o.outDir, `${o.name}.webp`),
   audioPath: o.audio === "none" ? undefined : join(o.outDir, `${o.name}.ogg`),
   warnings: ["aviso de prueba"],
@@ -27,6 +28,7 @@ const fakeResult = (o: ConvertOptions): ConvertResult => ({
     },
     segment: { startSec: o.startSec ?? 0, durationSec: o.durationSec ?? 5 },
     sticker: {
+      animated: true,
       bytes: 1024,
       withinLimit: true,
       maxBytes: 512000,
@@ -44,6 +46,7 @@ const fakeResult = (o: ConvertOptions): ConvertResult => ({
             bytes: 10,
             codec: "opus",
             origin: typeof o.audio === "object" ? "file" : "video",
+            durationSec: 5,
           },
     elapsedMs: 5,
   },
@@ -85,7 +88,7 @@ describe("sva convert", () => {
         outDir: out,
       }),
     );
-    expect(logs).toContain("✔ Sticker:");
+    expect(logs).toContain("✔ Sticker (video):");
     expect(logs).toContain("⚠ aviso de prueba");
   });
 

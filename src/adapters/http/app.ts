@@ -5,7 +5,7 @@ import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { UserInputError } from "../../core/errors.js";
-import { type ConvertOptions, type ConvertResult, convertVideoToSoundSticker } from "../../pipeline/convert.js";
+import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
 import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { API_LIMITS, type ApiErrorBody, type ConvertResponse } from "./contract.js";
@@ -25,7 +25,7 @@ const fail = (code: string, message: string): ApiErrorBody => ({
 
 export function createApp(deps: AppDeps = {}): Hono {
   const store = deps.store ?? new ResultStore();
-  const convert = deps.convert ?? convertVideoToSoundSticker;
+  const convert = deps.convert ?? convertToSoundSticker;
   const jobs = new Semaphore(deps.maxConcurrent ?? 2);
   const maxQueue = deps.maxQueue ?? 10;
 
@@ -44,14 +44,17 @@ export function createApp(deps: AppDeps = {}): Hono {
       if (jobs.pending >= maxQueue) return c.json(fail("busy", "Servidor ocupado, intenta en un momento."), 503);
 
       const body = await c.req.parseBody();
-      const file = body.video;
-      if (!(file instanceof File)) return c.json(fail("missing_file", "Falta el campo 'video'."), 400);
-      if (!file.type.startsWith("video/")) {
-        return c.json(fail("bad_type", `Tipo no soportado: ${file.type || "desconocido"}. Sube un video.`), 415);
+      const file = body.media ?? body.video;
+      if (!(file instanceof File)) return c.json(fail("missing_file", "Falta el archivo (campo 'media')."), 400);
+      if (!/^(video|image)\//.test(file.type)) {
+        return c.json(
+          fail("bad_type", `Tipo no soportado: ${file.type || "desconocido"}. Sube un video, GIF o imagen.`),
+          415,
+        );
       }
 
       if (file.size > API_LIMITS.maxUploadBytes) {
-        return c.json(fail("too_large", `El video supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`), 413);
+        return c.json(fail("too_large", `El archivo supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`), 413);
       }
 
       // Optional replacement audio: any audio, or a video whose sound we reuse.
@@ -67,7 +70,7 @@ export function createApp(deps: AppDeps = {}): Hono {
 
       const parsed = convertFieldsSchema.safeParse(body);
       if (!parsed.success) {
-        const msg = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+        const msg = parsed.error.issues.map((i) => i.message).join(" ");
         return c.json(fail("bad_options", msg), 400);
       }
       const opts = parsed.data;
@@ -109,6 +112,7 @@ export function createApp(deps: AppDeps = {}): Hono {
         const s = result.stats;
         const response: ConvertResponse = {
           id: job.id,
+          kind: result.kind,
           sticker: { url: `/api/results/${job.id}/sticker.webp`, ...s.sticker },
           audio: s.audio ? { url: `/api/results/${job.id}/sticker.ogg`, ...s.audio } : null,
           source: s.source,

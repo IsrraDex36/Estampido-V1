@@ -8,12 +8,7 @@ describe("parseSaudio", () => {
     expect(parseSaudio("/saudiox")).toBeNull();
   });
   it("defaults", () => {
-    expect(parseSaudio("/saudio")).toEqual({
-      startSec: 0,
-      durationSec: 5,
-      fit: "pad",
-      customAudio: false,
-    });
+    expect(parseSaudio("/saudio")).toEqual({ startSec: 0, fit: "pad", customAudio: false });
   });
   it("parses start, duration, fit in any order", () => {
     expect(parseSaudio("!saudio crop 2.5 3")).toEqual({
@@ -22,10 +17,9 @@ describe("parseSaudio", () => {
       fit: "crop",
       customAudio: false,
     });
-    expect(parseSaudio(".SAUDIO 1")).toMatchObject({
-      startSec: 1,
-      durationSec: 5,
-    });
+    expect(parseSaudio(".SAUDIO 1")).toMatchObject({ startSec: 1 });
+    expect(parseSaudio(".SAUDIO 1")?.durationSec).toBeUndefined(); // pipeline default per kind
+    expect(parseSaudio("/saudio 0 9")?.durationSec).toBe(9); // up to 10 s (images)
   });
   it("voz/audio flag requests custom audio", () => {
     expect(parseSaudio("/saudio 1 voz")).toMatchObject({
@@ -44,7 +38,7 @@ describe("parseSaudio", () => {
   });
   it("rejects bad args", () => {
     expect(() => parseSaudio("/saudio foo")).toThrow(/no válido/);
-    expect(() => parseSaudio("/saudio 0 9")).toThrow(/duración/);
+    expect(() => parseSaudio("/saudio 0 11")).toThrow(/duración/);
   });
 });
 

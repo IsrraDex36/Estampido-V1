@@ -6,10 +6,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
-import type { ConverterOptions } from "../types";
+import type { ConverterOptions, InputKind } from "../types";
 
 interface ConvertOptionsFormProps {
   options: ConverterOptions;
+  inputKind: InputKind;
   disabled?: boolean;
   /** Current playhead of the preview video, if any. */
   currentTime?: number;
@@ -23,6 +24,7 @@ interface ConvertOptionsFormProps {
 
 export function ConvertOptionsForm({
   options,
+  inputKind,
   disabled,
   currentTime,
   sourceDuration,
@@ -32,9 +34,13 @@ export function ConvertOptionsForm({
 }: ConvertOptionsFormProps) {
   const audioInputRef = useRef<HTMLInputElement>(null);
   const maxStart = sourceDuration ? Math.max(0, sourceDuration - API_LIMITS.minDurationSec) : undefined;
+  const isImage = inputKind === "image";
+  const hasOwnSound = inputKind === "video";
+  const maxDuration = isImage ? API_LIMITS.maxImageAudioSec : API_LIMITS.maxDurationSec;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
+      {!isImage && (
       <div className="space-y-2">
         <Label htmlFor="start">Inicio (s)</Label>
         <div className="flex gap-2">
@@ -51,7 +57,7 @@ export function ConvertOptionsForm({
           <Button
             type="button"
             variant="outline"
-            disabled={disabled || currentTime === undefined}
+            disabled={disabled || currentTime === undefined || inputKind !== "video"}
             title="Usar el tiempo actual del video"
             onClick={() => currentTime !== undefined && onChange({ startSec: Number(currentTime.toFixed(1)) })}
           >
@@ -60,22 +66,25 @@ export function ConvertOptionsForm({
           </Button>
         </div>
       </div>
+      )}
 
       <div className="space-y-2">
-        <Label htmlFor="duration">Duración (s)</Label>
+        <Label htmlFor="duration">
+          {isImage ? `Duración del sonido (s, máx. ${maxDuration})` : inputKind === "gif" ? "Duración del sonido (s)" : "Duración (s)"}
+        </Label>
         <Input
           id="duration"
           type="number"
           min={API_LIMITS.minDurationSec}
-          max={API_LIMITS.maxDurationSec}
+          max={maxDuration}
           step={0.5}
-          value={options.durationSec}
+          placeholder={isImage ? "auto (lo que dure el audio)" : undefined}
+          value={options.durationSec ?? ""}
           disabled={disabled}
           onChange={(e) => {
+            if (e.target.value === "") return onChange({ durationSec: undefined });
             const v = Number(e.target.value) || API_LIMITS.minDurationSec;
-            onChange({
-              durationSec: Math.min(API_LIMITS.maxDurationSec, Math.max(API_LIMITS.minDurationSec, v)),
-            });
+            onChange({ durationSec: Math.min(maxDuration, Math.max(API_LIMITS.minDurationSec, v)) });
           }}
         />
       </div>
@@ -112,7 +121,13 @@ export function ConvertOptionsForm({
             <div className="text-sm">
               <p className="font-medium">Sonido</p>
               <p className="text-xs text-muted-foreground">
-                {audioFile ? "Archivo propio (reemplaza el del video)" : "El del propio video"}
+                {audioFile
+                  ? hasOwnSound
+                    ? "Archivo propio (reemplaza el del video)"
+                    : "Archivo propio"
+                  : hasOwnSound
+                    ? "El del propio video"
+                    : "Sin sonido propio: elige un audio para que el sticker suene"}
               </p>
             </div>
             {audioFile ? (
@@ -124,7 +139,7 @@ export function ConvertOptionsForm({
                 onClick={() => onAudioFileChange(null)}
               >
                 <XIcon data-icon="inline-start" />
-                Usar el del video
+                {hasOwnSound ? "Usar el del video" : "Quitar audio"}
               </Button>
             ) : (
               <Button

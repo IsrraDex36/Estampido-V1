@@ -55,7 +55,7 @@ describe("PendingAudioStore", () => {
     const dir = await mkdtemp(join(tmpdir(), "sva-pend-"));
     return {
       dir,
-      videoPath: join(dir, "input"),
+      inputPath: join(dir, "input"),
       cmd: {
         startSec: 0,
         durationSec: 5,

@@ -1,6 +1,6 @@
 # 🔊 Sticker Video Audio
 
-Proyecto para crear **stickers de WhatsApp a partir de video que conservan el audio**, aprovechando el nuevo formato nativo de _sound stickers_ (despliegue limitado desde nov 2026).
+Proyecto para crear **stickers de WhatsApp con sonido** a partir de video, GIF o imagen, aprovechando el nuevo formato nativo de _sound stickers_ (despliegue limitado desde nov 2026).
 
 > Estado: **prototipo funcional** (conversor + web + bot con fallback). Siguiente: **capturar un sound sticker real** → envío nativo. Ver [docs/PLAN.md](docs/PLAN.md), [docs/PROTOCOLO.md](docs/PROTOCOLO.md) e [INVESTIGACION.md](INVESTIGACION.md).
 
@@ -17,6 +17,8 @@ npm test
 # CLI
 npm run cli -- convert video.mp4 -s 2 -d 4 -o out/      # sticker + audio del video
 npm run cli -- convert video.mp4 -a voz.ogg --crop         # audio propio
+npm run cli -- convert foto.png -a voz.ogg                 # imagen + sonido (≤ 10 s, sticker estático)
+npm run cli -- convert anim.gif -a voz.ogg                 # GIF + sonido
 npm run cli -- convert video.mp4 --pack "Mis memes" --author Isra --emoji 😂,🔊
 npm run cli -- doctor                                      # verifica dependencias
 # o compilada: npm run build && node dist/adapters/cli/index.js convert …

@@ -24,7 +24,8 @@ function Stat({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export function StickerResult({ result, onReset }: StickerResultProps) {
-  const { sticker, audio, source, segment } = result;
+  const { sticker, audio, source, segment, kind } = result;
+  const kindLabel = { video: "Video", animated: "GIF / animado", image: "Imagen" }[kind];
   const percent = Math.round((sticker.bytes / sticker.maxBytes) * 100);
 
   return (
@@ -36,6 +37,7 @@ export function StickerResult({ result, onReset }: StickerResultProps) {
           {sticker.withinLimit ? <CircleCheckIcon /> : <TriangleAlertIcon />}
           {formatBytes(sticker.bytes)} / {formatBytes(sticker.maxBytes)} ({percent}%)
         </Badge>
+        <Badge variant="outline">{sticker.animated ? "Animado" : "Estático"}</Badge>
         <Badge variant="outline">
           {audio ? `Audio: ${audio.origin === "file" ? "archivo propio" : "del video"}` : "Sin audio"}
         </Badge>
@@ -57,23 +59,32 @@ export function StickerResult({ result, onReset }: StickerResultProps) {
 
       <dl className="space-y-1.5">
         <Stat label="Sticker">
-          {sticker.frames} frames · {sticker.fps} fps · calidad {sticker.quality}
+          {sticker.animated
+            ? `${sticker.frames} frames · ${sticker.fps} fps · calidad ${sticker.quality}`
+            : `estático · calidad ${sticker.quality}`}
         </Stat>
-        <Stat label="Duración">{formatSeconds(sticker.durationMs / 1000, 2)}</Stat>
+        {sticker.animated && <Stat label="Duración">{formatSeconds(sticker.durationMs / 1000, 2)}</Stat>}
         <Stat label="Intentos de optimización">{sticker.attempts}</Stat>
         <Stat label="Pack">
           {sticker.metadata
             ? `${sticker.metadata.packName} · ${sticker.metadata.publisher}${sticker.metadata.emojis.length ? ` · ${sticker.metadata.emojis.join(" ")}` : ""}`
             : "Sin metadatos"}
         </Stat>
-        {audio && <Stat label="Audio">Opus · {formatBytes(audio.bytes)}</Stat>}
+        {audio && (
+          <Stat label="Audio">
+            Opus · {formatSeconds(audio.durationSec, 2)} · {formatBytes(audio.bytes)}
+          </Stat>
+        )}
         <Separator className="my-2" />
         <Stat label="Fuente">
-          {source.width}×{source.height} · {source.fps.toFixed(0)} fps · {formatSeconds(source.durationSec)}
+          {kindLabel} · {source.width}×{source.height}
+          {kind !== "image" && ` · ${source.fps.toFixed(0)} fps · ${formatSeconds(source.durationSec)}`}
         </Stat>
-        <Stat label="Segmento">
-          {formatSeconds(segment.startSec)} → {formatSeconds(segment.startSec + segment.durationSec)}
-        </Stat>
+        {kind === "video" && (
+          <Stat label="Segmento">
+            {formatSeconds(segment.startSec)} → {formatSeconds(segment.startSec + segment.durationSec)}
+          </Stat>
+        )}
         <Stat label="Tiempo de proceso">{formatSeconds(result.elapsedMs / 1000, 2)}</Stat>
       </dl>
 

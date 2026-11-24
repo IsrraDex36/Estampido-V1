@@ -8,11 +8,13 @@ import { createSaudio } from "../../src/adapters/bot/saudio.js";
 import { parseStickerExif } from "../../src/core/metadata/stickerExif.js";
 import { readExif } from "../../src/core/webp/chunks.js";
 import { ffmpegPath, run } from "../../src/utils/ffmpeg.js";
-import { makeTempDir, makeVideo } from "../helpers/fixtures.js";
+import { makeAnimatedWebp, makePng, makeTempDir, makeVideo } from "../helpers/fixtures.js";
 
 let dir: string;
 let videoBytes: Buffer;
 let voiceBytes: Buffer;
+let pngBytes: Buffer;
+let stickerBytes: Buffer;
 
 beforeAll(async () => {
   dir = await makeTempDir();
@@ -31,6 +33,8 @@ beforeAll(async () => {
     voice,
   ]);
   voiceBytes = await readFile(voice);
+  pngBytes = await readFile(await makePng(dir));
+  stickerBytes = await readFile(await makeAnimatedWebp(dir));
 });
 afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
@@ -53,7 +57,7 @@ function fakeSock() {
 
 /** Serves fixture bytes per media type, like downloadContentFromMessage. */
 const downloader: Downloader = async (_msg, type) => {
-  const data = type === "audio" ? voiceBytes : videoBytes;
+  const data = { audio: voiceBytes, image: pngBytes, sticker: stickerBytes }[type as string] ?? videoBytes;
   return (async function* () {
     yield data;
   })();
@@ -139,5 +143,45 @@ describe("/saudio via fake socket (real pipeline)", () => {
     const { sock, sent } = fakeSock();
     await createSaudio(sock, downloader).onCommand(msg("8", { conversation: "/saudio" }), "/saudio");
     expect(String(sent[0]?.content.text)).toMatch(/Uso: \/saudio/);
+  });
+
+  it("image with caption → asks for sound (implicit voz) → static sticker + sound", async () => {
+    const { sock, sent } = fakeSock();
+    const saudio = createSaudio(sock, downloader);
+    await saudio.onCommand(msg("i1", { imageMessage: { caption: "/saudio" } }), "/saudio");
+    expect(String(sent.at(-1)?.content.text)).toMatch(/La imagen no tiene sonido/);
+    expect(saudio.pending.size).toBe(1);
+
+    sent.length = 0;
+    await saudio.onAudio(msg("i2", { audioMessage: { ptt: true } }));
+    expect(kinds(sent)).toEqual(expect.arrayContaining(["sticker", "audio"]));
+    expect(String(sent.find((s) => "text" in s.content)?.content.text)).toMatch(/estático · q\d+ · 🔊 3\.0 s/);
+  });
+
+  it("WhatsApp GIF (gifPlayback) → asks for sound; sound may outlast the loop", async () => {
+    const { sock, sent } = fakeSock();
+    const saudio = createSaudio(sock, downloader);
+    await saudio.onCommand(msg("g1", { videoMessage: { caption: "/saudio 0 1", gifPlayback: true } }), "/saudio 0 1");
+    expect(String(sent.at(-1)?.content.text)).toMatch(/El GIF no tiene sonido/);
+    sent.length = 0;
+    await saudio.onAudio(msg("g2", { audioMessage: {} }));
+    // clip 1 s, but looping source → sound limited by requested 1 s too (explicit duration)
+    expect(String(sent.find((s) => "text" in s.content)?.content.text)).toMatch(/1\.0 s/);
+  });
+
+  it("reply to a sticker → re-encodes it with sound", async () => {
+    const { sock, sent } = fakeSock();
+    const saudio = createSaudio(sock, downloader);
+    const reply = msg("s1", {
+      extendedTextMessage: {
+        text: "/saudio",
+        contextInfo: { quotedMessage: { stickerMessage: { isAnimated: true } } },
+      },
+    });
+    await saudio.onCommand(reply, "/saudio");
+    expect(String(sent.at(-1)?.content.text)).toMatch(/El sticker no tiene sonido/);
+    sent.length = 0;
+    await saudio.onAudio(msg("s2", { audioMessage: {} }));
+    expect(kinds(sent)).toContain("sticker");
   });
 });

@@ -2,11 +2,13 @@ import { rm } from "node:fs/promises";
 import type { WAMessage } from "baileys";
 import type { SaudioCommand } from "./command.js";
 
-/** A downloaded video waiting for the user's custom audio. */
+/** A downloaded video/GIF/image/sticker waiting for the user's custom audio. */
 export interface PendingJob {
   dir: string;
-  videoPath: string;
+  inputPath: string;
   cmd: SaudioCommand;
+  /** Source loops (WhatsApp GIF) → sound may outlast the animation. */
+  loops?: boolean;
   /** Original command message, to quote the result. */
   origin: WAMessage;
   expiresAt: number;

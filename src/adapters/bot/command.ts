@@ -1,27 +1,31 @@
-import type { FitMode } from "../../config/limits.js";
+import { type FitMode, STICKER_LIMITS } from "../../config/limits.js";
 
 export interface SaudioCommand {
   startSec: number;
-  durationSec: number;
+  /** Omitted → pipeline default (5 s video/GIF, audio length up to 10 s for images). */
+  durationSec?: number;
   fit: FitMode;
   /** `voz`/`audio` flag: wait for a voice note/audio to use instead of the video's sound. */
   customAudio: boolean;
 }
 
-export const SAUDIO_USAGE = "Uso: /saudio [inicio] [duración] [crop|pad] [voz]";
+export const SAUDIO_USAGE =
+  "Uso: /saudio [inicio] [duración] [crop|pad] [voz] — con un video, GIF, imagen o sticker (o respondiendo a uno)";
 
 /**
  * Parse `/saudio [start] [duration] [crop|pad] [voz]` (also `!saudio`, `.saudio`).
  * Returns null if text isn't the command; throws with a user-facing message
  * on bad arguments.
  */
-export function parseSaudio(text: string | null | undefined, maxDuration = 5): SaudioCommand | null {
+export function parseSaudio(
+  text: string | null | undefined,
+  maxDuration: number = STICKER_LIMITS.maxImageAudioSec,
+): SaudioCommand | null {
   const parts = (text ?? "").trim().split(/\s+/);
   if (!/^[/!.]saudio$/i.test(parts[0] ?? "")) return null;
 
   const cmd: SaudioCommand = {
     startSec: 0,
-    durationSec: maxDuration,
     fit: "pad",
     customAudio: false,
   };

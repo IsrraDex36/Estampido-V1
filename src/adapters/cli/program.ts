@@ -3,7 +3,7 @@ import { basename, extname, resolve } from "node:path";
 import { Command, InvalidArgumentError } from "commander";
 import { STICKER_LIMITS } from "../../config/limits.js";
 import { UserInputError } from "../../core/errors.js";
-import { type ConvertOptions, type ConvertResult, convertVideoToSoundSticker } from "../../pipeline/convert.js";
+import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
 import { checkDeps } from "../../utils/deps.js";
 import { formatReport } from "./format.js";
 
@@ -33,13 +33,13 @@ export interface CliDeps {
 }
 
 export function buildProgram(version: string, deps: CliDeps = {}): Command {
-  const convert = deps.convert ?? convertVideoToSoundSticker;
+  const convert = deps.convert ?? convertToSoundSticker;
   const log = deps.log ?? console.log;
   const error = deps.error ?? console.error;
 
   const program = new Command()
     .name("sva")
-    .description("Video → sticker WebP animado para WhatsApp + pista de audio (sound sticker)")
+    .description("Video, GIF o imagen → sticker WebP para WhatsApp + pista de audio (sound sticker)")
     .version(version)
     .exitOverride()
     .configureOutput({
@@ -49,21 +49,18 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
 
   program
     .command("convert")
-    .description("Convierte un video en sticker (.webp ≤ 500 KB) + audio (.ogg Opus)")
-    .argument("<video>", "video de entrada")
-    .option("-s, --start <seg>", "inicio del segmento", seconds("--start"), 0)
+    .description(
+      "Convierte un video/GIF en sticker animado (≤ 500 KB) o una imagen en sticker estático (≤ 100 KB), + audio (.ogg Opus)",
+    )
+    .argument("<archivo>", "video, GIF, WebP animado o imagen (png/jpg/webp)")
+    .option("-s, --start <seg>", "inicio del segmento (videos/GIF)", seconds("--start"), 0)
     .option(
       "-d, --duration <seg>",
-      `duración (máx. ${STICKER_LIMITS.maxDurationSec})`,
-      seconds("--duration", {
-        min: 0,
-        max: STICKER_LIMITS.maxDurationSec,
-        exclusiveMin: true,
-      }),
-      STICKER_LIMITS.defaultDurationSec,
+      `duración: clip de video o sonido de GIF (máx. ${STICKER_LIMITS.maxDurationSec}); sonido de imagen (máx. ${STICKER_LIMITS.maxImageAudioSec}). Por defecto ${STICKER_LIMITS.defaultDurationSec}, o lo que dure el audio en imágenes`,
+      seconds("--duration", { min: 0, max: STICKER_LIMITS.maxImageAudioSec, exclusiveMin: true }),
     )
     .option("--crop", "recortar al centro en vez de padding transparente")
-    .option("-a, --audio <archivo>", "usar el sonido de otro archivo (audio o video)")
+    .option("-a, --audio <archivo>", "sonido de otro archivo (audio o video); necesario para imágenes y GIF")
     .option("--audio-start <seg>", "inicio dentro del archivo de --audio", seconds("--audio-start"), 0)
     .option("--no-audio", "solo sticker, sin audio")
     .option("-o, --out <dir>", "carpeta de salida", ".")

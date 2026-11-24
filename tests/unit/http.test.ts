@@ -114,6 +114,13 @@ describe("POST /api/convert", () => {
     expect(res.status).toBe(400);
   });
 
+  it("accepts images/GIFs under the 'media' field", async () => {
+    const app = createApp({ store, convert: fakeConvert });
+    const fd = new FormData();
+    fd.set("media", new File([new Uint8Array(10)], "a.gif", { type: "image/gif" }));
+    expect((await app.request("/api/convert", { method: "POST", body: fd })).status).toBe(200);
+  });
+
   it("415 for non-video", async () => {
     const app = createApp({ store, convert: fakeConvert });
     const res = await app.request("/api/convert", {
@@ -123,7 +130,7 @@ describe("POST /api/convert", () => {
     expect(res.status).toBe(415);
   });
 
-  it("400 for duration over limit", async () => {
+  it("400 for duration over the absolute limit (10 s)", async () => {
     const app = createApp({ store, convert: fakeConvert });
     const res = await app.request("/api/convert", {
       method: "POST",

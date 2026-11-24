@@ -13,6 +13,25 @@ export interface MediaInfo {
   hasAudio: boolean;
   videoCodec?: string;
   audioCodec?: string;
+  /** ffprobe container name, e.g. "mov,mp4,…", "gif", "png_pipe". */
+  formatName?: string;
+}
+
+/**
+ * - video: regular video (sticker segment + its own sound)
+ * - animated: GIF / animated WebP / APNG (no sound; loops)
+ * - image: single still image (static sticker; sound must come from a file)
+ */
+export type MediaKind = "video" | "animated" | "image";
+
+const ANIMATED_CODECS = new Set(["gif", "webp_anim", "apng"]);
+
+export function classifyMedia(info: Pick<MediaInfo, "videoCodec" | "formatName">): MediaKind {
+  const codec = info.videoCodec ?? "";
+  const format = info.formatName ?? "";
+  if (ANIMATED_CODECS.has(codec) || format === "gif" || format === "webp_anim" || format === "apng") return "animated";
+  if (format === "image2" || format.endsWith("_pipe")) return "image";
+  return "video";
 }
 
 const streamSchema = z.object({
@@ -25,11 +44,12 @@ const streamSchema = z.object({
   duration: z.string().optional(),
   tags: z.record(z.string(), z.string()).optional(),
   side_data_list: z.array(z.record(z.string(), z.unknown())).optional(),
+  disposition: z.record(z.string(), z.number()).optional(),
 });
 
 const probeSchema = z.object({
   streams: z.array(streamSchema).default([]),
-  format: z.object({ duration: z.string().optional() }).default({}),
+  format: z.object({ duration: z.string().optional(), format_name: z.string().optional() }).default({}),
 });
 
 type Stream = z.infer<typeof streamSchema>;
@@ -50,7 +70,8 @@ function rotationOf(stream: Stream): number {
 
 export function parseProbeOutput(json: string): MediaInfo {
   const data = probeSchema.parse(JSON.parse(json));
-  const video = data.streams.find((s) => s.codec_type === "video");
+  // Cover art in audio files (mp3/m4a) shows up as a video stream: ignore it.
+  const video = data.streams.find((s) => s.codec_type === "video" && s.disposition?.attached_pic !== 1);
   const audio = data.streams.find((s) => s.codec_type === "audio");
 
   let width = video?.width ?? 0;
@@ -69,6 +90,7 @@ export function parseProbeOutput(json: string): MediaInfo {
     hasAudio: Boolean(audio),
     videoCodec: video?.codec_name,
     audioCodec: audio?.codec_name,
+    formatName: data.format.format_name,
   };
 }
 

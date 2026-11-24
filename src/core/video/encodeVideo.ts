@@ -1,5 +1,6 @@
 import { DEFAULT_FIT, type FitMode, STICKER_LIMITS } from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
+import { buildFitFilter } from "../frame/fit.js";
 
 export interface EncodeVideoOptions {
   input: string;
@@ -13,25 +14,17 @@ export interface EncodeVideoOptions {
   quality?: number;
   fit?: FitMode;
   size?: number;
+  /**
+   * "input" (default): fast keyframe seek before decoding, right for videos.
+   * "output": decode from the start, then trim. Required for animated WebP,
+   * whose demuxer breaks with input seeking (libwebp_anim then fails).
+   */
+  seek?: "input" | "output";
 }
 
 /** Build the -vf chain. Exported for unit testing. */
 export function buildVideoFilter(fit: FitMode, fps: number, size: number): string {
-  const common = [`fps=${fps}`];
-  if (fit === "pad") {
-    return [
-      ...common,
-      `scale=${size}:${size}:force_original_aspect_ratio=decrease:flags=lanczos`,
-      "format=rgba",
-      `pad=${size}:${size}:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
-    ].join(",");
-  }
-  return [
-    ...common,
-    `scale=${size}:${size}:force_original_aspect_ratio=increase:flags=lanczos`,
-    `crop=${size}:${size}`,
-    "format=rgba",
-  ].join(",");
+  return [`fps=${fps}`, ...buildFitFilter(fit, size)].join(",");
 }
 
 /** Build the full ffmpeg arg list. Exported for unit testing. */
@@ -40,18 +33,14 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
   const quality = opts.quality ?? 75;
   const size = opts.size ?? STICKER_LIMITS.size;
   const fit = opts.fit ?? DEFAULT_FIT;
+  const trim = ["-ss", String(opts.startSec), "-t", String(opts.durationSec)];
 
   return [
     "-hide_banner",
     "-v",
     "error",
     "-y",
-    "-ss",
-    String(opts.startSec),
-    "-t",
-    String(opts.durationSec),
-    "-i",
-    opts.input,
+    ...(opts.seek === "output" ? ["-i", opts.input, ...trim] : [...trim, "-i", opts.input]),
     "-vf",
     buildVideoFilter(fit, fps, size),
     "-an",

@@ -1,31 +1,27 @@
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { proto, WAMessage, WASocket } from "baileys";
+import type { WAMessage, WASocket } from "baileys";
 import { INPUT_LIMITS } from "../../config/limits.js";
 import { UserInputError } from "../../core/errors.js";
-import { convertVideoToSoundSticker, type ReplacementAudio } from "../../pipeline/convert.js";
+import { convertToSoundSticker, type ReplacementAudio } from "../../pipeline/convert.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { parseSaudio, SAUDIO_USAGE, type SaudioCommand } from "./command.js";
-import { type Downloader, downloadLimited } from "./media.js";
+import { type Downloader, downloadLimited, mediaOf } from "./media.js";
 import { PendingAudioStore, senderKey } from "./pending.js";
 
 const jobs = new Semaphore(1);
 
-/** The video to convert: the message itself, or the one it quotes. */
-export function videoOf(m: proto.IMessage | null | undefined): proto.Message.IVideoMessage | undefined {
-  return m?.videoMessage ?? m?.extendedTextMessage?.contextInfo?.quotedMessage?.videoMessage ?? undefined;
-}
-
 const userMessage = (err: unknown): string =>
   err instanceof UserInputError || (err instanceof Error && err.message.startsWith("Argumento"))
     ? err.message
-    : "No pude convertir ese video 😕";
+    : "No pude convertir eso 😕";
 
 /**
- * `/saudio` flow. Plain: video → sticker + its own sound. With `voz`: the
- * video is downloaded now and the next voice note/audio from the same sender
- * (within the TTL) becomes the sticker's sound.
+ * `/saudio` flow. Video → sticker + its own sound. With `voz`, or for sources
+ * without sound (image, sticker, WhatsApp GIF), the media is downloaded now
+ * and the next voice note/audio from the same sender (within the TTL)
+ * becomes the sticker's sound.
  */
 export function createSaudio(
   sock: WASocket,
@@ -49,19 +45,21 @@ export function createSaudio(
   async function convertAndSend(
     origin: WAMessage,
     dir: string,
-    videoPath: string,
+    inputPath: string,
     cmd: SaudioCommand,
     audio: "source" | ReplacementAudio,
+    loops = false,
   ): Promise<void> {
     const jid = origin.key.remoteJid as string;
     const { customAudio: _c, ...segment } = cmd;
     const result = await jobs.run(() =>
-      convertVideoToSoundSticker({
-        input: videoPath,
+      convertToSoundSticker({
+        input: inputPath,
         outDir: dir,
         name: "sticker",
         ...segment,
         audio,
+        loops,
         metadata: {
           packName: metadataDefaults.packName,
           // Sender's WhatsApp display name, so "author" shows who made it.
@@ -82,10 +80,9 @@ export function createSaudio(
     }
     const s = result.stats.sticker;
     const notes = result.warnings.length ? `\n⚠️ ${result.warnings.join("\n⚠️ ")}` : "";
-    await reply(
-      origin,
-      `✔ ${(s.bytes / 1024).toFixed(0)} KB · ${s.fps} fps · q${s.quality} · ${(s.durationMs / 1000).toFixed(1)} s${notes}`,
-    );
+    const shape = s.animated ? `${s.fps} fps · ${(s.durationMs / 1000).toFixed(1)} s` : "estático";
+    const sound = result.stats.audio ? ` · 🔊 ${result.stats.audio.durationSec.toFixed(1)} s` : "";
+    await reply(origin, `✔ ${(s.bytes / 1024).toFixed(0)} KB · ${shape} · q${s.quality}${sound}${notes}`);
     await react(origin, "✅");
   }
 
@@ -100,9 +97,9 @@ export function createSaudio(
     }
     if (!cmd) return;
 
-    const video = videoOf(msg.message);
-    if (!video) {
-      await reply(msg, `Envía un video con el texto /saudio, o responde a un video. ${SAUDIO_USAGE}`);
+    const media = mediaOf(msg.message);
+    if (!media) {
+      await reply(msg, `Envía un video, GIF, imagen o sticker con /saudio, o responde a uno. ${SAUDIO_USAGE}`);
       return;
     }
 
@@ -110,27 +107,23 @@ export function createSaudio(
     const dir = await mkdtemp(join(tmpdir(), "sva-bot-"));
     let handedOff = false;
     try {
-      const videoPath = join(dir, "input");
+      const inputPath = join(dir, "input");
       await writeFile(
-        videoPath,
-        await downloadLimited(video, "video", INPUT_LIMITS.maxVideoBytes, "El video", download),
+        inputPath,
+        await downloadLimited(media.message, media.type, INPUT_LIMITS.maxVideoBytes, media.label, download),
       );
 
-      if (cmd.customAudio) {
-        await pending.set(senderKey(msg.key), {
-          dir,
-          videoPath,
-          cmd,
-          origin: msg,
-        });
+      if (cmd.customAudio || media.silent) {
+        await pending.set(senderKey(msg.key), { dir, inputPath, cmd, origin: msg, loops: media.loops });
         handedOff = true;
+        const why = cmd.customAudio ? "🎙️" : `🎙️ ${media.label} no tiene sonido.`;
         await reply(
           msg,
-          `🎙️ Ahora envía una nota de voz o un audio (máx. ${INPUT_LIMITS.maxAudioBytes / 1024 / 1024} MB) en los próximos ${pending.ttlMs / 60000} min. /cancelar para cancelar.`,
+          `${why} Envía ahora una nota de voz o un audio (máx. ${INPUT_LIMITS.maxAudioBytes / 1024 / 1024} MB) en los próximos ${pending.ttlMs / 60000} min. /cancelar para cancelar.`,
         );
         return;
       }
-      await convertAndSend(msg, dir, videoPath, cmd, "source");
+      await convertAndSend(msg, dir, inputPath, cmd, "source");
     } catch (err) {
       console.error("[saudio]", err);
       await reply(msg, userMessage(err));
@@ -154,9 +147,7 @@ export function createSaudio(
         audioPath,
         await downloadLimited(audio, "audio", INPUT_LIMITS.maxAudioBytes, "El audio", download),
       );
-      await convertAndSend(job.origin, job.dir, job.videoPath, job.cmd, {
-        file: audioPath,
-      });
+      await convertAndSend(job.origin, job.dir, job.inputPath, job.cmd, { file: audioPath }, job.loops);
       await react(msg, "✅");
     } catch (err) {
       console.error("[saudio:voz]", err);

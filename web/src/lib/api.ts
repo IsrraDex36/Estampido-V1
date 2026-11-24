@@ -21,7 +21,8 @@ export interface ConvertCallbacks {
 }
 
 export interface ConvertFiles {
-  video: File;
+  /** Video, GIF or image. */
+  media: File;
   /** Optional replacement sound (audio or video file). */
   audio?: File | null;
 }
@@ -30,16 +31,16 @@ export interface ConvertFiles {
  * POST /api/convert. Uses XHR (not fetch) because fetch has no upload progress.
  */
 export function convertVideo(
-  { video, audio }: ConvertFiles,
+  { media, audio }: ConvertFiles,
   fields: ConvertRequestFields,
   { onUploadProgress, onProcessing, signal }: ConvertCallbacks = {},
 ): Promise<ConvertResponse> {
   return new Promise((resolve, reject) => {
     const form = new FormData();
-    form.set("video", video);
+    form.set("media", media);
     if (audio && fields.includeAudio) form.set("audio", audio);
     form.set("startSec", String(fields.startSec));
-    form.set("durationSec", String(fields.durationSec));
+    if (fields.durationSec !== undefined) form.set("durationSec", String(fields.durationSec));
     form.set("fit", fields.fit);
     form.set("includeAudio", String(fields.includeAudio));
     form.set("audioStartSec", String(fields.audioStartSec));

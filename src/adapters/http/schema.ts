@@ -7,7 +7,12 @@ const boolish = z
 
 export const convertFieldsSchema = z.object({
   startSec: z.coerce.number().min(0).default(0),
-  durationSec: z.coerce.number().min(API_LIMITS.minDurationSec).max(API_LIMITS.maxDurationSec).default(5),
+  // Per-kind maximum (5 s video/GIF, 10 s image) is enforced by the pipeline.
+  durationSec: z.coerce
+    .number()
+    .min(API_LIMITS.minDurationSec, `La duración mínima es ${API_LIMITS.minDurationSec} s.`)
+    .max(API_LIMITS.maxImageAudioSec, `La duración máxima es ${API_LIMITS.maxImageAudioSec} s.`)
+    .optional(),
   fit: z.enum(["pad", "crop"]).default("pad"),
   includeAudio: boolish.default(true),
   audioStartSec: z.coerce.number().min(0).default(0),

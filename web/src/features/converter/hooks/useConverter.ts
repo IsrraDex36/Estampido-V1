@@ -1,7 +1,7 @@
 import { API_LIMITS } from "@contract";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ApiError, convertVideo } from "@/lib/api";
-import type { ConverterOptions, ConverterStatus } from "../types";
+import { type ConverterOptions, type ConverterStatus, type InputKind, inputKindOf } from "../types";
 
 const DEFAULT_OPTIONS: ConverterOptions = {
   startSec: 0,
@@ -17,7 +17,7 @@ const DEFAULT_OPTIONS: ConverterOptions = {
 
 /** Client-side checks before upload; returns an error message or null. */
 export function validateFile(file: File): string | null {
-  if (!file.type.startsWith("video/")) return "El archivo no es un video.";
+  if (!/^(video|image)\//.test(file.type)) return "Sube un video, GIF o imagen.";
   if (file.size > API_LIMITS.maxUploadBytes) {
     return `El video supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`;
   }
@@ -65,7 +65,9 @@ export function useConverter() {
     }
     setFile(next);
     setPreviewUrl(URL.createObjectURL(next));
-    setOptions((o) => ({ ...o, startSec: 0 }));
+    // Images: sound length defaults to the audio's own (≤ 10 s) → leave unset.
+    const kind = inputKindOf(next);
+    setOptions((o) => ({ ...o, startSec: 0, durationSec: kind === "image" ? undefined : (o.durationSec ?? 5) }));
     setStatus({ kind: "ready" });
     return null;
   }, []);
@@ -93,7 +95,7 @@ export function useConverter() {
 
     setStatus({ kind: "uploading", progress: 0 });
     try {
-      const result = await convertVideo({ video: file, audio: audioFile }, options, {
+      const result = await convertVideo({ media: file, audio: audioFile }, options, {
         signal: controller.signal,
         onUploadProgress: (progress) => setStatus({ kind: "uploading", progress }),
         onProcessing: () => setStatus({ kind: "processing" }),
@@ -111,9 +113,11 @@ export function useConverter() {
   }, [file]);
 
   const busy = status.kind === "uploading" || status.kind === "processing";
+  const inputKind: InputKind | null = file ? inputKindOf(file) : null;
 
   return {
     file,
+    inputKind,
     previewUrl,
     audioFile,
     options,
