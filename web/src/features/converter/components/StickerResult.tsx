@@ -36,7 +36,9 @@ export function StickerResult({ result, onReset }: StickerResultProps) {
           {sticker.withinLimit ? <CircleCheckIcon /> : <TriangleAlertIcon />}
           {formatBytes(sticker.bytes)} / {formatBytes(sticker.maxBytes)} ({percent}%)
         </Badge>
-        <Badge variant="outline">{audio ? "Con audio" : "Sin audio"}</Badge>
+        <Badge variant="outline">
+          {audio ? `Audio: ${audio.origin === "file" ? "archivo propio" : "del video"}` : "Sin audio"}
+        </Badge>
       </div>
 
       {result.warnings.length > 0 && (

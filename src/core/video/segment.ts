@@ -1,4 +1,5 @@
 import { STICKER_LIMITS } from "../../config/limits.js";
+import { UserInputError } from "../errors.js";
 
 export interface Segment {
   startSec: number;
@@ -14,12 +15,15 @@ export function resolveSegment(
   startSec = 0,
   durationSec: number = STICKER_LIMITS.defaultDurationSec,
 ): Segment {
-  if (startSec < 0) throw new Error(`start must be ≥ 0 (got ${startSec})`);
+  if (startSec < 0)
+    throw new UserInputError(`El inicio debe ser ≥ 0 (recibido ${startSec}).`);
   if (durationSec <= 0)
-    throw new Error(`duration must be > 0 (got ${durationSec})`);
+    throw new UserInputError(
+      `La duración debe ser > 0 (recibido ${durationSec}).`,
+    );
   if (sourceDurationSec > 0 && startSec >= sourceDurationSec) {
-    throw new Error(
-      `start ${startSec}s is beyond source duration ${sourceDurationSec.toFixed(2)}s`,
+    throw new UserInputError(
+      `El inicio (${startSec} s) está fuera del video (dura ${sourceDurationSec.toFixed(2)} s).`,
     );
   }
   const remaining =

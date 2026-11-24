@@ -1,5 +1,6 @@
 import { API_LIMITS, type FitMode } from "@contract";
-import { TimerIcon } from "lucide-react";
+import { MusicIcon, TimerIcon, XIcon } from "lucide-react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -14,7 +15,10 @@ interface ConvertOptionsFormProps {
   currentTime?: number;
   /** Source duration, if known (bounds the start input). */
   sourceDuration?: number;
+  /** Replacement sound file, if any (null = use the video's own audio). */
+  audioFile: File | null;
   onChange: (patch: Partial<ConverterOptions>) => void;
+  onAudioFileChange: (file: File | null) => void;
 }
 
 export function ConvertOptionsForm({
@@ -22,8 +26,11 @@ export function ConvertOptionsForm({
   disabled,
   currentTime,
   sourceDuration,
+  audioFile,
   onChange,
+  onAudioFileChange,
 }: ConvertOptionsFormProps) {
+  const audioInputRef = useRef<HTMLInputElement>(null);
   const maxStart = sourceDuration ? Math.max(0, sourceDuration - API_LIMITS.minDurationSec) : undefined;
 
   return (
@@ -98,6 +105,73 @@ export function ConvertOptionsForm({
           onCheckedChange={(includeAudio) => onChange({ includeAudio })}
         />
       </div>
+
+      {options.includeAudio && (
+        <div className="space-y-3 rounded-lg border p-3 sm:col-span-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm">
+              <p className="font-medium">Sonido</p>
+              <p className="text-xs text-muted-foreground">
+                {audioFile ? "Archivo propio (reemplaza el del video)" : "El del propio video"}
+              </p>
+            </div>
+            {audioFile ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                disabled={disabled}
+                onClick={() => onAudioFileChange(null)}
+              >
+                <XIcon data-icon="inline-start" />
+                Usar el del video
+              </Button>
+            ) : (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={disabled}
+                onClick={() => audioInputRef.current?.click()}
+              >
+                <MusicIcon data-icon="inline-start" />
+                Elegir audio…
+              </Button>
+            )}
+            <input
+              ref={audioInputRef}
+              type="file"
+              accept="audio/*,video/*"
+              className="hidden"
+              onChange={(e) => {
+                const picked = e.target.files?.[0];
+                if (picked) onAudioFileChange(picked);
+                e.target.value = "";
+              }}
+            />
+          </div>
+          {audioFile && (
+            <div className="grid gap-2 sm:grid-cols-2 sm:items-end">
+              <p className="flex min-w-0 items-center gap-2 text-sm">
+                <MusicIcon className="size-4 shrink-0 text-muted-foreground" />
+                <span className="truncate">{audioFile.name}</span>
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="audio-start">Inicio del audio (s)</Label>
+                <Input
+                  id="audio-start"
+                  type="number"
+                  min={0}
+                  step={0.1}
+                  value={options.audioStartSec}
+                  disabled={disabled}
+                  onChange={(e) => onChange({ audioStartSec: Math.max(0, Number(e.target.value) || 0) })}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

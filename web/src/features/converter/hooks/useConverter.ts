@@ -8,6 +8,7 @@ const DEFAULT_OPTIONS: ConverterOptions = {
   durationSec: 5,
   fit: "pad",
   includeAudio: true,
+  audioStartSec: 0,
 };
 
 /** Client-side checks before upload; returns an error message or null. */
@@ -19,6 +20,13 @@ export function validateFile(file: File): string | null {
   return null;
 }
 
+/** Replacement sound: any audio, or a video whose sound we reuse. */
+export function validateAudioFile(file: File): string | null {
+  if (!/^(audio|video)\//.test(file.type)) return "El archivo de sonido debe ser audio o video.";
+  if (file.size > API_LIMITS.maxAudioBytes) return `El audio supera ${API_LIMITS.maxAudioBytes / 1024 / 1024} MB.`;
+  return null;
+}
+
 /**
  * Owns all converter logic: selected file, options, preview URL and the
  * upload/processing state machine. Components stay presentational.
@@ -27,6 +35,7 @@ export function useConverter() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [options, setOptions] = useState<ConverterOptions>(DEFAULT_OPTIONS);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [status, setStatus] = useState<ConverterStatus>({ kind: "idle" });
   const abortRef = useRef<AbortController | null>(null);
 
@@ -57,6 +66,17 @@ export function useConverter() {
     return null;
   }, []);
 
+  /** Set/clear the replacement sound. Returns an error message or null. */
+  const selectAudioFile = useCallback((next: File | null): string | null => {
+    if (next) {
+      const error = validateAudioFile(next);
+      if (error) return error;
+    }
+    setAudioFile(next);
+    setOptions((o) => ({ ...o, audioStartSec: 0 }));
+    return null;
+  }, []);
+
   const updateOptions = useCallback((patch: Partial<ConverterOptions>) => {
     setOptions((o) => ({ ...o, ...patch }));
   }, []);
@@ -69,7 +89,7 @@ export function useConverter() {
 
     setStatus({ kind: "uploading", progress: 0 });
     try {
-      const result = await convertVideo(file, options, {
+      const result = await convertVideo({ video: file, audio: audioFile }, options, {
         signal: controller.signal,
         onUploadProgress: (progress) => setStatus({ kind: "uploading", progress }),
         onProcessing: () => setStatus({ kind: "processing" }),
@@ -79,7 +99,7 @@ export function useConverter() {
       if (err instanceof ApiError && err.code === "aborted") return;
       setStatus({ kind: "error", message: err instanceof Error ? err.message : "Error desconocido." });
     }
-  }, [file, options]);
+  }, [file, audioFile, options]);
 
   const cancel = useCallback(() => {
     abortRef.current?.abort();
@@ -88,5 +108,17 @@ export function useConverter() {
 
   const busy = status.kind === "uploading" || status.kind === "processing";
 
-  return { file, previewUrl, options, status, busy, selectFile, updateOptions, convert, cancel };
+  return {
+    file,
+    previewUrl,
+    audioFile,
+    options,
+    status,
+    busy,
+    selectFile,
+    selectAudioFile,
+    updateOptions,
+    convert,
+    cancel,
+  };
 }

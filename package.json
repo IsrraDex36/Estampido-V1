@@ -19,12 +19,12 @@
     "lint": "biome check .",
     "format": "biome format --write .",
     "check-deps": "tsx scripts/check-deps.ts",
-    "try:video": "tsx scripts/try-video.ts",
     "dev:api": "tsx watch src/adapters/http/index.ts",
     "dev:web": "npm --prefix web run dev",
     "build:web": "npm --prefix web run build",
     "bot": "tsx src/adapters/bot/index.ts",
-    "bot:capture": "tsx src/adapters/bot/index.ts --capture"
+    "bot:capture": "tsx src/adapters/bot/index.ts --capture",
+    "cli": "tsx src/adapters/cli/index.ts"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.11",

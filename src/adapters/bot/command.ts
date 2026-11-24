@@ -4,10 +4,14 @@ export interface SaudioCommand {
   startSec: number;
   durationSec: number;
   fit: FitMode;
+  /** `voz`/`audio` flag: wait for a voice note/audio to use instead of the video's sound. */
+  customAudio: boolean;
 }
 
+export const SAUDIO_USAGE = "Uso: /saudio [inicio] [duración] [crop|pad] [voz]";
+
 /**
- * Parse `/saudio [start] [duration] [crop|pad]` (also `!saudio`, `.saudio`).
+ * Parse `/saudio [start] [duration] [crop|pad] [voz]` (also `!saudio`, `.saudio`).
  * Returns null if text isn't the command; throws with a user-facing message
  * on bad arguments.
  */
@@ -22,15 +26,14 @@ export function parseSaudio(
     startSec: 0,
     durationSec: maxDuration,
     fit: "pad",
+    customAudio: false,
   };
   const nums: number[] = [];
   for (const p of parts.slice(1)) {
     if (/^(crop|pad)$/i.test(p)) cmd.fit = p.toLowerCase() as FitMode;
+    else if (/^(voz|audio)$/i.test(p)) cmd.customAudio = true;
     else if (/^\d+(\.\d+)?$/.test(p)) nums.push(Number(p));
-    else
-      throw new Error(
-        `Argumento no válido: "${p}". Uso: /saudio [inicio] [duración] [crop|pad]`,
-      );
+    else throw new Error(`Argumento no válido: "${p}". ${SAUDIO_USAGE}`);
   }
   if (nums[0] !== undefined) cmd.startSec = nums[0];
   if (nums[1] !== undefined) {
@@ -76,3 +79,7 @@ export function isAllowedSender(
     );
   });
 }
+
+/** `/cancelar` (also `!cancelar`, `.cancelar`, `/cancel`). */
+export const isCancel = (text: string | null | undefined): boolean =>
+  /^[/!.]cancel(ar)?$/i.test((text ?? "").trim());

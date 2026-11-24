@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createApp } from "../../src/adapters/http/app.js";
 import type { ConvertResponse } from "../../src/adapters/http/contract.js";
 import { ResultStore } from "../../src/adapters/http/resultStore.js";
+import { UserInputError } from "../../src/core/errors.js";
 import type {
   ConvertOptions,
   ConvertResult,
@@ -56,10 +57,15 @@ const fakeConvert = vi.fn(async (o: ConvertOptions): Promise<ConvertResult> => {
   };
 });
 
-function form(fields: Record<string, string>, file?: File): FormData {
+function form(
+  fields: Record<string, string>,
+  file?: File,
+  audio?: File,
+): FormData {
   const fd = new FormData();
   for (const [k, v] of Object.entries(fields)) fd.set(k, v);
   if (file) fd.set("video", file);
+  if (audio) fd.set("audio", audio);
   return fd;
 }
 const video = () =>
@@ -132,6 +138,84 @@ describe("POST /api/convert", () => {
       body: form({ durationSec: "30" }, video()),
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("replacement audio + errors", () => {
+  it("passes uploaded audio as replacement with its offset", async () => {
+    const app = createApp({ store, convert: fakeConvert });
+    const audio = new File([new Uint8Array(5)], "voz.ogg", {
+      type: "audio/ogg",
+    });
+    const res = await app.request("/api/convert", {
+      method: "POST",
+      body: form({ audioStartSec: "1.5" }, video(), audio),
+    });
+    expect(res.status).toBe(200);
+    expect(fakeConvert).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        audio: { file: expect.stringMatching(/audio-input$/), startSec: 1.5 },
+      }),
+    );
+  });
+
+  it("ignores uploaded audio when includeAudio=false", async () => {
+    const app = createApp({ store, convert: fakeConvert });
+    const audio = new File([new Uint8Array(5)], "voz.ogg", {
+      type: "audio/ogg",
+    });
+    await app.request("/api/convert", {
+      method: "POST",
+      body: form({ includeAudio: "false" }, video(), audio),
+    });
+    expect(fakeConvert).toHaveBeenLastCalledWith(
+      expect.objectContaining({ audio: "none" }),
+    );
+  });
+
+  it("415 for non-audio replacement", async () => {
+    const app = createApp({ store, convert: fakeConvert });
+    const bad = new File(["x"], "a.txt", { type: "text/plain" });
+    const res = await app.request("/api/convert", {
+      method: "POST",
+      body: form({}, video(), bad),
+    });
+    expect(res.status).toBe(415);
+  });
+
+  it("UserInputError → 422 with its message; unknown → 500 generic", async () => {
+    const userErr = createApp({
+      store,
+      convert: async () => {
+        throw new UserInputError(
+          "El archivo de audio elegido no tiene sonido.",
+        );
+      },
+    });
+    const r1 = await userErr.request("/api/convert", {
+      method: "POST",
+      body: form({}, video()),
+    });
+    expect(r1.status).toBe(422);
+    expect(await r1.json()).toEqual({
+      error: {
+        code: "unprocessable",
+        message: "El archivo de audio elegido no tiene sonido.",
+      },
+    });
+
+    const boom = createApp({
+      store,
+      convert: async () => {
+        throw new Error("secret internal path /x/y");
+      },
+    });
+    const r2 = await boom.request("/api/convert", {
+      method: "POST",
+      body: form({}, video()),
+    });
+    expect(r2.status).toBe(500);
+    expect(JSON.stringify(await r2.json())).not.toContain("secret");
   });
 });
 

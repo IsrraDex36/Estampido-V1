@@ -14,4 +14,5 @@ export const convertFieldsSchema = z.object({
     .default(5),
   fit: z.enum(["pad", "crop"]).default("pad"),
   includeAudio: boolish.default(true),
+  audioStartSec: z.coerce.number().min(0).default(0),
 }) satisfies z.ZodType<ConvertRequestFields, unknown>;

@@ -9,6 +9,8 @@ export interface ConvertRequestFields {
   durationSec: number;
   fit: FitMode;
   includeAudio: boolean;
+  /** Start offset inside the replacement audio file (multipart field `audio`). */
+  audioStartSec: number;
 }
 
 export interface ConvertResponse {
@@ -24,7 +26,12 @@ export interface ConvertResponse {
     durationMs: number;
     attempts: number;
   };
-  audio: { url: string; bytes: number; codec: "opus" } | null;
+  audio: {
+    url: string;
+    bytes: number;
+    codec: "opus";
+    origin: "video" | "file";
+  } | null;
   source: {
     durationSec: number;
     width: number;
@@ -44,7 +51,9 @@ export interface ApiErrorBody {
 }
 
 export const API_LIMITS = {
+  /** Keep in sync with INPUT_LIMITS in src/config/limits.ts (asserted by tests). */
   maxUploadBytes: 50 * 1024 * 1024,
+  maxAudioBytes: 20 * 1024 * 1024,
   maxDurationSec: 5,
   minDurationSec: 0.5,
 } as const;

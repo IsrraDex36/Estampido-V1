@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import type { ContentfulStatusCode } from "hono/utils/http-status";
+import { UserInputError } from "../../core/errors.js";
 import {
   type ConvertOptions,
   type ConvertResult,
@@ -48,7 +48,7 @@ export function createApp(deps: AppDeps = {}): Hono {
   app.post(
     "/convert",
     bodyLimit({
-      maxSize: API_LIMITS.maxUploadBytes + 64 * 1024,
+      maxSize: API_LIMITS.maxUploadBytes + API_LIMITS.maxAudioBytes + 64 * 1024,
       onError: (c) =>
         c.json(
           fail(
@@ -79,6 +79,40 @@ export function createApp(deps: AppDeps = {}): Hono {
         );
       }
 
+      if (file.size > API_LIMITS.maxUploadBytes) {
+        return c.json(
+          fail(
+            "too_large",
+            `El video supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`,
+          ),
+          413,
+        );
+      }
+
+      // Optional replacement audio: any audio, or a video whose sound we reuse.
+      const audioFile =
+        body.audio instanceof File && body.audio.size > 0 ? body.audio : null;
+      if (audioFile) {
+        if (!/^(audio|video)\//.test(audioFile.type)) {
+          return c.json(
+            fail(
+              "bad_type",
+              `Audio no soportado: ${audioFile.type || "desconocido"}.`,
+            ),
+            415,
+          );
+        }
+        if (audioFile.size > API_LIMITS.maxAudioBytes) {
+          return c.json(
+            fail(
+              "too_large",
+              `El audio supera ${API_LIMITS.maxAudioBytes / 1024 / 1024} MB.`,
+            ),
+            413,
+          );
+        }
+      }
+
       const parsed = convertFieldsSchema.safeParse(body);
       if (!parsed.success) {
         const msg = parsed.error.issues
@@ -93,6 +127,14 @@ export function createApp(deps: AppDeps = {}): Hono {
         // Stored under a fixed name: the client filename is never used in a path.
         const input = join(job.dir, "input");
         await writeFile(input, Buffer.from(await file.arrayBuffer()));
+        let audioPath: string | undefined;
+        if (audioFile && opts.includeAudio) {
+          audioPath = join(job.dir, "audio-input");
+          await writeFile(
+            audioPath,
+            Buffer.from(await audioFile.arrayBuffer()),
+          );
+        }
 
         const result = await jobs.run(() =>
           convert({
@@ -102,7 +144,11 @@ export function createApp(deps: AppDeps = {}): Hono {
             startSec: opts.startSec,
             durationSec: opts.durationSec,
             fit: opts.fit,
-            audio: opts.includeAudio ? "source" : "none",
+            audio: !opts.includeAudio
+              ? "none"
+              : audioPath
+                ? { file: audioPath, startSec: opts.audioStartSec }
+                : "source",
           }),
         );
 
@@ -122,18 +168,21 @@ export function createApp(deps: AppDeps = {}): Hono {
         return c.json(response);
       } catch (err) {
         await store.remove(job.id);
-        const isUserError =
-          err instanceof CommandError ||
-          (err instanceof Error && /beyond|no video/i.test(err.message));
-        const status: ContentfulStatusCode = isUserError ? 422 : 500;
-        const message = isUserError
-          ? "No se pudo procesar el video. ¿Es un archivo válido y el inicio está dentro de su duración?"
-          : "Error interno al convertir.";
+        if (err instanceof UserInputError) {
+          return c.json(fail("unprocessable", err.message), 422);
+        }
+        if (err instanceof CommandError) {
+          console.error("[convert]", err.message);
+          return c.json(
+            fail(
+              "unprocessable",
+              "No se pudo procesar el archivo. ¿Es un video válido?",
+            ),
+            422,
+          );
+        }
         console.error("[convert]", err);
-        return c.json(
-          fail(isUserError ? "unprocessable" : "internal", message),
-          status,
-        );
+        return c.json(fail("internal", "Error interno al convertir."), 500);
       }
     },
   );

@@ -2,8 +2,9 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { DEFAULT_FIT, type FitMode, STICKER_LIMITS } from "../config/limits.js";
 import { encodeAudio } from "../core/audio/encodeAudio.js";
+import { UserInputError } from "../core/errors.js";
 import { fitToSize } from "../core/optimize/fitToSize.js";
-import { probe } from "../core/probe/probe.js";
+import { type MediaInfo, probe } from "../core/probe/probe.js";
 import { encodeVideo } from "../core/video/encodeVideo.js";
 import { resolveSegment } from "../core/video/segment.js";
 import { inspectWebp, totalDurationMs } from "../core/webp/inspect.js";
@@ -17,9 +18,17 @@ export interface ConvertOptions {
   startSec?: number;
   durationSec?: number;
   fit?: FitMode;
-  /** "source" = video's own audio, "none" = silent, or path to replacement audio. */
-  audio?: "source" | "none" | { file: string };
+  /**
+   * "source" = video's own audio, "none" = silent, or a replacement file
+   * (audio or video) read from its own `startSec` (default 0).
+   */
+  audio?: "source" | "none" | ReplacementAudio;
   maxBytes?: number;
+}
+
+export interface ReplacementAudio {
+  file: string;
+  startSec?: number;
 }
 
 export interface ConvertResult {
@@ -45,9 +54,18 @@ export interface ConvertResult {
       durationMs: number;
       attempts: number;
     };
-    audio?: { bytes: number; codec: "opus" };
+    audio?: { bytes: number; codec: "opus"; origin: "video" | "file" };
     elapsedMs: number;
   };
+}
+
+/** ffprobe a user-supplied file; unreadable input is the user's problem, not ours. */
+async function probeUserFile(path: string, what: string): Promise<MediaInfo> {
+  try {
+    return await probe(path);
+  } catch {
+    throw new UserInputError(`No se pudo leer ${what}. ¿Es un archivo válido?`);
+  }
 }
 
 /** Video → animated WebP (≤ size limit) + optional Opus audio track. */
@@ -60,8 +78,23 @@ export async function convertVideoToSoundSticker(
   const maxBytes = opts.maxBytes ?? STICKER_LIMITS.maxAnimatedBytes;
   const fit = opts.fit ?? DEFAULT_FIT;
 
-  const source = await probe(opts.input);
-  if (!source.hasVideo) throw new Error("Input has no video stream");
+  const source = await probeUserFile(opts.input, "el video");
+  if (!source.hasVideo)
+    throw new UserInputError("El archivo no tiene pista de video.");
+
+  // Validate a replacement audio up front: fail fast before the costly encode.
+  const audioMode = opts.audio ?? "source";
+  if (typeof audioMode === "object") {
+    const replacement = await probeUserFile(audioMode.file, "el audio");
+    if (!replacement.hasAudio)
+      throw new UserInputError("El archivo de audio elegido no tiene sonido.");
+    const start = audioMode.startSec ?? 0;
+    if (replacement.durationSec > 0 && start >= replacement.durationSec) {
+      throw new UserInputError(
+        `El inicio del audio (${start} s) está fuera del archivo (dura ${replacement.durationSec.toFixed(2)} s).`,
+      );
+    }
+  }
   const segment = resolveSegment(
     source.durationSec,
     opts.startSec,
@@ -98,32 +131,24 @@ export async function convertVideoToSoundSticker(
 
   let audioPath: string | undefined;
   let audioStats: ConvertResult["stats"]["audio"];
-  const audioMode = opts.audio ?? "source";
-  if (audioMode !== "none") {
-    const audioInput =
-      typeof audioMode === "object" ? audioMode.file : opts.input;
-    const hasAudio =
-      typeof audioMode === "object"
-        ? (await probe(audioMode.file)).hasAudio
-        : source.hasAudio;
-    if (!hasAudio) {
-      warnings.push(
-        "La fuente no tiene pista de audio; se generó solo el sticker.",
-      );
-    } else {
-      audioPath = join(opts.outDir, `${name}.ogg`);
-      const audioStart = typeof audioMode === "object" ? 0 : segment.startSec;
-      await encodeAudio({
-        input: audioInput,
-        output: audioPath,
-        startSec: audioStart,
-        durationSec: segment.durationSec,
-      });
-      audioStats = {
-        bytes: (await readFile(audioPath)).byteLength,
-        codec: "opus",
-      };
-    }
+  if (audioMode === "source" && !source.hasAudio) {
+    warnings.push(
+      "El video no tiene pista de audio; se generó solo el sticker.",
+    );
+  } else if (audioMode !== "none") {
+    const fromFile = typeof audioMode === "object";
+    audioPath = join(opts.outDir, `${name}.ogg`);
+    await encodeAudio({
+      input: fromFile ? audioMode.file : opts.input,
+      output: audioPath,
+      startSec: fromFile ? (audioMode.startSec ?? 0) : segment.startSec,
+      durationSec: segment.durationSec,
+    });
+    audioStats = {
+      bytes: (await readFile(audioPath)).byteLength,
+      codec: "opus",
+      origin: fromFile ? "file" : "video",
+    };
   }
 
   return {

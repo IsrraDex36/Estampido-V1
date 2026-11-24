@@ -88,7 +88,7 @@ sticker-video-audio/
 - [x] `core/video`: recorte (inicio + duración ≤5 s), escala a 512 con padding transparente, fps fijo (15), `-loop 0`, frames uniformes
 - [x] Test con un video fixture generado por FFmpeg (`testsrc`)
 - [x] `core/webp/inspect`: parser RIFF puro en TS (canvas, frames, duración, alpha, loop) para verificar la salida
-- [x] `scripts/try-video.ts` (`npm run try:video -- <video> [start] [dur] [pad|crop]`)
+- [x] ~~`scripts/try-video.ts`~~ → reemplazado por la CLI `sva convert` (fase 3)
 - [ ] Validación manual: enviar `samples/output/*.webp` a WhatsApp
 
 > Nota: a calidad 75 y 15 fps, el contenido con mucho detalle supera 500 KB (testsrc2: 538 KB, mandelbrot: 1030 KB). Lo resuelve el optimizador de la fase 3.
@@ -99,7 +99,7 @@ sticker-video-audio/
 
 - [x] `core/audio`: extraer el mismo segmento → Opus/OGG mono 48 kHz. Si el video no tiene audio, devolver un aviso, no un crash
 - [x] Sincronía: mismo `start`/`duration` que el video
-- [~] Flags: `--audio <archivo>` para reemplazar el audio y `--no-audio`
+- [x] Audio propio en todos los adaptadores: CLI `-a/--audio <archivo> --audio-start`, web (selector de archivo + inicio), bot (`/saudio voz` → siguiente nota de voz). También `--no-audio`
 
 **Criterio de salida:** `sticker.webp` + `audio.ogg` con la misma duración (±50 ms).
 
@@ -107,8 +107,8 @@ sticker-video-audio/
 
 - [x] `core/optimize`: loop de calidad 80→30 y fps 15→10 hasta quedar en ≤500 KB
 - [ ] `core/metadata`: EXIF de pack/autor (formato `sticker-pack-id`, compatible con WhatsApp)
-- [ ] `adapters/cli`: `sva convert input.mp4 --start 2 --duration 5 --out samples/output`
-- [ ] Reporte final: tamaño, fps, calidad usada, duración del audio
+- [x] `adapters/cli`: `sva convert <video> [-s] [-d] [--crop] [-a archivo] [--no-audio] [-o] [-n] [--json]` + `sva doctor`. Códigos de salida: 0 ok, 1 interno, 2 entrada inválida
+- [x] Reporte final: tamaño, fps, calidad usada, duración y origen del audio
 
 **Criterio de salida:** un comando produce un sticker válido por debajo del límite, con stats.
 
@@ -135,6 +135,9 @@ sticker-video-audio/
 - [x] `adapters/bot`: conexión Baileys 7.0.0-rc14 (QR, reconexión)
 - [ ] Envío nativo `audioStickerMessage` (campo 134): depende de la captura
 - [x] Fallback: sticker + nota de voz (`/saudio`, con control de acceso `SVA_ALLOWED`)
+- [x] Límite de descarga en el bot: 50 MB para video y 20 MB para audio. Se rechaza antes de descargar por `fileLength` y se corta en pleno stream si el tamaño declarado no coincide
+- [x] Errores de usuario tipados (`UserInputError`) con mensajes claros en API (422), bot y CLI (exit 2). Los errores internos no filtran detalles
+- [ ] Comandos desde la propia cuenta del bot (`messages.upsert` de tipo `append`)
 - [ ] Prueba entre 2 dispositivos
 
 > ⚠️ Usar un **número secundario** para las pruebas: Baileys es no oficial y hay riesgo de baneo.

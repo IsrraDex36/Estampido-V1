@@ -9,7 +9,7 @@ describe("resolveSegment", () => {
     expect(resolveSegment(6, 3, 5)).toEqual({ startSec: 3, durationSec: 3 });
   });
   it("throws when start beyond source", () => {
-    expect(() => resolveSegment(4, 4)).toThrow(/beyond/);
+    expect(() => resolveSegment(4, 4)).toThrow(/fuera del video/);
   });
   it("rejects bad input", () => {
     expect(() => resolveSegment(10, -1)).toThrow();

@@ -1,43 +1,12 @@
-import { ffmpegPath, ffprobePath, run } from "../src/utils/ffmpeg.js";
+import { checkDeps } from "../src/utils/deps.js";
 
-const REQUIRED_ENCODERS = ["libwebp_anim", "libopus"] as const;
-
-async function main(): Promise<void> {
-  let ok = true;
-  const ffmpeg = ffmpegPath();
-  const ffprobe = ffprobePath();
-
-  for (const [name, bin] of [
-    ["ffmpeg", ffmpeg],
-    ["ffprobe", ffprobe],
-  ] as const) {
-    try {
-      const { stdout } = await run(bin, ["-version"]);
-      console.log(`✔ ${name}: ${stdout.split("\n")[0]} (${bin})`);
-    } catch {
-      console.error(
-        `✘ ${name} not found (${bin}). Install: brew install ffmpeg-full`,
-      );
-      ok = false;
-    }
-  }
-
-  if (ok) {
-    const { stdout } = await run(ffmpeg, ["-hide_banner", "-encoders"]);
-    for (const enc of REQUIRED_ENCODERS) {
-      const found = new RegExp(`\\s${enc}\\s`).test(stdout);
-      console.log(`${found ? "✔" : "✘"} encoder ${enc}`);
-      if (!found) ok = false;
-    }
-  }
-
-  if (!ok) {
-    console.error(
-      "\nMissing dependencies. Use `brew install ffmpeg-full` or set FFMPEG_PATH/FFPROBE_PATH.",
-    );
-    process.exit(1);
-  }
-  console.log("\nAll dependencies OK.");
+const checks = await checkDeps();
+for (const c of checks)
+  console.log(`${c.ok ? "✔" : "✘"} ${c.name}: ${c.detail}`);
+if (checks.some((c) => !c.ok)) {
+  console.error(
+    "\nFaltan dependencias. Usa `brew install ffmpeg-full` o define FFMPEG_PATH/FFPROBE_PATH.",
+  );
+  process.exit(1);
 }
-
-main();
+console.log("\nTodo OK.");

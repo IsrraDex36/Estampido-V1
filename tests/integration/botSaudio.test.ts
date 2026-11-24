@@ -1,0 +1,151 @@
+import { readFile, rm } from "node:fs/promises";
+import { join } from "node:path";
+import type { WAMessage, WASocket } from "baileys";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import type { Downloader } from "../../src/adapters/bot/media.js";
+import { createSaudio } from "../../src/adapters/bot/saudio.js";
+import { ffmpegPath, run } from "../../src/utils/ffmpeg.js";
+import { makeTempDir, makeVideo } from "../helpers/fixtures.js";
+
+let dir: string;
+let videoBytes: Buffer;
+let voiceBytes: Buffer;
+
+beforeAll(async () => {
+  dir = await makeTempDir();
+  videoBytes = await readFile(await makeVideo(dir, "v.mp4", { seconds: 4 }));
+  const voice = join(dir, "voice.ogg");
+  await run(ffmpegPath(), [
+    "-v",
+    "error",
+    "-y",
+    "-f",
+    "lavfi",
+    "-i",
+    "sine=frequency=700:duration=3",
+    "-c:a",
+    "libopus",
+    voice,
+  ]);
+  voiceBytes = await readFile(voice);
+});
+afterAll(async () => {
+  await rm(dir, { recursive: true, force: true });
+});
+
+/** Fake socket recording sendMessage calls. */
+function fakeSock() {
+  const sent: { jid: string; content: Record<string, unknown> }[] = [];
+  const sock = {
+    sendMessage: vi.fn(
+      async (jid: string, content: Record<string, unknown>) => {
+        sent.push({ jid, content });
+        return undefined;
+      },
+    ),
+  } as unknown as WASocket;
+  return { sock, sent };
+}
+
+/** Serves fixture bytes per media type, like downloadContentFromMessage. */
+const downloader: Downloader = async (_msg, type) => {
+  const data = type === "audio" ? voiceBytes : videoBytes;
+  return (async function* () {
+    yield data;
+  })();
+};
+
+const JID = "595981234567@s.whatsapp.net";
+const msg = (id: string, message: WAMessage["message"]): WAMessage => ({
+  key: { id, remoteJid: JID },
+  message,
+});
+
+const kinds = (sent: { content: Record<string, unknown> }[]) =>
+  sent.map(({ content }) =>
+    Object.keys(content).find((k) =>
+      ["sticker", "audio", "text", "react"].includes(k),
+    ),
+  );
+
+describe("/saudio via fake socket (real pipeline)", () => {
+  it("plain: sends sticker + voice note + summary", async () => {
+    const { sock, sent } = fakeSock();
+    const saudio = createSaudio(sock, downloader);
+    await saudio.onCommand(
+      msg("1", { videoMessage: { caption: "/saudio 0 2" } }),
+      "/saudio 0 2",
+    );
+
+    expect(kinds(sent)).toEqual(["react", "sticker", "audio", "text", "react"]);
+    const audio = sent.find((s) => "audio" in s.content)?.content;
+    expect(audio).toMatchObject({
+      ptt: true,
+      mimetype: "audio/ogg; codecs=opus",
+    });
+    expect(String(sent.find((s) => "text" in s.content)?.content.text)).toMatch(
+      /^✔ \d+ KB/,
+    );
+  });
+
+  it("voz: waits for audio, then uses it", async () => {
+    const { sock, sent } = fakeSock();
+    const saudio = createSaudio(sock, downloader);
+    await saudio.onCommand(
+      msg("2", { videoMessage: { caption: "/saudio voz" } }),
+      "/saudio voz",
+    );
+    expect(saudio.pending.size).toBe(1);
+    expect(String(sent.at(-1)?.content.text)).toMatch(/nota de voz/);
+
+    // Unrelated text doesn't consume the pending job.
+    expect(await saudio.onAudio(msg("3", { conversation: "hola" }))).toBe(
+      false,
+    );
+
+    sent.length = 0;
+    expect(
+      await saudio.onAudio(msg("4", { audioMessage: { ptt: true } })),
+    ).toBe(true);
+    expect(saudio.pending.size).toBe(0);
+    expect(kinds(sent)).toContain("sticker");
+    expect(kinds(sent)).toContain("audio");
+  });
+
+  it("rejects oversized video from declared fileLength without downloading", async () => {
+    const { sock, sent } = fakeSock();
+    const dl = vi.fn(downloader);
+    const saudio = createSaudio(sock, dl);
+    await saudio.onCommand(
+      msg("5", {
+        videoMessage: { caption: "/saudio", fileLength: 999 * 1024 * 1024 },
+      }),
+      "/saudio",
+    );
+    expect(dl).not.toHaveBeenCalled();
+    expect(String(sent.find((s) => "text" in s.content)?.content.text)).toMatch(
+      /El video supera el límite de 50 MB/,
+    );
+  });
+
+  it("cancel discards pending job", async () => {
+    const { sock, sent } = fakeSock();
+    const saudio = createSaudio(sock, downloader);
+    await saudio.onCommand(
+      msg("6", { videoMessage: { caption: "/saudio voz" } }),
+      "/saudio voz",
+    );
+    await saudio.onCancel(msg("7", { conversation: "/cancelar" }));
+    expect(saudio.pending.size).toBe(0);
+    expect(String(sent.at(-1)?.content.text)).toBe("Cancelado.");
+  });
+
+  it("no video → usage hint", async () => {
+    const { sock, sent } = fakeSock();
+    await createSaudio(sock, downloader).onCommand(
+      msg("8", { conversation: "/saudio" }),
+      "/saudio",
+    );
+    expect(String(sent[0]?.content.text)).toMatch(/Uso: \/saudio/);
+  });
+});

@@ -32,7 +32,7 @@ describe("decodeRaw", () => {
     );
     const fields = decodeRaw(buf);
     expect(fields.map((f) => f.field)).toEqual([1, 26]);
-    expect((fields[0]?.value as Buffer).toString()).toBe("hola");
+    expect(String(fields[0]?.value)).toBe("hola");
   });
 
   it("sees field 134 that Baileys drops", () => {

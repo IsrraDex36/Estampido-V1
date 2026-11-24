@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   isAllowedSender,
+  isCancel,
   jidDigits,
   parseSaudio,
 } from "../../src/adapters/bot/command.js";
@@ -16,6 +17,7 @@ describe("parseSaudio", () => {
       startSec: 0,
       durationSec: 5,
       fit: "pad",
+      customAudio: false,
     });
   });
   it("parses start, duration, fit in any order", () => {
@@ -23,11 +25,27 @@ describe("parseSaudio", () => {
       startSec: 2.5,
       durationSec: 3,
       fit: "crop",
+      customAudio: false,
     });
     expect(parseSaudio(".SAUDIO 1")).toMatchObject({
       startSec: 1,
       durationSec: 5,
     });
+  });
+  it("voz/audio flag requests custom audio", () => {
+    expect(parseSaudio("/saudio 1 voz")).toMatchObject({
+      startSec: 1,
+      customAudio: true,
+    });
+    expect(parseSaudio("/saudio AUDIO crop")).toMatchObject({
+      customAudio: true,
+      fit: "crop",
+    });
+  });
+  it("isCancel", () => {
+    expect(isCancel("/cancelar")).toBe(true);
+    expect(isCancel(" !cancel ")).toBe(true);
+    expect(isCancel("/cancelar ya")).toBe(false);
   });
   it("rejects bad args", () => {
     expect(() => parseSaudio("/saudio foo")).toThrow(/no válido/);

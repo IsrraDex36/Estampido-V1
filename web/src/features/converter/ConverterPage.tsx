@@ -45,7 +45,12 @@ export function ConverterPage() {
               disabled={c.busy}
               currentTime={currentTime}
               sourceDuration={sourceDuration}
+              audioFile={c.audioFile}
               onChange={c.updateOptions}
+              onAudioFileChange={(f) => {
+                const error = c.selectAudioFile(f);
+                if (error) toast.error(error);
+              }}
             />
           )}
           {c.status.kind === "uploading" || c.status.kind === "processing" ? (
