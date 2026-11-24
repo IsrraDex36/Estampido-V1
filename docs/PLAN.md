@@ -127,12 +127,14 @@ sticker-video-audio/
 - [ ] GIF → sticker
 - [ ] Recorte cuadrado inteligente (crop centrado vs. padding)
 
-### Fase 5 — Envío por WhatsApp (experimental)
+### Fase 5 — Envío por WhatsApp (experimental) 🚧
 
-- [ ] Capturar un sound sticker real desde WhatsApp Web y documentar el protobuf en `docs/`
+- [x] Herramienta de captura: hook sobre `proto.Message.decode` + decoder protobuf sin esquema + extractor genérico de media (`npm run bot:capture`), ver `docs/PROTOCOLO.md`
+- [ ] **Capturar un sound sticker real** (requiere que el usuario escanee el QR y envíe uno)
 - [ ] Confirmar el códec real del audio y ajustar la fase 2 si hace falta
-- [ ] `adapters/bot`: Baileys + `audioStickerMessage` (campo 134)
-- [ ] Fallback: sticker + nota de voz
+- [x] `adapters/bot`: conexión Baileys 7.0.0-rc14 (QR, reconexión)
+- [ ] Envío nativo `audioStickerMessage` (campo 134): depende de la captura
+- [x] Fallback: sticker + nota de voz (`/saudio`, con control de acceso `SVA_ALLOWED`)
 - [ ] Prueba entre 2 dispositivos
 
 > ⚠️ Usar un **número secundario** para las pruebas: Baileys es no oficial y hay riesgo de baneo.

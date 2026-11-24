@@ -2,7 +2,7 @@
 
 Proyecto para crear **stickers de WhatsApp a partir de video que conservan el audio**, aprovechando el nuevo formato nativo de _sound stickers_ (despliegue limitado desde nov 2026).
 
-> Estado: **prototipo funcional**: video → WebP ≤500 KB + audio Opus, con web de pruebas. Siguiente: probar en WhatsApp real (fase 5). Ver [docs/PLAN.md](docs/PLAN.md) e [INVESTIGACION.md](INVESTIGACION.md).
+> Estado: **prototipo funcional** (conversor + web + bot con fallback). Siguiente: **capturar un sound sticker real** → envío nativo. Ver [docs/PLAN.md](docs/PLAN.md), [docs/PROTOCOLO.md](docs/PROTOCOLO.md) e [INVESTIGACION.md](INVESTIGACION.md).
 
 ## Requisitos
 
@@ -17,6 +17,10 @@ npm test
 # Web de pruebas (API :8787 + Vite :5173)
 npm --prefix web install
 npm run dev          # abre http://localhost:5173
+
+# Bot WhatsApp (Baileys, usar número secundario)
+SVA_ALLOWED=<tu_numero> npm run bot           # /saudio [inicio] [duración] [crop|pad]
+SVA_ALLOWED=<tu_numero> npm run bot:capture   # + volcado de mensajes desconocidos (campo 134)
 ```
 
 ## Idea

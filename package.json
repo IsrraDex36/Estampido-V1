@@ -22,17 +22,23 @@
     "try:video": "tsx scripts/try-video.ts",
     "dev:api": "tsx watch src/adapters/http/index.ts",
     "dev:web": "npm --prefix web run dev",
-    "build:web": "npm --prefix web run build"
+    "build:web": "npm --prefix web run build",
+    "bot": "tsx src/adapters/bot/index.ts",
+    "bot:capture": "tsx src/adapters/bot/index.ts --capture"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.11",
+    "baileys": "^7.0.0-rc14",
     "commander": "^15.1.0",
     "hono": "^4.13.21",
+    "pino": "^9.14.0",
+    "qrcode-terminal": "^0.12.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.9",
     "@types/node": "^24.19.2",
+    "@types/qrcode-terminal": "^0.12.2",
     "concurrently": "^10.0.7",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

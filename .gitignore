@@ -10,3 +10,7 @@ samples/output/*
 tests/fixtures/*.mp4
 tests/fixtures/*.webp
 tests/fixtures/*.ogg
+
+# WhatsApp session keys and captured messages (contain media keys) — never commit
+.auth/
+captures/

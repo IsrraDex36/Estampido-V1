@@ -1,0 +1,85 @@
+import { describe, expect, it } from "vitest";
+import {
+  isAllowedSender,
+  jidDigits,
+  parseSaudio,
+} from "../../src/adapters/bot/command.js";
+
+describe("parseSaudio", () => {
+  it("ignores other text", () => {
+    expect(parseSaudio("hola")).toBeNull();
+    expect(parseSaudio(undefined)).toBeNull();
+    expect(parseSaudio("/saudiox")).toBeNull();
+  });
+  it("defaults", () => {
+    expect(parseSaudio("/saudio")).toEqual({
+      startSec: 0,
+      durationSec: 5,
+      fit: "pad",
+    });
+  });
+  it("parses start, duration, fit in any order", () => {
+    expect(parseSaudio("!saudio crop 2.5 3")).toEqual({
+      startSec: 2.5,
+      durationSec: 3,
+      fit: "crop",
+    });
+    expect(parseSaudio(".SAUDIO 1")).toMatchObject({
+      startSec: 1,
+      durationSec: 5,
+    });
+  });
+  it("rejects bad args", () => {
+    expect(() => parseSaudio("/saudio foo")).toThrow(/no válido/);
+    expect(() => parseSaudio("/saudio 0 9")).toThrow(/duración/);
+  });
+});
+
+describe("access control", () => {
+  const allowed = new Set(["595981234567"]);
+  it("jidDigits", () => {
+    expect(jidDigits("595981234567:12@s.whatsapp.net")).toBe("595981234567");
+    expect(jidDigits("abc@g.us")).toBeNull();
+  });
+  it("own messages allowed", () => {
+    expect(
+      isAllowedSender({ fromMe: true, remoteJid: "1@s.whatsapp.net" }, allowed),
+    ).toBe(true);
+  });
+  it("DM from allowed PN, or via PN alt of a LID", () => {
+    expect(
+      isAllowedSender({ remoteJid: "595981234567@s.whatsapp.net" }, allowed),
+    ).toBe(true);
+    expect(
+      isAllowedSender(
+        {
+          remoteJid: "123456789@lid",
+          remoteJidAlt: "595981234567@s.whatsapp.net",
+        },
+        allowed,
+      ),
+    ).toBe(true);
+  });
+  it("rejects strangers and bare LIDs", () => {
+    expect(isAllowedSender({ remoteJid: "111@s.whatsapp.net" }, allowed)).toBe(
+      false,
+    );
+    expect(isAllowedSender({ remoteJid: "595981234567@lid" }, allowed)).toBe(
+      false,
+    );
+  });
+  it("groups check participant, not group id", () => {
+    expect(
+      isAllowedSender(
+        { remoteJid: "595981234567@g.us", participant: "222@s.whatsapp.net" },
+        allowed,
+      ),
+    ).toBe(false);
+    expect(
+      isAllowedSender(
+        { remoteJid: "x@g.us", participant: "595981234567@s.whatsapp.net" },
+        allowed,
+      ),
+    ).toBe(true);
+  });
+});
