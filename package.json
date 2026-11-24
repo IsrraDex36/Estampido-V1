@@ -22,8 +22,8 @@
     "dev:api": "tsx watch src/adapters/http/index.ts",
     "dev:web": "npm --prefix web run dev",
     "build:web": "npm --prefix web run build",
-    "bot": "tsx src/adapters/bot/index.ts",
-    "bot:capture": "tsx src/adapters/bot/index.ts --capture",
+    "bot": "tsx --env-file-if-exists=.env src/adapters/bot/index.ts",
+    "bot:capture": "tsx --env-file-if-exists=.env src/adapters/bot/index.ts --capture",
     "cli": "tsx src/adapters/cli/index.ts"
   },
   "dependencies": {
