@@ -95,22 +95,31 @@ sticker-video-audio/
 
 **Criterio de salida:** el WebP abre en el navegador, mide 512×512 y WhatsApp lo acepta como sticker animado (enviado manualmente).
 
-### Fase 2 — Audio
+### Fase 2 — Audio ✅ (núcleo)
 
-- [ ] `core/audio`: extraer el mismo segmento → Opus/OGG mono 48 kHz. Si el video no tiene audio, devolver un aviso, no un crash
-- [ ] Sincronía: mismo `start`/`duration` que el video
-- [ ] Flags: `--audio <archivo>` para reemplazar el audio y `--no-audio`
+- [x] `core/audio`: extraer el mismo segmento → Opus/OGG mono 48 kHz. Si el video no tiene audio, devolver un aviso, no un crash
+- [x] Sincronía: mismo `start`/`duration` que el video
+- [~] Flags: `--audio <archivo>` para reemplazar el audio y `--no-audio`
 
 **Criterio de salida:** `sticker.webp` + `audio.ogg` con la misma duración (±50 ms).
 
-### Fase 3 — Optimización + metadata + CLI
+### Fase 3 — Optimización + metadata + CLI (optimizador ✅ adelantado)
 
-- [ ] `core/optimize`: loop de calidad 80→30 y fps 15→10 hasta quedar en ≤500 KB
+- [x] `core/optimize`: loop de calidad 80→30 y fps 15→10 hasta quedar en ≤500 KB
 - [ ] `core/metadata`: EXIF de pack/autor (formato `sticker-pack-id`, compatible con WhatsApp)
 - [ ] `adapters/cli`: `sva convert input.mp4 --start 2 --duration 5 --out samples/output`
 - [ ] Reporte final: tamaño, fps, calidad usada, duración del audio
 
 **Criterio de salida:** un comando produce un sticker válido por debajo del límite, con stats.
+
+### Fase 3b — Web de pruebas ✅
+
+- [x] `adapters/http`: API Hono (`POST /api/convert`, `GET /api/results/:id/:file`), con zod, límite de 50 MB, tipos de archivo permitidos, cola (2 conversiones a la vez) y borrado de resultados tras 30 min
+- [x] `contract.ts`: tipos compartidos entre API y web (solo tipos, alias `@contract`)
+- [x] `web/`: Vite + React 19 + Tailwind v4 + shadcn (Nova)
+  - Lógica: `lib/api.ts` (XHR con progreso de subida), `hooks/useConverter.ts` (máquina de estados)
+  - UX: `hooks/useSoundStickerPreview.ts` (tocar → reproduce; mute como en WhatsApp)
+  - UI: `components/*` presentacionales + `ConverterPage.tsx` (solo compone)
 
 ### Fase 4 — Entradas extra
 

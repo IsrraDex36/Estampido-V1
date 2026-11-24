@@ -2,7 +2,7 @@
 
 Proyecto para crear **stickers de WhatsApp a partir de video que conservan el audio**, aprovechando el nuevo formato nativo de _sound stickers_ (despliegue limitado desde nov 2026).
 
-> Estado: **fase 1 completa** (video → WebP animado). Siguiente: fase 2 (audio). Ver [docs/PLAN.md](docs/PLAN.md) e [INVESTIGACION.md](INVESTIGACION.md).
+> Estado: **prototipo funcional**: video → WebP ≤500 KB + audio Opus, con web de pruebas. Siguiente: probar en WhatsApp real (fase 5). Ver [docs/PLAN.md](docs/PLAN.md) e [INVESTIGACION.md](INVESTIGACION.md).
 
 ## Requisitos
 
@@ -13,6 +13,10 @@ Proyecto para crear **stickers de WhatsApp a partir de video que conservan el au
 npm install
 npm run check-deps   # verifica ffmpeg/ffprobe + encoders
 npm test
+
+# Web de pruebas (API :8787 + Vite :5173)
+npm --prefix web install
+npm run dev          # abre http://localhost:5173
 ```
 
 ## Idea
