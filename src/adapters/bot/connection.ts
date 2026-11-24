@@ -47,6 +47,14 @@ export async function connect({ authDir, onReady, logLevel = "warn" }: ConnectOp
         console.error(`✘ Sesión cerrada. Borra ${authDir} y vuelve a vincular.`);
         process.exit(1);
       }
+      if (code === DisconnectReason.restartRequired) {
+        // Expected right after scanning the QR: WhatsApp closes the socket so the
+        // client reconnects with the new session. A "failed to ack notification"
+        // log just before this is harmless (ack sent on the closing socket).
+        console.log("✔ Vinculado. Reiniciando la conexión (normal tras escanear el QR)…");
+        void connect({ authDir, onReady, logLevel });
+        return;
+      }
       console.warn(`Conexión cerrada (código ${code ?? "?"}). Reconectando…`);
       setTimeout(() => void connect({ authDir, onReady, logLevel }), 2_000);
     }
