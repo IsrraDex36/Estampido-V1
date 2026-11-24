@@ -1,0 +1,139 @@
+# Plan de trabajo — Sticker Video Audio
+
+Objetivo del prototipo: **video → sticker WebP animado + pista de audio**, listo para enviarse como _sound sticker_ de WhatsApp. El MVP es una CLI local. El bot de WhatsApp llega después.
+
+---
+
+## 1. Tecnologías recomendadas
+
+| Capa         | Elección                                                               | Por qué                                                                                                            |
+| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Runtime      | **Node.js 24** (ya instalado)                                          | Mismo ecosistema que Baileys/bots de WhatsApp                                                                      |
+| Lenguaje     | **TypeScript** (ESM)                                                   | Tipos para opciones, límites y resultados del pipeline                                                             |
+| Ejecutar TS  | **tsx** (dev) + `tsc` (build)                                          | Cero config, rápido                                                                                                |
+| Video/audio  | **FFmpeg** (`brew install ffmpeg-full`), invocado con `child_process.spawn` | Estándar de la industria. `ffmpeg-full` incluye `libwebp` + `libopus` (el formula `ffmpeg` normal NO trae `libwebp`). _No_ usar `fluent-ffmpeg` (archivado y sin mantenimiento) |
+| Metadata     | **ffprobe** (JSON)                                                     | Duración, fps, resolución, si hay pista de audio                                                                   |
+| WebP extra   | `webpmux` (ya instalado)                                               | Inyectar el EXIF de pack/autor y verificar frames                                                                  |
+| Imágenes     | **sharp** (fase 4)                                                     | Stickers desde imagen estática + audio                                                                             |
+| Validación   | **zod**                                                                | Validar opciones de CLI y config                                                                                   |
+| CLI          | **commander**                                                          | Comandos y flags simples                                                                                           |
+| Tests        | **vitest**                                                             | Rápido y nativo con TS/ESM                                                                                         |
+| Lint/format  | **Biome**                                                              | Una sola herramienta en lugar de eslint + prettier                                                                 |
+| Bot (fase 5) | **Baileys** + parche del campo 134                                     | Único camino viable hoy para `audioStickerMessage`                                                                 |
+
+**Alternativa descartada:** `ffmpeg-static` (npm). Es portable, pero no garantiza `libwebp` ni `libopus` en todas las plataformas. Se podría evaluar más adelante para Docker.
+
+---
+
+## 2. Arquitectura
+
+```
+entrada (video) ──► probe ──► plan de recorte ──┬─► video encoder ──► optimize (≤500 KB) ──► metadata EXIF ──► sticker.webp
+                                                └─► audio encoder ──────────────────────────────────────────► audio.ogg (opus)
+                                                                     │
+                                                                     ▼
+                                                    resultado { webp, audio, stats }
+                                                                     │
+                                                 ┌───────────────────┴───────────────────┐
+                                                 ▼                                       ▼
+                                          adapters/cli                            adapters/bot (Baileys)
+```
+
+**Principios:**
+
+- `core/` contiene funciones puras + FFmpeg, sin conocer WhatsApp ni la CLI.
+- `pipeline/` orquesta los pasos y devuelve un resultado tipado.
+- `adapters/` son las entradas y salidas (CLI ahora, bot después) y pueden cambiarse sin tocar el core.
+- `config/` centraliza los límites de WhatsApp (tamaño, dimensiones, duración, fps) en un solo lugar, porque el formato no es oficial y puede cambiar.
+
+```
+sticker-video-audio/
+├── src/
+│   ├── core/
+│   │   ├── probe/       # ffprobe → metadata tipada
+│   │   ├── video/       # video → WebP animado 512×512
+│   │   ├── audio/       # extraer + recortar → Opus/OGG
+│   │   ├── optimize/    # bajar calidad/fps hasta cumplir el tamaño
+│   │   └── metadata/    # EXIF de pack/autor en el WebP
+│   ├── pipeline/        # orquestador: convertVideoToSoundSticker()
+│   ├── adapters/
+│   │   ├── cli/         # comando `sva convert <video>`
+│   │   └── bot/         # (fase 5) envío vía Baileys
+│   ├── config/          # límites WA + esquema zod
+│   └── utils/           # spawn ffmpeg, temp files, logger
+├── tests/{unit,integration,fixtures}
+├── samples/{input,output}   # videos de prueba (git-ignored)
+├── scripts/             # check-deps, generar fixtures
+└── docs/                # PLAN.md, decisiones
+```
+
+---
+
+## 3. Fases
+
+### Fase 0 — Setup ✅
+
+- [x] Esqueleto de carpetas
+- [x] `brew install ffmpeg-full` (keg-only; `ffmpeg` normal no trae `libwebp`) — `libwebp_anim` + `libopus` OK
+- [x] `package.json`, `tsconfig.json`, Biome, vitest, `.gitignore`
+- [x] `scripts/check-deps`: verifica ffmpeg, ffprobe y sus encoders
+- [x] `git init`
+
+**Criterio de salida:** `npm test` corre (vacío) y `check-deps` pasa.
+
+### Fase 1 — Video → WebP animado (sin audio)
+
+- [x] `utils/ffmpeg`: wrapper de spawn con timeout y errores legibles
+- [ ] `core/probe`: duración, fps, w/h, `hasAudio`
+- [ ] `core/video`: recorte (inicio + duración ≤5 s), escala a 512 con padding transparente, fps fijo (15), `-loop 0`, frames uniformes
+- [ ] Test con un video fixture generado por FFmpeg (`testsrc`)
+
+**Criterio de salida:** el WebP abre en el navegador, mide 512×512 y WhatsApp lo acepta como sticker animado (enviado manualmente).
+
+### Fase 2 — Audio
+
+- [ ] `core/audio`: extraer el mismo segmento → Opus/OGG mono 48 kHz. Si el video no tiene audio, devolver un aviso, no un crash
+- [ ] Sincronía: mismo `start`/`duration` que el video
+- [ ] Flags: `--audio <archivo>` para reemplazar el audio y `--no-audio`
+
+**Criterio de salida:** `sticker.webp` + `audio.ogg` con la misma duración (±50 ms).
+
+### Fase 3 — Optimización + metadata + CLI
+
+- [ ] `core/optimize`: loop de calidad 80→30 y fps 15→10 hasta quedar en ≤500 KB
+- [ ] `core/metadata`: EXIF de pack/autor (formato `sticker-pack-id`, compatible con WhatsApp)
+- [ ] `adapters/cli`: `sva convert input.mp4 --start 2 --duration 5 --out samples/output`
+- [ ] Reporte final: tamaño, fps, calidad usada, duración del audio
+
+**Criterio de salida:** un comando produce un sticker válido por debajo del límite, con stats.
+
+### Fase 4 — Entradas extra
+
+- [ ] Imagen + audio (≤10 s) usando sharp
+- [ ] GIF → sticker
+- [ ] Recorte cuadrado inteligente (crop centrado vs. padding)
+
+### Fase 5 — Envío por WhatsApp (experimental)
+
+- [ ] Capturar un sound sticker real desde WhatsApp Web y documentar el protobuf en `docs/`
+- [ ] Confirmar el códec real del audio y ajustar la fase 2 si hace falta
+- [ ] `adapters/bot`: Baileys + `audioStickerMessage` (campo 134)
+- [ ] Fallback: sticker + nota de voz
+- [ ] Prueba entre 2 dispositivos
+
+> ⚠️ Usar un **número secundario** para las pruebas: Baileys es no oficial y hay riesgo de baneo.
+
+### Fase 6 — Pulido
+
+- [ ] Dockerfile con FFmpeg
+- [ ] Procesamiento en cola (concurrencia limitada)
+- [ ] Docs + ejemplos
+
+---
+
+## 4. Decisiones
+
+1. ✅ Encuadre: **padding transparente** por defecto (flag `--crop` opcional) — decidido 2026-11-24.
+2. ✅ Duración por defecto: **5 s** — decidido 2026-11-24. Validar aceptación real en WhatsApp en fase 1.
+3. ⏳ Códec audio: se asume Opus/OGG hasta verificar en fase 5.
+4. ✅ FFmpeg: `ffmpeg-full` (Homebrew, keg-only). Ruta resuelta en `src/utils/ffmpeg.ts`; override con `FFMPEG_PATH`/`FFPROBE_PATH`.

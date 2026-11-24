@@ -1,0 +1,12 @@
+node_modules/
+dist/
+coverage/
+.DS_Store
+*.log
+.env
+samples/input/*
+samples/output/*
+!samples/**/.gitkeep
+tests/fixtures/*.mp4
+tests/fixtures/*.webp
+tests/fixtures/*.ogg
