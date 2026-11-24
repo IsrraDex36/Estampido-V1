@@ -2,7 +2,7 @@
 
 Proyecto para crear **stickers de WhatsApp a partir de video que conservan el audio**, aprovechando el nuevo formato nativo de _sound stickers_ (despliegue limitado desde nov 2026).
 
-> Estado: **fase 0 completa** (setup). Siguiente: fase 1 (video → WebP). Ver [docs/PLAN.md](docs/PLAN.md) e [INVESTIGACION.md](INVESTIGACION.md).
+> Estado: **fase 1 completa** (video → WebP animado). Siguiente: fase 2 (audio). Ver [docs/PLAN.md](docs/PLAN.md) e [INVESTIGACION.md](INVESTIGACION.md).
 
 ## Requisitos
 

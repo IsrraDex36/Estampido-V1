@@ -18,7 +18,8 @@
     "test:watch": "vitest",
     "lint": "biome check .",
     "format": "biome format --write .",
-    "check-deps": "tsx scripts/check-deps.ts"
+    "check-deps": "tsx scripts/check-deps.ts",
+    "try:video": "tsx scripts/try-video.ts"
   },
   "dependencies": {
     "commander": "^15.1.0",

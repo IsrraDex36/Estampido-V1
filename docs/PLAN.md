@@ -6,20 +6,20 @@ Objetivo del prototipo: **video → sticker WebP animado + pista de audio**, lis
 
 ## 1. Tecnologías recomendadas
 
-| Capa         | Elección                                                               | Por qué                                                                                                            |
-| ------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Runtime      | **Node.js 24** (ya instalado)                                          | Mismo ecosistema que Baileys/bots de WhatsApp                                                                      |
-| Lenguaje     | **TypeScript** (ESM)                                                   | Tipos para opciones, límites y resultados del pipeline                                                             |
-| Ejecutar TS  | **tsx** (dev) + `tsc` (build)                                          | Cero config, rápido                                                                                                |
+| Capa         | Elección                                                                    | Por qué                                                                                                                                                                         |
+| ------------ | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Runtime      | **Node.js 24** (ya instalado)                                               | Mismo ecosistema que Baileys/bots de WhatsApp                                                                                                                                   |
+| Lenguaje     | **TypeScript** (ESM)                                                        | Tipos para opciones, límites y resultados del pipeline                                                                                                                          |
+| Ejecutar TS  | **tsx** (dev) + `tsc` (build)                                               | Cero config, rápido                                                                                                                                                             |
 | Video/audio  | **FFmpeg** (`brew install ffmpeg-full`), invocado con `child_process.spawn` | Estándar de la industria. `ffmpeg-full` incluye `libwebp` + `libopus` (el formula `ffmpeg` normal NO trae `libwebp`). _No_ usar `fluent-ffmpeg` (archivado y sin mantenimiento) |
-| Metadata     | **ffprobe** (JSON)                                                     | Duración, fps, resolución, si hay pista de audio                                                                   |
-| WebP extra   | `webpmux` (ya instalado)                                               | Inyectar el EXIF de pack/autor y verificar frames                                                                  |
-| Imágenes     | **sharp** (fase 4)                                                     | Stickers desde imagen estática + audio                                                                             |
-| Validación   | **zod**                                                                | Validar opciones de CLI y config                                                                                   |
-| CLI          | **commander**                                                          | Comandos y flags simples                                                                                           |
-| Tests        | **vitest**                                                             | Rápido y nativo con TS/ESM                                                                                         |
-| Lint/format  | **Biome**                                                              | Una sola herramienta en lugar de eslint + prettier                                                                 |
-| Bot (fase 5) | **Baileys** + parche del campo 134                                     | Único camino viable hoy para `audioStickerMessage`                                                                 |
+| Metadata     | **ffprobe** (JSON)                                                          | Duración, fps, resolución, si hay pista de audio                                                                                                                                |
+| WebP extra   | `webpmux` (ya instalado)                                                    | Inyectar el EXIF de pack/autor y verificar frames                                                                                                                               |
+| Imágenes     | **sharp** (fase 4)                                                          | Stickers desde imagen estática + audio                                                                                                                                          |
+| Validación   | **zod**                                                                     | Validar opciones de CLI y config                                                                                                                                                |
+| CLI          | **commander**                                                               | Comandos y flags simples                                                                                                                                                        |
+| Tests        | **vitest**                                                                  | Rápido y nativo con TS/ESM                                                                                                                                                      |
+| Lint/format  | **Biome**                                                                   | Una sola herramienta en lugar de eslint + prettier                                                                                                                              |
+| Bot (fase 5) | **Baileys** + parche del campo 134                                          | Único camino viable hoy para `audioStickerMessage`                                                                                                                              |
 
 **Alternativa descartada:** `ffmpeg-static` (npm). Es portable, pero no garantiza `libwebp` ni `libopus` en todas las plataformas. Se podría evaluar más adelante para Docker.
 
@@ -81,12 +81,17 @@ sticker-video-audio/
 
 **Criterio de salida:** `npm test` corre (vacío) y `check-deps` pasa.
 
-### Fase 1 — Video → WebP animado (sin audio)
+### Fase 1 — Video → WebP animado (sin audio) ✅ (falta validación manual en WhatsApp)
 
 - [x] `utils/ffmpeg`: wrapper de spawn con timeout y errores legibles
-- [ ] `core/probe`: duración, fps, w/h, `hasAudio`
-- [ ] `core/video`: recorte (inicio + duración ≤5 s), escala a 512 con padding transparente, fps fijo (15), `-loop 0`, frames uniformes
-- [ ] Test con un video fixture generado por FFmpeg (`testsrc`)
+- [x] `core/probe`: duración, fps, w/h, `hasAudio`
+- [x] `core/video`: recorte (inicio + duración ≤5 s), escala a 512 con padding transparente, fps fijo (15), `-loop 0`, frames uniformes
+- [x] Test con un video fixture generado por FFmpeg (`testsrc`)
+- [x] `core/webp/inspect`: parser RIFF puro en TS (canvas, frames, duración, alpha, loop) para verificar la salida
+- [x] `scripts/try-video.ts` (`npm run try:video -- <video> [start] [dur] [pad|crop]`)
+- [ ] Validación manual: enviar `samples/output/*.webp` a WhatsApp
+
+> Nota: a calidad 75 y 15 fps, el contenido con mucho detalle supera 500 KB (testsrc2: 538 KB, mandelbrot: 1030 KB). Lo resuelve el optimizador de la fase 3.
 
 **Criterio de salida:** el WebP abre en el navegador, mide 512×512 y WhatsApp lo acepta como sticker animado (enviado manualmente).
 
