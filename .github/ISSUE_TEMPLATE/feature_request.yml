@@ -1,0 +1,21 @@
+name: 💡 Propuesta
+description: Una idea para mejorar Estampido
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: ¿Qué problema resuelve?
+      description: Cuéntanos qué querías hacer y qué te lo impidió.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: Tu idea
+      description: Cómo te imaginas la solución (si tienes una).
+  - type: textarea
+    id: extra
+    attributes:
+      label: Referencias
+      description: Capturas, apps que lo hacen bien, enlaces…

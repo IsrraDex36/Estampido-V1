@@ -264,7 +264,9 @@ La **CI** de GitHub Actions corre todo lo anterior en cada push, construye la im
 
 ## 🤝 Contribuir
 
-Los reportes de errores y sugerencias son bienvenidos en _Issues_. Como el código es de derechos reservados, al enviar un pull request aceptas ceder esa contribución al proyecto. Antes de abrirlo, corre `npm run lint`, `npm run typecheck`, `npm test` y `npm run test:e2e`.
+Los reportes de errores e ideas son bienvenidos en [Issues](https://github.com/IsrraDex36/Estampido-V1/issues). Antes de un pull request lee la [guía de contribución](CONTRIBUTING.md): al enviarlo aceptas ceder tu contribución al proyecto, porque el código es de derechos reservados.
+
+- [Guía de contribución](CONTRIBUTING.md) · [Código de conducta](CODE_OF_CONDUCT.md) · [Seguridad](SECURITY.md) · [Changelog](CHANGELOG.md)
 
 Si Estampido te sirvió, **[déjale una ⭐](https://github.com/IsrraDex36/Estampido-V1)**: ayuda a que más gente lo encuentre.
 
