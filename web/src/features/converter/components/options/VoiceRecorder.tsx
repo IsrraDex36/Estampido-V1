@@ -1,27 +1,10 @@
-import { MicIcon, SquareIcon, XIcon } from "@/components/icons";
+import { SquareIcon, XIcon } from "@/components/icons";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import type { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
 
 type Recorder = ReturnType<typeof useVoiceRecorder>;
-
-/** Mic button (idle) — used next to «Elegir audio…». */
-export function RecordButton({ recorder, disabled, className }: { recorder: Recorder; disabled?: boolean; className?: string }) {
-  const requesting = recorder.state.kind === "requesting";
-  return (
-    <Button
-      variant="secondary"
-      size="sm"
-      className={cn("rounded-full", className)}
-      disabled={disabled || requesting}
-      onClick={() => void recorder.start()}
-    >
-      <MicIcon data-icon="inline-start" />
-      {requesting ? "Permiso…" : "Grabar"}
-    </Button>
-  );
-}
 
 const BARS = 24;
 

@@ -1,5 +1,5 @@
 import type { CommunitySound } from "@contract";
-import { useDeferredValue, useState } from "react";
+import { type ReactElement, useDeferredValue, useState } from "react";
 import { SearchIcon, SoundLibraryIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -16,7 +16,7 @@ const SORTS = [
 ] as const;
 
 /** «De la comunidad»: search, listen and use a community sound for this clip. */
-export function CommunitySoundPicker({ disabled }: { disabled?: boolean }) {
+export function CommunitySoundPicker({ disabled, trigger }: { disabled?: boolean; trigger?: ReactElement }) {
   const [open, setOpen] = useState(false);
   const stop = usePreview((s) => s.stop);
   return (
@@ -27,11 +27,13 @@ export function CommunitySoundPicker({ disabled }: { disabled?: boolean }) {
         if (!v) stop();
       }}
     >
-      <DialogTrigger asChild>
-        <Button variant="secondary" size="sm" className="w-full rounded-full" disabled={disabled}>
-          <SoundLibraryIcon data-icon="inline-start" />
-          Comunidad
-        </Button>
+      <DialogTrigger asChild disabled={disabled}>
+        {trigger ?? (
+          <Button variant="secondary" size="sm" className="w-full rounded-full">
+            <SoundLibraryIcon data-icon="inline-start" />
+            Comunidad
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="max-w-xl">
         {open && <PickerBody onPicked={() => setOpen(false)} />}

@@ -1,5 +1,6 @@
 import { ConvertButton } from "../components/ConvertButton";
 import { SettingsTabs } from "../components/SettingsTabs";
+import { SETTINGS_TABS } from "../components/settingsTabList";
 import { useConverterStore } from "../store/converterStore";
 import { Section } from "@/components/section";
 
@@ -19,10 +20,17 @@ export function SettingsSection({ className }: { className?: string }) {
 function SettingsPlaceholder() {
   return (
     <div className="space-y-4" aria-hidden>
-      <div className="grid h-10 grid-cols-4 gap-1 rounded-full bg-muted p-1 opacity-60">
-        {["Tiempo", "Sonido", "Estilo", "Pack"].map((t) => (
-          <span key={t} className="grid place-items-center text-[13px] text-muted-foreground">
-            {t}
+      <div className="grid grid-cols-4 gap-1 rounded-2xl bg-muted p-1 opacity-60">
+        {SETTINGS_TABS.map((t) => (
+          <span
+            key={t.value}
+            className="flex flex-col items-center gap-0.5 py-2 text-[13px] text-muted-foreground [&_svg]:size-4"
+          >
+            <span className="flex items-center gap-1.5">
+              {t.icon}
+              {t.label}
+            </span>
+            <span className="text-[11px]">—</span>
           </span>
         ))}
       </div>
