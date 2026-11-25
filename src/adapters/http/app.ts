@@ -1,18 +1,28 @@
 import { createReadStream } from "node:fs";
-import { stat, writeFile } from "node:fs/promises";
+import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { UserInputError } from "../../core/errors.js";
+import { probe } from "../../core/probe/probe.js";
+import { inspectWebp } from "../../core/webp/inspect.js";
 import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
 import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
-import { API_LIMITS, type ApiErrorBody, type ConvertResponse } from "./contract.js";
+import { type BotClient, BotUnavailableError, createBotClient } from "./botClient.js";
+import {
+  API_LIMITS,
+  type ApiErrorBody,
+  type ConvertResponse,
+  type SendToWhatsAppResponse,
+  type WhatsAppStatus,
+} from "./contract.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
 import { convertFieldsSchema } from "./schema.js";
 
 export interface AppDeps {
+  bot?: BotClient;
   store?: ResultStore;
   convert?: (opts: ConvertOptions) => Promise<ConvertResult>;
   maxConcurrent?: number;
@@ -25,6 +35,7 @@ const fail = (code: string, message: string): ApiErrorBody => ({
 
 export function createApp(deps: AppDeps = {}): Hono {
   const store = deps.store ?? new ResultStore();
+  const bot = deps.bot ?? createBotClient();
   const convert = deps.convert ?? convertToSoundSticker;
   const jobs = new Semaphore(deps.maxConcurrent ?? 2);
   const maxQueue = deps.maxQueue ?? 10;
@@ -136,6 +147,34 @@ export function createApp(deps: AppDeps = {}): Hono {
       }
     },
   );
+
+  app.get("/whatsapp/status", async (c) => c.json((await bot.status()) satisfies WhatsAppStatus));
+
+  // Send a finished result to the bot owner's own chat as a native sound sticker.
+  app.post("/results/:id/whatsapp", async (c) => {
+    const webpPath = store.resolve(c.req.param("id"), "sticker.webp");
+    if (!webpPath) return c.json(fail("not_found", "Resultado no encontrado."), 404);
+    const webp = await readFile(webpPath).catch(() => null);
+    if (!webp) return c.json(fail("expired", "El resultado expiró o no existe."), 404);
+
+    const oggPath = store.resolve(c.req.param("id"), "sticker.ogg") as string;
+    const hasAudio = await stat(oggPath).then(
+      () => true,
+      () => false,
+    );
+    try {
+      const sent = await bot.sendToSelf({
+        webpPath,
+        animated: inspectWebp(webp).animated,
+        ...(hasAudio ? { audioPath: oggPath, audioDurationSec: (await probe(oggPath)).durationSec } : {}),
+      });
+      return c.json(sent satisfies SendToWhatsAppResponse);
+    } catch (err) {
+      if (err instanceof BotUnavailableError) return c.json(fail("bot_unavailable", err.message), 503);
+      console.error("[whatsapp]", err);
+      return c.json(fail("send_failed", "No se pudo enviar a WhatsApp."), 502);
+    }
+  });
 
   app.get("/results/:id/:file", async (c) => {
     const { id, file } = c.req.param();

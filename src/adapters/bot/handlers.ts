@@ -1,4 +1,5 @@
 import { getContentType, type proto, type WASocket } from "baileys";
+import type { FitMode } from "../../config/limits.js";
 import { saveCapture } from "./capture.js";
 import { isCancel } from "./command.js";
 import { takeRawFor } from "./rawCapture.js";
@@ -13,6 +14,8 @@ export interface BotConfig {
   metadata?: { packName?: string; publisher?: string };
   /** How to deliver sticker + sound (default native). */
   sendMode?: SendMode;
+  /** Default /saudio framing (crop fills the square; pad keeps the whole frame). */
+  defaultFit?: FitMode;
 }
 
 function textOf(m: proto.IMessage | null | undefined): string | undefined {
@@ -24,7 +27,7 @@ function textOf(m: proto.IMessage | null | undefined): string | undefined {
 export function registerHandlers(sock: WASocket, config: BotConfig): void {
   const sent = new SentIds();
   trackOwnSends(sock, sent);
-  const saudio = createSaudio(sock, undefined, config.metadata, config.sendMode);
+  const saudio = createSaudio(sock, undefined, config.metadata, config.sendMode, config.defaultFit);
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     for (const msg of messages) {

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { mkdir, readdir, rm, stat } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { RESULTS_ROOT } from "../../config/paths.js";
 
 /** Only these files can ever be served back. */
 export const SERVABLE_FILES = {
@@ -18,7 +18,7 @@ const ID_RE = /^[0-9a-f-]{36}$/;
  */
 export class ResultStore {
   constructor(
-    readonly root: string = join(tmpdir(), "sva-results"),
+    readonly root: string = RESULTS_ROOT,
     readonly ttlMs: number = 30 * 60 * 1000,
   ) {}
 

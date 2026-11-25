@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { downloadUrl } from "@/lib/api";
 import { formatBytes, formatSeconds } from "@/lib/format";
+import { SendToWhatsAppButton } from "./SendToWhatsAppButton";
 import { StickerPreview } from "./StickerPreview";
 
 interface StickerResultProps {
@@ -88,8 +89,10 @@ export function StickerResult({ result, onReset }: StickerResultProps) {
         <Stat label="Tiempo de proceso">{formatSeconds(result.elapsedMs / 1000, 2)}</Stat>
       </dl>
 
+      <SendToWhatsAppButton resultId={result.id} hasAudio={Boolean(audio)} />
+
       <div className="flex flex-wrap gap-2">
-        <Button asChild>
+        <Button asChild variant="outline">
           <a href={downloadUrl(sticker.url)}>
             <DownloadIcon data-icon="inline-start" />
             Sticker .webp

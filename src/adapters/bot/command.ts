@@ -20,13 +20,14 @@ export const SAUDIO_USAGE =
 export function parseSaudio(
   text: string | null | undefined,
   maxDuration: number = STICKER_LIMITS.maxImageAudioSec,
+  defaultFit: FitMode = "pad",
 ): SaudioCommand | null {
   const parts = (text ?? "").trim().split(/\s+/);
   if (!/^[/!.]saudio$/i.test(parts[0] ?? "")) return null;
 
   const cmd: SaudioCommand = {
     startSec: 0,
-    fit: "pad",
+    fit: defaultFit,
     customAudio: false,
   };
   const nums: number[] = [];

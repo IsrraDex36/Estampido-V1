@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WAMessage, WASocket } from "baileys";
-import { INPUT_LIMITS } from "../../config/limits.js";
+import { type FitMode, INPUT_LIMITS } from "../../config/limits.js";
 import { UserInputError } from "../../core/errors.js";
 import { convertToSoundSticker, type ReplacementAudio } from "../../pipeline/convert.js";
 import { Semaphore } from "../../utils/semaphore.js";
@@ -35,6 +35,8 @@ export function createSaudio(
   download?: Downloader,
   metadataDefaults: { packName?: string; publisher?: string } = {},
   sendMode: SendMode = "native",
+  /** Default framing for /saudio when the user doesn't say pad/crop. */
+  defaultFit: FitMode = "crop",
 ) {
   const pending = new PendingAudioStore(undefined, (key) => {
     const jid = key.split("|")[0];
@@ -120,7 +122,7 @@ export function createSaudio(
   async function onCommand(msg: WAMessage, text: string): Promise<void> {
     let cmd: SaudioCommand | null;
     try {
-      cmd = parseSaudio(text);
+      cmd = parseSaudio(text, undefined, defaultFit);
     } catch (err) {
       await reply(msg, userMessage(err));
       return;

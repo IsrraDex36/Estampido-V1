@@ -17,9 +17,14 @@ afterAll(async () => {
   await rm(dir, { recursive: true, force: true });
 });
 
+const noBot = {
+  status: async () => ({ available: false, connected: false }),
+  sendToSelf: async () => ({ delivered: "sticker" as const }),
+};
+
 describe("HTTP end-to-end (real ffmpeg)", () => {
   it("upload → sticker + audio downloadable", async () => {
-    const app = createApp({ store: new ResultStore(join(dir, "results")) });
+    const app = createApp({ store: new ResultStore(join(dir, "results")), bot: noBot });
     const fd = new FormData();
     fd.set("video", new File([await readFile(inputPath)], "clip.mp4", { type: "video/mp4" }));
     fd.set("startSec", "1");
@@ -37,7 +42,7 @@ describe("HTTP end-to-end (real ffmpeg)", () => {
   });
 
   it("422 for corrupt video", async () => {
-    const app = createApp({ store: new ResultStore(join(dir, "results")) });
+    const app = createApp({ store: new ResultStore(join(dir, "results")), bot: noBot });
     const fd = new FormData();
     fd.set("video", new File([new Uint8Array(100)], "bad.mp4", { type: "video/mp4" }));
     const res = await app.request("/api/convert", { method: "POST", body: fd });
@@ -45,7 +50,7 @@ describe("HTTP end-to-end (real ffmpeg)", () => {
   });
 
   it("image + audio → static sticker; per-kind duration limits", async () => {
-    const app = createApp({ store: new ResultStore(join(dir, "results")) });
+    const app = createApp({ store: new ResultStore(join(dir, "results")), bot: noBot });
     const png = await makePng(dir);
     const tone = await makeTone(dir, 12);
     const fd = new FormData();

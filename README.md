@@ -25,10 +25,10 @@ npm run cli -- doctor                                      # verifica dependenci
 
 # Web de pruebas (API :8787 + Vite :5173)
 npm --prefix web install
-npm run dev          # abre http://localhost:5173
+npm run dev          # abre http://localhost:5173 (botón «Enviar a mi WhatsApp» si el bot está corriendo)
 
 # Bot WhatsApp (Baileys, usar número secundario)
-SVA_ALLOWED=<tu_numero> SVA_PACK="Mis memes" npm run bot   # /saudio [inicio] [duración] [crop|pad] [voz] · /cancelar
+npm run bot   # lee .env (SVA_ALLOWED, SVA_PACK, SVA_FIT=crop|pad, SVA_SEND_MODE=native|fallback|both) · /saudio [inicio] [duración] [crop|pad] [voz] · /cancelar
 SVA_ALLOWED=<tu_numero> npm run bot:capture   # + volcado de mensajes desconocidos (campo 134)
 ```
 

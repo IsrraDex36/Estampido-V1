@@ -67,6 +67,18 @@ export interface ConvertResponse {
   expiresAt: string;
 }
 
+export interface WhatsAppStatus {
+  /** Bot process running (control endpoint reachable). */
+  available: boolean;
+  /** Bot linked and connected to WhatsApp. */
+  connected: boolean;
+}
+
+export interface SendToWhatsAppResponse {
+  /** native = one sound sticker; sticker = plain sticker (result had no sound). */
+  delivered: "native" | "sticker";
+}
+
 export interface ApiErrorBody {
   error: { code: string; message: string };
 }

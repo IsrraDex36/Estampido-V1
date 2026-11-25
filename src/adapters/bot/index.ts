@@ -1,5 +1,9 @@
 import { resolve } from "node:path";
+import type { WASocket } from "baileys";
+import type { FitMode } from "../../config/limits.js";
+import { authDir } from "../../config/paths.js";
 import { connect } from "./connection.js";
+import { startControlServer } from "./control.js";
 import { registerHandlers } from "./handlers.js";
 import { installRawCapture } from "./rawCapture.js";
 import type { SendMode } from "./saudio.js";
@@ -32,18 +36,32 @@ const sendMode = (modes as string[]).includes(process.env.SVA_SEND_MODE ?? "")
   : "native";
 
 console.log(
-  `Bot SVA · envío ${sendMode} · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
+  `Bot SVA · envío ${sendMode} · encuadre ${process.env.SVA_FIT === "pad" ? "pad" : "crop"} · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
 );
 
+const defaultFit: FitMode = process.env.SVA_FIT === "pad" ? "pad" : "crop";
+
+// Current socket (replaced on reconnect) for the local control endpoint.
+let current: WASocket | null = null;
+
 await connect({
-  authDir: resolve(process.env.SVA_AUTH_DIR ?? ".auth"),
+  authDir: authDir(),
   logLevel: process.env.SVA_LOG ?? "warn",
-  onReady: (sock) =>
+  onReady: (sock) => {
+    current = sock;
     registerHandlers(sock, {
       allowed,
       capture,
       captureDir: resolve("captures"),
       sendMode,
+      defaultFit,
       metadata: { packName: process.env.SVA_PACK || undefined, publisher: process.env.SVA_AUTHOR || undefined },
-    }),
+    });
+  },
 });
+
+// "Enviar a mi WhatsApp" from the web goes through this localhost-only endpoint.
+const control = await startControlServer({
+  current: () => (current && (current.ws as { isOpen?: boolean }).isOpen !== false ? current : null),
+});
+console.log(`Control local en 127.0.0.1:${control.port} (para el botón de la web)`);

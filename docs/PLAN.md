@@ -146,6 +146,11 @@ sticker-video-audio/
 
 > ⚠️ Usar un **número secundario** para las pruebas: Baileys es no oficial y hay riesgo de baneo.
 
+### Fase 5b — Web → WhatsApp ✅
+
+- [x] Botón «Enviar a mi WhatsApp» en la web. La API llama al endpoint de control del bot, que escucha solo en `127.0.0.1` y usa un token aleatorio guardado en `.auth/control.json` (0600). Solo envía al chat propio y solo archivos de la carpeta de resultados (verificado con `realpath`)
+- [x] `/saudio` usa `crop` por defecto (`SVA_FIT=pad` para cambiarlo)
+
 ### Fase 6 — Pulido
 
 - [ ] Dockerfile con FFmpeg

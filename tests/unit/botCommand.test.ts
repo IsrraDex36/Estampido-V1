@@ -21,6 +21,10 @@ describe("parseSaudio", () => {
     expect(parseSaudio(".SAUDIO 1")?.durationSec).toBeUndefined(); // pipeline default per kind
     expect(parseSaudio("/saudio 0 9")?.durationSec).toBe(9); // up to 10 s (images)
   });
+  it("default framing is configurable (bot uses crop); explicit pad/crop wins", () => {
+    expect(parseSaudio("/saudio", undefined, "crop")?.fit).toBe("crop");
+    expect(parseSaudio("/saudio pad", undefined, "crop")?.fit).toBe("pad");
+  });
   it("voz/audio flag requests custom audio", () => {
     expect(parseSaudio("/saudio 1 voz")).toMatchObject({
       startSec: 1,

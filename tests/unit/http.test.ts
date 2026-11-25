@@ -63,9 +63,14 @@ function form(fields: Record<string, string>, file?: File, audio?: File): FormDa
 }
 const video = () => new File([new Uint8Array(10)], "clip.mp4", { type: "video/mp4" });
 
+const noBot = {
+  status: async () => ({ available: false, connected: false }),
+  sendToSelf: async () => ({ delivered: "sticker" as const }),
+};
+
 describe("POST /api/convert", () => {
   it("converts and returns servable URLs", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const res = await app.request("/api/convert", {
       method: "POST",
       body: form(
@@ -97,7 +102,7 @@ describe("POST /api/convert", () => {
   });
 
   it("includeAudio=false → audio none", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const res = await app.request("/api/convert", {
       method: "POST",
       body: form({ includeAudio: "false" }, video()),
@@ -106,7 +111,7 @@ describe("POST /api/convert", () => {
   });
 
   it("400 without file", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const res = await app.request("/api/convert", {
       method: "POST",
       body: form({}),
@@ -115,14 +120,14 @@ describe("POST /api/convert", () => {
   });
 
   it("accepts images/GIFs under the 'media' field", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const fd = new FormData();
     fd.set("media", new File([new Uint8Array(10)], "a.gif", { type: "image/gif" }));
     expect((await app.request("/api/convert", { method: "POST", body: fd })).status).toBe(200);
   });
 
   it("415 for non-video", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const res = await app.request("/api/convert", {
       method: "POST",
       body: form({}, new File(["x"], "a.txt", { type: "text/plain" })),
@@ -131,7 +136,7 @@ describe("POST /api/convert", () => {
   });
 
   it("400 for duration over the absolute limit (10 s)", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const res = await app.request("/api/convert", {
       method: "POST",
       body: form({ durationSec: "30" }, video()),
@@ -142,7 +147,7 @@ describe("POST /api/convert", () => {
 
 describe("replacement audio + errors", () => {
   it("passes uploaded audio as replacement with its offset", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const audio = new File([new Uint8Array(5)], "voz.ogg", {
       type: "audio/ogg",
     });
@@ -159,7 +164,7 @@ describe("replacement audio + errors", () => {
   });
 
   it("ignores uploaded audio when includeAudio=false", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const audio = new File([new Uint8Array(5)], "voz.ogg", {
       type: "audio/ogg",
     });
@@ -171,7 +176,7 @@ describe("replacement audio + errors", () => {
   });
 
   it("415 for non-audio replacement", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const bad = new File(["x"], "a.txt", { type: "text/plain" });
     const res = await app.request("/api/convert", {
       method: "POST",
@@ -216,7 +221,7 @@ describe("replacement audio + errors", () => {
 
 describe("GET /api/results", () => {
   it("rejects traversal and unknown files", async () => {
-    const app = createApp({ store, convert: fakeConvert });
+    const app = createApp({ store, convert: fakeConvert, bot: noBot });
     for (const url of [
       "/api/results/..%2F..%2Fetc/passwd",
       "/api/results/00000000-0000-0000-0000-000000000000/input",
