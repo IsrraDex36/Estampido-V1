@@ -68,7 +68,14 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
       previewUrl: URL.createObjectURL(file),
       inputKind: kind,
       status: { kind: "ready" },
-      options: { ...s.options, startSec: 0, durationSec: defaultDurationFor(kind, s.options.durationSec) },
+      options: {
+        ...s.options,
+        startSec: 0,
+        durationSec: defaultDurationFor(kind, s.options.durationSec),
+        cropX: undefined,
+        cropY: undefined,
+        cropZoom: undefined,
+      },
     }));
     return null;
   },

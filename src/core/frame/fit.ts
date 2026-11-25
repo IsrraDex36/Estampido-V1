@@ -1,4 +1,4 @@
-import type { FitMode, StickerBackground } from "../../config/limits.js";
+import type { CropFrame, FitMode, StickerBackground } from "../../config/limits.js";
 
 /**
  * Square-canvas filter chain shared by video and image encoders.
@@ -6,11 +6,29 @@ import type { FitMode, StickerBackground } from "../../config/limits.js";
  * blurred, zoomed copy of the frame. crop: fill, center crop.
  * Alpha from the source (GIF/PNG/WebP) is preserved.
  */
-export function buildFitFilter(fit: FitMode, size: number, background: StickerBackground = "transparent"): string[] {
+const clamp01 = (n: number) => Math.min(1, Math.max(0, Number.isFinite(n) ? n : 0.5));
+const num = (n: number) => String(Math.round(n * 10000) / 10000);
+
+export function buildFitFilter(
+  fit: FitMode,
+  size: number,
+  background: StickerBackground = "transparent",
+  frame?: CropFrame,
+): string[] {
   if (fit === "crop") {
+    if (!frame || (frame.zoom <= 1 && frame.x === 0.5 && frame.y === 0.5)) {
+      return [
+        `scale=${size}:${size}:force_original_aspect_ratio=increase:flags=lanczos`,
+        `crop=${size}:${size}`,
+        "format=rgba",
+      ];
+    }
+    // Cover a (size·zoom)² box, then cut the square where the user placed it.
+    const zoom = Math.min(4, Math.max(1, frame.zoom));
+    const box = Math.round((size * zoom) / 2) * 2;
     return [
-      `scale=${size}:${size}:force_original_aspect_ratio=increase:flags=lanczos`,
-      `crop=${size}:${size}`,
+      `scale=${box}:${box}:force_original_aspect_ratio=increase:flags=lanczos`,
+      `crop=${size}:${size}:(iw-ow)*${num(clamp01(frame.x))}:(ih-oh)*${num(clamp01(frame.y))}`,
       "format=rgba",
     ];
   }

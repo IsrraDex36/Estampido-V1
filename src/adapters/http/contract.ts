@@ -15,6 +15,11 @@ export interface ConvertRequestFields {
   durationSec?: number;
   fit: FitMode;
   background?: StickerBackground;
+  /** "crop" framing: 0..1 across the overflow (0.5 = centered). */
+  cropX?: number;
+  cropY?: number;
+  /** "crop" zoom, 1..4 (1 = just fill). */
+  cropZoom?: number;
   includeAudio: boolean;
   /** Start offset inside the replacement audio file (multipart field `audio`). */
   audioStartSec: number;

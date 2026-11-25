@@ -1,67 +1,147 @@
-import { ArrowRightToLineIcon, TimerIcon } from "@/components/icons";
+import type { ReactNode } from "react";
+import { ArrowRightToLineIcon, AudioWaveformIcon, ImageIcon, MinusIcon, PlusIcon, TimerIcon } from "@/components/icons";
 import { TimeInput } from "@/components/time-input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { formatTime, presetLabel } from "@/lib/time";
+import { formatTime, presetLabel, type Smoothness } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { useFrameAt } from "../../hooks/useFrameAt";
 import { useConverterStore } from "../../store/converterStore";
 import { usePlaybackStore } from "../../store/playbackStore";
 import { useSegment } from "./useSegment";
 
-/** Start/duration editor: range over the clip, m:ss fields, presets, hints. */
+/**
+ * «Tiempo»: start and end as frame cards with fine ±0.1 s steppers, the
+ * length with presets, and how smooth that length will look.
+ */
 export function SegmentControls() {
   const seg = useSegment();
   return (
-    <div className="space-y-5">
-      <Summary />
-      {seg.isVideo && (
-        <p className="text-[13px] text-muted-foreground">Arrastra los bordes blancos sobre el video, o ajusta aquí con precisión.</p>
+    <div className="space-y-4">
+      {seg.isImage ? <ImageIntro /> : <Edges />}
+      <DurationCard />
+      {!seg.isImage && <SmoothnessMeter />}
+      <ClippedNote />
+    </div>
+  );
+}
+
+/** Start/end cards (videos: with the actual frame). */
+function Edges() {
+  const { isVideo, start, end, known, sourceDuration, minDuration, maxDuration, disabled, setStart, setRange } = useSegment();
+  const url = useConverterStore((s) => (s.inputKind === "video" ? s.previewUrl : null));
+  const startFrame = useFrameAt(isVideo ? url : null, start);
+  const endFrame = useFrameAt(isVideo ? url : null, end);
+  const maxStart = known ? Math.max(0, sourceDuration - minDuration) : undefined;
+  const setEnd = (v: number) => setRange([start, Math.max(start + minDuration, Math.min(v, start + maxDuration, known ? sourceDuration : v))]);
+
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <EdgeCard
+        id="start"
+        label="Inicio"
+        time={start}
+        frame={startFrame}
+        showFrame={isVideo}
+        min={0}
+        max={maxStart}
+        disabled={disabled}
+        onTime={(v) => setStart(Math.max(0, Math.min(v, maxStart ?? v)))}
+        corner={isVideo && <UseCurrentTime />}
+      />
+      <EdgeCard
+        id="end"
+        label="Fin"
+        time={end ?? start}
+        frame={endFrame}
+        showFrame={isVideo}
+        min={start + minDuration}
+        max={known ? sourceDuration : undefined}
+        disabled={disabled || end === undefined}
+        onTime={setEnd}
+      />
+    </div>
+  );
+}
+
+function EdgeCard({
+  id,
+  label,
+  time,
+  frame,
+  showFrame,
+  min,
+  max,
+  disabled,
+  onTime,
+  corner,
+}: {
+  id: string;
+  label: string;
+  time: number;
+  frame: string | null;
+  showFrame: boolean;
+  min: number;
+  max?: number;
+  disabled: boolean;
+  onTime: (sec: number) => void;
+  corner?: ReactNode;
+}) {
+  const step = (d: number) => onTime(Math.round((time + d) * 10) / 10);
+  return (
+    <div className="min-w-0 overflow-hidden rounded-2xl bg-muted/60">
+      {showFrame && (
+        <div className="relative aspect-video bg-black">
+          {frame ? (
+            <img src={frame} alt={`Cuadro en ${formatTime(time)}`} className="size-full object-contain" />
+          ) : (
+            <span className="absolute inset-0 animate-pulse bg-foreground/10 motion-reduce:animate-none" />
+          )}
+          <span className="absolute top-2 left-2 rounded-full bg-black/55 px-2 py-0.5 text-[11px] font-medium text-white backdrop-blur-sm">
+            {label}
+          </span>
+          {corner && <span className="absolute top-1.5 right-1.5">{corner}</span>}
+        </div>
       )}
-      <div className="grid gap-3 sm:grid-cols-2">
-        {!seg.isImage && <StartField />}
-        <DurationField />
-      </div>
-      <Presets />
-      <Notes />
-    </div>
-  );
-}
-
-function Summary() {
-  const { isVideo, isImage, start, end, effective, maxDuration } = useSegment();
-  return (
-    <div className="flex items-baseline justify-between gap-3">
-      <p className="text-[15px] font-medium">
-        {isVideo ? "Tramo del video" : isImage ? "Duración del sonido" : "Duración del sonido"}
-      </p>
-      <p className="font-mono text-[13px] tabular-nums text-muted-foreground">
-        {isVideo && end !== undefined
-          ? `${formatTime(start)} – ${formatTime(end)}`
-          : effective !== undefined
-            ? formatTime(effective)
-            : `auto · hasta ${maxDuration} s`}
-      </p>
-    </div>
-  );
-}
-
-function StartField() {
-  const { start, known, sourceDuration, minDuration, disabled, setStart } = useSegment();
-  return (
-    <div className="space-y-1.5">
-      <Label htmlFor="start" className="text-[13px] text-muted-foreground">
-        Inicio
-      </Label>
-      <div className="flex gap-2">
-        <TimeInput
-          id="start"
-          value={start}
-          min={0}
-          max={known ? Math.max(0, sourceDuration - minDuration) : undefined}
-          disabled={disabled}
-          onValueChange={(v) => setStart(v ?? 0)}
-        />
-        <UseCurrentTime />
+      <div className="space-y-1.5 p-2 sm:p-2.5">
+        {!showFrame && (
+          <label htmlFor={id} className="block px-1 text-[12px] text-muted-foreground">
+            {label}
+          </label>
+        )}
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 rounded-full sm:size-8"
+            disabled={disabled || time - 0.1 < min - 0.001}
+            aria-label={`${label}: 0.1 s antes`}
+            onClick={() => step(-0.1)}
+          >
+            <MinusIcon />
+          </Button>
+          <TimeInput
+            id={id}
+            aria-label={label}
+            className="h-9 min-w-0 flex-1 px-0.5 text-center font-mono text-[13px] tabular-nums sm:text-sm"
+            value={time}
+            min={min}
+            max={max}
+            disabled={disabled}
+            onValueChange={(v) => v !== undefined && onTime(v)}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="size-7 shrink-0 rounded-full sm:size-8"
+            disabled={disabled || (max !== undefined && time + 0.1 > max + 0.001)}
+            aria-label={`${label}: 0.1 s después`}
+            onClick={() => step(0.1)}
+          >
+            <PlusIcon />
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -70,107 +150,151 @@ function StartField() {
 /** Only this button subscribes to the (high-frequency) playhead. */
 function UseCurrentTime() {
   const currentTime = usePlaybackStore((s) => s.currentTime);
-  const isVideo = useConverterStore((s) => s.inputKind === "video");
   const { disabled, setStart } = useSegment();
   return (
-    <Button
+    <button
       type="button"
-      variant="secondary"
-      className="shrink-0"
-      disabled={disabled || currentTime === undefined || !isVideo}
-      title="Usar el punto actual del video"
+      disabled={disabled || currentTime === undefined}
+      title="Empezar donde va el video"
+      aria-label="Empezar donde va el video"
       onClick={() => currentTime !== undefined && setStart(currentTime)}
+      className="grid size-7 place-items-center rounded-full bg-black/55 text-white backdrop-blur-sm hover:bg-black/70 disabled:opacity-40"
     >
-      <TimerIcon data-icon="inline-start" />
-      Actual
-    </Button>
+      <TimerIcon className="size-3.5" />
+    </button>
   );
 }
 
-function DurationField() {
-  const { isImage, maxDuration, minDuration, disabled, setDuration } = useSegment();
-  const durationSec = useConverterStore((s) => s.options.durationSec);
+function ImageIntro() {
   return (
-    <div className="space-y-1.5">
-      <Label htmlFor="duration" className="text-[13px] text-muted-foreground">
-        Duración · máx. {presetLabel(maxDuration)}
-      </Label>
-      <TimeInput
-        id="duration"
-        value={durationSec}
-        min={minDuration}
-        max={maxDuration}
-        allowEmpty={isImage}
-        placeholder={isImage ? "auto" : "0:05"}
-        disabled={disabled}
-        onValueChange={setDuration}
-      />
+    <div className="flex items-center gap-3 rounded-2xl bg-muted/60 p-4">
+      <span className="grid size-10 shrink-0 place-items-center rounded-full bg-sound-soft text-sound">
+        <ImageIcon className="size-5" weight="duotone" />
+      </span>
+      <p className="text-[13px] leading-snug text-muted-foreground">
+        La imagen queda fija. Aquí eliges <span className="text-foreground">cuánto dura el sonido</span>; «Auto» usa el audio
+        completo.
+      </p>
     </div>
   );
 }
 
-function Presets() {
-  const { isImage, presets, known, remaining, effective, requested, maxDuration, disabled, setDuration } = useSegment();
+/** Big length readout + field + presets. */
+function DurationCard() {
+  const { isImage, isVideo, presets, known, remaining, effective, requested, maxDuration, minDuration, disabled, setDuration } =
+    useSegment();
   const durationSec = useConverterStore((s) => s.options.durationSec);
   const untilEnd = Math.round(Math.min(maxDuration, remaining) * 10) / 10;
+  const shown = effective ?? requested;
+
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {isImage && (
-        <Chip active={durationSec === undefined} disabled={disabled} onClick={() => setDuration(undefined)}>
-          Auto
-        </Chip>
-      )}
-      {presets.map((p) => (
-        <Chip
-          key={p}
-          active={effective === p || (requested === p && effective !== undefined && effective < p)}
-          disabled={disabled || (known && p > remaining + 0.05)}
-          onClick={() => setDuration(p)}
-        >
-          {presetLabel(p)}
-        </Chip>
-      ))}
-      {known && (
-        <Chip
-          active={effective !== undefined && Math.abs(effective - untilEnd) < 0.05}
-          disabled={disabled}
-          onClick={() => setDuration(untilEnd)}
-        >
-          <ArrowRightToLineIcon className="size-3.5" />
-          Hasta el final
-        </Chip>
+    <div className="space-y-3 rounded-2xl bg-muted/60 p-4">
+      <div className="flex items-end justify-between gap-3">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[13px] text-muted-foreground">
+            {isImage ? <AudioWaveformIcon className="size-3.5" /> : <TimerIcon className="size-3.5" />}
+            {isImage ? "El sonido dura" : "Duración"}
+          </p>
+          <p className="font-mono text-3xl leading-none font-semibold tracking-tight tabular-nums">
+            {shown !== undefined ? formatTime(shown) : "Auto"}
+          </p>
+        </div>
+        <label className="flex shrink-0 flex-col items-end gap-1 text-[11px] text-muted-foreground" htmlFor="duration">
+          máx. {presetLabel(maxDuration)}
+          <TimeInput
+            id="duration"
+            className="h-9 w-24 text-center font-mono tabular-nums"
+            value={durationSec}
+            min={minDuration}
+            max={maxDuration}
+            allowEmpty={isImage}
+            placeholder={isImage ? "auto" : "0:05"}
+            disabled={disabled}
+            onValueChange={setDuration}
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-wrap gap-1.5">
+        {isImage && (
+          <Chip active={durationSec === undefined} disabled={disabled} onClick={() => setDuration(undefined)}>
+            Auto
+          </Chip>
+        )}
+        {presets.map((p) => (
+          <Chip
+            key={p}
+            active={effective === p || (requested === p && effective !== undefined && effective < p)}
+            disabled={disabled || (known && p > remaining + 0.05)}
+            onClick={() => setDuration(p)}
+          >
+            {presetLabel(p)}
+          </Chip>
+        ))}
+        {isVideo && known && (
+          <Chip
+            active={effective !== undefined && Math.abs(effective - untilEnd) < 0.05}
+            disabled={disabled}
+            onClick={() => setDuration(untilEnd)}
+          >
+            <ArrowRightToLineIcon className="size-3.5" />
+            Hasta el final
+          </Chip>
+        )}
+      </div>
+    </div>
+  );
+}
+
+const SMOOTH: Record<Smoothness, { level: number; title: string; detail: string }> = {
+  fluid: { level: 3, title: "Fluido", detail: "≈ 15 fps: se ve como el video." },
+  reduced: { level: 2, title: "Menos fluido", detail: "Clip largo: baja a pocos fps para entrar en 500 KB." },
+  slideshow: { level: 1, title: "Tipo diapositivas", detail: "Muy largo: casi fotos fijas. El sonido se mantiene completo." },
+};
+
+/** How the length trades against the 500 KB budget. */
+function SmoothnessMeter() {
+  const { smoothness, disabled } = useSegment();
+  const hq = useConverterStore((s) => s.options.hq ?? false);
+  const update = useConverterStore((s) => s.updateOptions);
+  const s = SMOOTH[smoothness];
+  return (
+    <div className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3">
+      <span className="flex h-6 shrink-0 items-end gap-1" aria-hidden>
+        {[1, 2, 3].map((n) => (
+          <span
+            key={n}
+            className={cn(
+              "w-1.5 rounded-full transition-colors",
+              n === 1 ? "h-2" : n === 2 ? "h-4" : "h-6",
+              n <= s.level ? (s.level === 3 ? "bg-sound" : "bg-retro-a") : "bg-foreground/15",
+            )}
+          />
+        ))}
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="text-[14px] leading-tight font-medium">
+          {s.title}
+          {hq && <span className="ml-1.5 text-[12px] font-normal text-muted-foreground">· calidad alta</span>}
+        </p>
+        <p className="text-[12px] leading-snug text-muted-foreground">{s.detail}</p>
+      </div>
+      {smoothness !== "fluid" && !hq && (
+        <Button variant="link" size="xs" className="h-auto shrink-0 p-0" disabled={disabled} onClick={() => update({ hq: true })}>
+          Calidad alta
+        </Button>
       )}
     </div>
   );
 }
 
-function Notes() {
-  const { clipped, effective, requested, smoothness, disabled } = useSegment();
-  const hq = useConverterStore((s) => s.options.hq ?? false);
-  const update = useConverterStore((s) => s.updateOptions);
-  if (!clipped && smoothness === "fluid") return null;
+function ClippedNote() {
+  const { clipped, effective, requested } = useSegment();
+  if (!clipped || effective === undefined || requested === undefined) return null;
   return (
-    <div className="space-y-2 text-[13px] leading-snug text-muted-foreground">
-      {clipped && effective !== undefined && requested !== undefined && (
-        <p>
-          El video termina antes: se usarán {formatTime(effective)} en lugar de {formatTime(requested)}.
-        </p>
-      )}
-      {smoothness !== "fluid" && (
-        <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span>
-            {smoothness === "reduced"
-              ? "Clip largo: se verá menos fluido para entrar en 500 KB."
-              : "Clip muy largo: quedará casi como diapositivas. El sonido se mantiene completo."}
-          </span>
-          {!hq && (
-            <Button variant="link" size="xs" className="h-auto p-0" disabled={disabled} onClick={() => update({ hq: true })}>
-              Activar calidad alta
-            </Button>
-          )}
-        </p>
-      )}
-    </div>
+    <p className="px-1 text-[13px] leading-snug text-muted-foreground">
+      El video termina antes: se usarán {formatTime(effective)} en lugar de {formatTime(requested)}.
+    </p>
   );
 }
 
@@ -183,7 +307,7 @@ function Chip({
   active: boolean;
   disabled?: boolean;
   onClick: () => void;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <Button
@@ -193,7 +317,7 @@ function Chip({
       disabled={disabled}
       onClick={onClick}
       aria-pressed={active}
-      className={cn("h-8 rounded-full px-3 text-[13px] tabular-nums")}
+      className="h-8 rounded-full px-3 text-[13px] tabular-nums"
     >
       {children}
     </Button>

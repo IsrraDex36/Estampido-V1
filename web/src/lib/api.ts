@@ -51,6 +51,12 @@ export function convertVideo(
     form.set("startSec", String(fields.startSec));
     if (fields.durationSec !== undefined) form.set("durationSec", String(fields.durationSec));
     form.set("fit", fields.fit);
+    if (fields.fit === "crop") {
+      for (const key of ["cropX", "cropY", "cropZoom"] as const) {
+        const v = fields[key];
+        if (v !== undefined) form.set(key, String(Math.round(v * 10000) / 10000));
+      }
+    }
     if (fields.fit === "pad" && fields.background && fields.background !== "transparent") form.set("background", fields.background);
     form.set("includeAudio", String(fields.includeAudio));
     form.set("audioStartSec", String(fields.audioStartSec));

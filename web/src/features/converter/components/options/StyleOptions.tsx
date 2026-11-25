@@ -1,7 +1,10 @@
 import { API_LIMITS, type FitMode, type StickerBackground } from "@contract";
 import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { CheckIcon, PlusIcon } from "@/components/icons";
+import { CheckIcon, HandIcon, PlusIcon, SearchIcon as MagnifyingIcon } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
+import { CENTERED, type CropFrame, isCentered, MAX_ZOOM, zoomCrop } from "../../model/crop";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { useClipStill } from "../../hooks/useClipStill";
@@ -27,9 +30,12 @@ const COLORS: { value: `#${string}`; label: string }[] = [
 const isPreset = (bg: StickerBackground) => bg === "transparent" || bg === "blur" || COLORS.some((c) => c.value === bg);
 
 export function StyleOptions() {
-  const { fit, background, hq, kind, previewUrl, disabled, update } = useConverterStore(
+  const { fit, background, hq, kind, previewUrl, cropX, cropY, cropZoom, disabled, update } = useConverterStore(
     useShallow((s) => ({
       previewUrl: s.previewUrl,
+      cropX: s.options.cropX,
+      cropY: s.options.cropY,
+      cropZoom: s.options.cropZoom,
       fit: s.options.fit,
       background: s.options.background ?? "transparent",
       hq: s.options.hq ?? false,
@@ -42,6 +48,8 @@ export function StyleOptions() {
   const seg = useSegment();
   const setBackground = (bg: StickerBackground) => update({ background: bg, fit: "pad" });
   const custom = !isPreset(background);
+  const frame: CropFrame = { x: cropX ?? 0.5, y: cropY ?? 0.5, zoom: cropZoom ?? 1 };
+  const setFrame = (f: CropFrame) => update({ cropX: f.x, cropY: f.y, cropZoom: f.zoom });
 
   return (
     <div className="space-y-5">
@@ -55,9 +63,19 @@ export function StyleOptions() {
             end={seg.end}
             fit={fit}
             background={background}
+            frame={frame}
+            onFrame={disabled ? undefined : setFrame}
             className="size-44 sm:size-40 lg:size-44"
           />
-          <figcaption className="text-[12px] text-muted-foreground">Vista previa</figcaption>
+          <figcaption className="text-[12px] text-muted-foreground">
+            {fit === "crop" ? (
+              <span className="inline-flex items-center gap-1">
+                <HandIcon className="size-3.5" /> Arrastra para encuadrar
+              </span>
+            ) : (
+              "Vista previa"
+            )}
+          </figcaption>
         </figure>
         <ToggleGroup
           type="single"
@@ -73,7 +91,7 @@ export function StyleOptions() {
               value={f.value}
               className="h-auto items-center justify-start gap-3 rounded-2xl bg-muted/60 p-2.5 text-left ring-0 data-[state=on]:bg-muted data-[state=on]:shadow-[inset_0_0_0_2px_var(--foreground)]"
             >
-              <StickerLook still={still} fit={f.value} background={background} className="size-11 w-11 shrink-0 rounded-lg" />
+              <StickerLook still={still} fit={f.value} background={background} frame={frame} className="size-11 w-11 shrink-0 rounded-lg" />
               <span className="min-w-0">
                 <span className="block text-[15px] font-medium">{f.title}</span>
                 <span className="block text-[12px] font-normal whitespace-normal text-muted-foreground">{f.detail}</span>
@@ -82,6 +100,35 @@ export function StyleOptions() {
           ))}
         </ToggleGroup>
       </div>
+
+      {fit === "crop" && (
+        <div className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3">
+          <MagnifyingIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <Slider
+            min={1}
+            max={MAX_ZOOM}
+            step={0.05}
+            value={[frame.zoom]}
+            disabled={disabled}
+            onValueChange={([z = 1]) => setFrame(zoomCrop(frame, z))}
+            aria-label="Zoom"
+            className="min-w-0 flex-1"
+          />
+          <span className="w-10 shrink-0 text-right font-mono text-[12px] text-muted-foreground tabular-nums">
+            {frame.zoom.toFixed(1)}×
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="shrink-0 rounded-full"
+            disabled={disabled || isCentered(frame)}
+            onClick={() => setFrame(CENTERED)}
+          >
+            Centrar
+          </Button>
+        </div>
+      )}
 
       <fieldset className="space-y-3" disabled={disabled}>
         <legend className="flex w-full items-baseline justify-between gap-3">

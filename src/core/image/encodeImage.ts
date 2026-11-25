@@ -1,4 +1,4 @@
-import { DEFAULT_FIT, type FitMode, STICKER_LIMITS, type StickerBackground } from "../../config/limits.js";
+import { DEFAULT_FIT, type FitMode, STICKER_LIMITS, type StickerBackground, type CropFrame } from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
 import { buildFitFilter } from "../frame/fit.js";
 import type { EncodeAttempt } from "../optimize/fitToSize.js";
@@ -9,6 +9,8 @@ export interface EncodeImageOptions {
   quality?: number;
   fit?: FitMode;
   background?: StickerBackground;
+  /** "crop" only: position + zoom. */
+  crop?: CropFrame;
   size?: number;
   signal?: AbortSignal;
 }
@@ -30,7 +32,7 @@ export function buildImageArgs(opts: EncodeImageOptions): string[] {
     "-i",
     opts.input,
     "-vf",
-    buildFitFilter(opts.fit ?? DEFAULT_FIT, size, opts.background).join(","),
+    buildFitFilter(opts.fit ?? DEFAULT_FIT, size, opts.background, opts.crop).join(","),
     "-frames:v",
     "1",
     "-an",

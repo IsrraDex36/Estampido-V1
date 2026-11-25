@@ -66,6 +66,7 @@ export async function convertAnimated(
         durationSec: req.durationSec,
         fit: opts.fit ?? DEFAULT_FIT,
         background: opts.background,
+        crop: opts.crop,
         quality: req.quality,
         fps: req.fps,
         seek: kind === "animated" ? "output" : "input",

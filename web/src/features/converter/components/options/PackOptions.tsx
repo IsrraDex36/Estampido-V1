@@ -58,6 +58,7 @@ export function PackOptions() {
             still={still}
             fit={options.fit}
             background={options.background ?? "transparent"}
+            frame={{ x: options.cropX ?? 0.5, y: options.cropY ?? 0.5, zoom: options.cropZoom ?? 1 }}
             className="size-20 w-20 shrink-0 rounded-lg lg:size-28 lg:w-28"
           />
           <div className="min-w-0 flex-1 space-y-1">

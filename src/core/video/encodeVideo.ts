@@ -1,4 +1,4 @@
-import { DEFAULT_FIT, type FitMode, STICKER_LIMITS, type StickerBackground } from "../../config/limits.js";
+import { DEFAULT_FIT, type FitMode, STICKER_LIMITS, type StickerBackground, type CropFrame } from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
 import { buildFitFilter } from "../frame/fit.js";
 
@@ -14,6 +14,8 @@ export interface EncodeVideoOptions {
   quality?: number;
   fit?: FitMode;
   background?: StickerBackground;
+  /** "crop" only: position + zoom. */
+  crop?: CropFrame;
   size?: number;
   /**
    * "input" (default): fast keyframe seek before decoding, right for videos.
@@ -25,8 +27,14 @@ export interface EncodeVideoOptions {
 }
 
 /** Build the -vf chain. Exported for unit testing. */
-export function buildVideoFilter(fit: FitMode, fps: number, size: number, background?: StickerBackground): string {
-  return [`fps=${fps}`, ...buildFitFilter(fit, size, background)].join(",");
+export function buildVideoFilter(
+  fit: FitMode,
+  fps: number,
+  size: number,
+  background?: StickerBackground,
+  crop?: CropFrame,
+): string {
+  return [`fps=${fps}`, ...buildFitFilter(fit, size, background, crop)].join(",");
 }
 
 /** Build the full ffmpeg arg list. Exported for unit testing. */
@@ -44,7 +52,7 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
     "-y",
     ...(opts.seek === "output" ? ["-i", opts.input, ...trim] : [...trim, "-i", opts.input]),
     "-vf",
-    buildVideoFilter(fit, fps, size, opts.background),
+    buildVideoFilter(fit, fps, size, opts.background, opts.crop),
     "-an",
     // Constant frame rate → uniform frame durations (variable ones get rejected by WhatsApp).
     "-fps_mode",

@@ -168,6 +168,10 @@ export function createApp(deps: AppDeps = {}): Hono {
               maxBytes: opts.hq ? API_LIMITS.maxExperimentalKb * 1024 : undefined,
               fit: opts.fit,
               background: opts.background,
+              crop:
+                opts.cropX !== undefined || opts.cropY !== undefined || opts.cropZoom !== undefined
+                  ? { x: opts.cropX ?? 0.5, y: opts.cropY ?? 0.5, zoom: opts.cropZoom ?? 1 }
+                  : undefined,
               audio: !opts.includeAudio
                 ? "none"
                 : audioPath

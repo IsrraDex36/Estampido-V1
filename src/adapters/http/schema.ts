@@ -19,6 +19,9 @@ export const convertFieldsSchema = z.object({
     .regex(/^(transparent|blur|#[0-9a-fA-F]{6})$/, "Fondo no válido.")
     .transform((v) => v as StickerBackground)
     .optional(),
+  cropX: z.coerce.number().min(0, "Encuadre no válido.").max(1, "Encuadre no válido.").optional(),
+  cropY: z.coerce.number().min(0, "Encuadre no válido.").max(1, "Encuadre no válido.").optional(),
+  cropZoom: z.coerce.number().min(1, "El zoom mínimo es 1×.").max(4, "El zoom máximo es 4×.").optional(),
   includeAudio: boolish.default(true),
   audioStartSec: z.coerce.number().min(0).default(0),
   audioDurationSec: z.coerce

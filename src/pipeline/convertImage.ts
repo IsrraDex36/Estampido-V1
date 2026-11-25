@@ -42,6 +42,7 @@ export async function convertImage(opts: ConvertOptions, source: MediaInfo): Pro
         output: webpPath,
         fit: opts.fit ?? DEFAULT_FIT,
         background: opts.background,
+        crop: opts.crop,
         quality: a.quality,
         signal: opts.signal,
       }),

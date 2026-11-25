@@ -34,6 +34,16 @@ export type FitMode = "pad" | "crop";
  */
 export type StickerBackground = "transparent" | "blur" | `#${string}`;
 
+/**
+ * "crop" framing: where the square sits (0..1 across the overflow, 0.5 =
+ * centered) and how much to zoom in (1 = just fill).
+ */
+export interface CropFrame {
+  x: number;
+  y: number;
+  zoom: number;
+}
+
 /** Default fit: transparent padding keeps the whole frame visible. */
 export const DEFAULT_FIT: FitMode = "pad";
 
