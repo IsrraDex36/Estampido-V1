@@ -15,6 +15,19 @@ export interface MediaInfo {
   audioCodec?: string;
   /** ffprobe container name, e.g. "mov,mp4,…", "gif", "png_pipe". */
   formatName?: string;
+  /** All audio streams (absolute stream index), default-disposition first. */
+  audioStreams: AudioStreamInfo[];
+}
+
+export interface AudioStreamInfo {
+  /** Absolute stream index in the file (for `-map 0:<index>`). */
+  index: number;
+  codec?: string;
+  channels?: number;
+  isDefault: boolean;
+  /** Stream start/length in seconds when the container reports them. */
+  startSec?: number;
+  durationSec?: number;
 }
 
 /**
@@ -45,6 +58,9 @@ const streamSchema = z.object({
   tags: z.record(z.string(), z.string()).optional(),
   side_data_list: z.array(z.record(z.string(), z.unknown())).optional(),
   disposition: z.record(z.string(), z.number()).optional(),
+  index: z.number().optional(),
+  channels: z.number().optional(),
+  start_time: z.string().optional(),
 });
 
 const probeSchema = z.object({
@@ -81,7 +97,21 @@ export function parseProbeOutput(json: string): MediaInfo {
   const fps = parseFrameRate(video?.avg_frame_rate) || parseFrameRate(video?.r_frame_rate);
   const durationSec = Number(data.format.duration ?? video?.duration ?? 0) || 0;
 
+  const num = (v?: string) => (v !== undefined && Number.isFinite(Number(v)) ? Number(v) : undefined);
+  const audioStreams: AudioStreamInfo[] = data.streams
+    .filter((s) => s.codec_type === "audio")
+    .map((s, i) => ({
+      index: s.index ?? i,
+      codec: s.codec_name,
+      channels: s.channels,
+      isDefault: s.disposition?.default === 1,
+      startSec: num(s.start_time),
+      durationSec: num(s.duration),
+    }))
+    .sort((a, b) => Number(b.isDefault) - Number(a.isDefault)); // stable: default first
+
   return {
+    audioStreams,
     durationSec,
     width,
     height,

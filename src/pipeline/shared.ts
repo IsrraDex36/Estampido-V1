@@ -1,9 +1,9 @@
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { encodeAudio } from "../core/audio/encodeAudio.js";
+import { analyzeAudio, encodeAudio, type Loudness } from "../core/audio/encodeAudio.js";
 import { UserInputError } from "../core/errors.js";
 import { buildStickerExif, resolveMetadata, type StickerMetadata } from "../core/metadata/stickerExif.js";
-import { type MediaInfo, probe } from "../core/probe/probe.js";
+import { type AudioStreamInfo, type MediaInfo, probe } from "../core/probe/probe.js";
 import { embedExif, exifOverhead } from "../core/webp/chunks.js";
 import { inspectWebp, type WebpInfo } from "../core/webp/inspect.js";
 import type { ConvertOptions, ConvertResult, ReplacementAudio } from "./types.js";
@@ -63,20 +63,102 @@ export async function finalizeWebp(path: string, exif: Buffer | null): Promise<{
   return { bytes, info: inspectWebp(bytes) };
 }
 
-/** Encode a sound segment to `<name>.ogg` and return its stats. */
-export async function encodeTrack(
-  outDir: string,
-  name: string,
-  input: string,
-  startSec: number,
-  durationSec: number,
-  origin: "video" | "file",
-): Promise<{ audioPath: string; stats: NonNullable<ConvertResult["stats"]["audio"]> }> {
+/** Peak at or below this (dBFS) counts as silence (digital silence is ≈ -91 dB). */
+export const SILENCE_DB = -60;
+const TARGET_PEAK_DB = -1;
+const MAX_GAIN_DB = 20;
+
+/** Peak normalization for quiet sound: lift the peak to -1 dBFS (max +20 dB). Pure. */
+export function gainFor(maxVolumeDb: number): number {
+  if (maxVolumeDb >= -6) return 0;
+  return Math.round(Math.min(MAX_GAIN_DB, TARGET_PEAK_DB - maxVolumeDb) * 10) / 10;
+}
+
+export interface SoundSource {
+  input: string;
+  startSec: number;
+  durationSec: number;
+  origin: "video" | "file";
+  /** Candidate audio streams (default first); empty → let ffmpeg pick. */
+  streams: AudioStreamInfo[];
+}
+
+type AudioStats = NonNullable<ConvertResult["stats"]["audio"]>;
+export type SoundOutcome = { audioPath: string; stats: AudioStats } | { warning: string };
+
+const secs = (n: number) => `${n.toFixed(1)} s`;
+
+/**
+ * Robust sound extraction. Tries each audio stream (default first) and keeps
+ * the first one with real sound in the segment:
+ * - undecodable codec → next stream
+ * - no samples in the segment (track ends/starts elsewhere) → next stream
+ * - digital silence (≤ -60 dB) → next stream (e.g. muted first track)
+ * Quiet sound is peak-normalized; the output is re-measured. When nothing
+ * usable exists the sticker is still produced and a specific warning returned.
+ */
+export async function extractSound(outDir: string, name: string, src: SoundSource): Promise<SoundOutcome> {
+  const candidates: (AudioStreamInfo | undefined)[] = src.streams.length ? src.streams : [undefined];
   const audioPath = join(outDir, `${name}.ogg`);
-  await encodeAudio({ input, output: audioPath, startSec, durationSec });
+  let reason: "undecodable" | "empty" | "silent" = "empty";
+  let badCodec: string | undefined;
+
+  for (const stream of candidates) {
+    let loud: Loudness;
+    try {
+      loud = await analyzeAudio({ ...src, streamIndex: stream?.index });
+    } catch {
+      if (reason !== "silent") reason = "undecodable";
+      badCodec ??= stream?.codec;
+      continue;
+    }
+    if (loud.maxVolumeDb === null) continue; // no samples in this segment
+    if (loud.maxVolumeDb <= SILENCE_DB) {
+      reason = "silent";
+      continue;
+    }
+    const gainDb = gainFor(loud.maxVolumeDb);
+    try {
+      await encodeAudio({ ...src, output: audioPath, streamIndex: stream?.index, gainDb });
+    } catch {
+      reason = "undecodable";
+      badCodec ??= stream?.codec;
+      continue;
+    }
+    const measured = (await probe(audioPath).catch(() => null))?.durationSec ?? 0;
+    if (measured < 0.1) {
+      await rm(audioPath, { force: true });
+      continue;
+    }
+    return {
+      audioPath,
+      stats: {
+        bytes: (await readFile(audioPath)).byteLength,
+        codec: "opus",
+        origin: src.origin,
+        durationSec: measured,
+        ...(gainDb > 0 ? { gainDb } : {}),
+      },
+    };
+  }
+
+  const who = src.origin === "video" ? "El audio del video" : "El audio elegido";
+  const tail = "; se generó solo el sticker.";
+  if (reason === "silent") return { warning: `${who} está en silencio en ese tramo${tail}` };
+  if (reason === "undecodable") {
+    return { warning: `No se pudo leer ${who.toLowerCase()}${badCodec ? ` (códec ${badCodec})` : ""}${tail}` };
+  }
+  const end = src.streams.reduce(
+    (max, s) => (s.durationSec !== undefined ? Math.max(max, (s.startSec ?? 0) + s.durationSec) : max),
+    0,
+  );
+  const from = secs(src.startSec);
+  const to = secs(src.startSec + src.durationSec);
   return {
-    audioPath,
-    stats: { bytes: (await readFile(audioPath)).byteLength, codec: "opus", origin, durationSec },
+    warning:
+      end > 0 && end <= src.startSec
+        ? `El tramo ${from}–${to} no tiene sonido: ${who.toLowerCase()} termina en ${secs(end)}${tail}`
+        : `El tramo ${from}–${to} no tiene sonido${tail}`,
   };
 }
 

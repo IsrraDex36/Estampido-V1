@@ -9,7 +9,7 @@ import { totalDurationMs } from "../core/webp/inspect.js";
 import {
   assertMaxDuration,
   availableAfter,
-  encodeTrack,
+  extractSound,
   finalizeWebp,
   kb,
   prepareMetadata,
@@ -101,16 +101,25 @@ export async function convertAnimated(
       ? (opts.durationSec ?? (fullLength ? max : STICKER_LIMITS.defaultDurationSec))
       : segment.durationSec;
     const duration = Math.min(wanted, availableAfter(replacement, start));
-    ({ audioPath, stats: audioStats } = await encodeTrack(opts.outDir, name, audioMode.file, start, duration, "file"));
+    const sound = await extractSound(opts.outDir, name, {
+      input: audioMode.file,
+      startSec: start,
+      durationSec: duration,
+      origin: "file",
+      streams: replacement.audioStreams,
+    });
+    if ("warning" in sound) warnings.push(sound.warning);
+    else ({ audioPath, stats: audioStats } = sound);
   } else if (audioMode === "source" && source.hasAudio) {
-    ({ audioPath, stats: audioStats } = await encodeTrack(
-      opts.outDir,
-      name,
-      opts.input,
-      segment.startSec,
-      segment.durationSec,
-      "video",
-    ));
+    const sound = await extractSound(opts.outDir, name, {
+      input: opts.input,
+      startSec: segment.startSec,
+      durationSec: segment.durationSec,
+      origin: "video",
+      streams: source.audioStreams,
+    });
+    if ("warning" in sound) warnings.push(sound.warning);
+    else ({ audioPath, stats: audioStats } = sound);
   } else if (audioMode === "source") {
     warnings.push(
       kind === "animated"

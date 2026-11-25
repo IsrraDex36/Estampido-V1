@@ -16,7 +16,7 @@ export function formatReport(r: ConvertResult): string {
       ? `  Pack: "${s.metadata.packName}" · autor: "${s.metadata.publisher}"${s.metadata.emojis.length ? ` · ${s.metadata.emojis.join(" ")}` : ""}`
       : "  Sin metadatos de pack",
     r.audioPath && audio
-      ? `✔ Audio:   ${r.audioPath}\n  ${kb(audio.bytes)} · opus · ${audio.durationSec.toFixed(2)} s · origen: ${audio.origin === "file" ? "archivo" : "video"}`
+      ? `✔ Audio:   ${r.audioPath}\n  ${kb(audio.bytes)} · opus · ${audio.durationSec.toFixed(2)} s · origen: ${audio.origin === "file" ? "archivo" : "video"}${audio.gainDb ? ` · volumen +${audio.gainDb} dB` : ""}`
       : "· Sin audio",
     r.kind === "image"
       ? `  Fuente: ${source.width}×${source.height}`

@@ -7,7 +7,7 @@ import type { MediaInfo } from "../core/probe/probe.js";
 import {
   assertMaxDuration,
   availableAfter,
-  encodeTrack,
+  extractSound,
   finalizeWebp,
   kb,
   prepareMetadata,
@@ -57,7 +57,15 @@ export async function convertImage(opts: ConvertOptions, source: MediaInfo): Pro
       warnings.push(`El audio se recortó a ${STICKER_LIMITS.maxImageAudioSec} s (máximo para imágenes).`);
     }
     segment = { startSec: start, durationSec: duration };
-    ({ audioPath, stats: audioStats } = await encodeTrack(opts.outDir, name, audioMode.file, start, duration, "file"));
+    const sound = await extractSound(opts.outDir, name, {
+      input: audioMode.file,
+      startSec: start,
+      durationSec: duration,
+      origin: "file",
+      streams: replacement.audioStreams,
+    });
+    if ("warning" in sound) warnings.push(sound.warning);
+    else ({ audioPath, stats: audioStats } = sound);
   } else if (audioMode === "source") {
     warnings.push("Las imágenes no tienen sonido; agrega un audio propio para un sticker con sonido.");
   }

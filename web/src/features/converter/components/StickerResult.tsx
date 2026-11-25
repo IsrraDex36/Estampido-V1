@@ -74,6 +74,7 @@ export function StickerResult({ result, onReset }: StickerResultProps) {
         {audio && (
           <Stat label="Audio">
             Opus · {formatSeconds(audio.durationSec, 2)} · {formatBytes(audio.bytes)}
+            {audio.gainDb ? ` · volumen +${audio.gainDb} dB` : ""}
           </Stat>
         )}
         <Separator className="my-2" />

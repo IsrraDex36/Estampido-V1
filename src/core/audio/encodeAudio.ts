@@ -8,6 +8,10 @@ export interface EncodeAudioOptions {
   durationSec: number;
   /** Opus bitrate in kbps. */
   bitrateKbps?: number;
+  /** Absolute stream index to use (default: first audio stream). */
+  streamIndex?: number;
+  /** Peak-normalization gain in dB (0 = untouched). */
+  gainDb?: number;
 }
 
 /**
@@ -28,7 +32,14 @@ export function buildAudioArgs(opts: EncodeAudioOptions): string[] {
     opts.input,
     "-vn",
     "-map",
-    "0:a:0",
+    opts.streamIndex === undefined ? "0:a:0" : `0:${opts.streamIndex}`,
+    // Align to the segment start: audio that begins late (or has gaps) is
+    // padded with silence instead of shifting earlier than the picture.
+    "-af",
+    [
+      "aresample=async=1:first_pts=0",
+      ...(opts.gainDb ? [`volume=${opts.gainDb.toFixed(1)}dB`, "alimiter=limit=0.95"] : []),
+    ].join(","),
     "-ac",
     "1",
     "-ar",
@@ -50,4 +61,52 @@ export function buildAudioArgs(opts: EncodeAudioOptions): string[] {
 
 export async function encodeAudio(opts: EncodeAudioOptions): Promise<void> {
   await run(ffmpegPath(), buildAudioArgs(opts), { timeoutMs: Math.max(120_000, opts.durationSec * 2_000) });
+}
+
+export interface Loudness {
+  /** Peak level in dBFS; null when the segment has no audio samples at all. */
+  maxVolumeDb: number | null;
+  meanVolumeDb: number | null;
+}
+
+/** Parse ffmpeg volumedetect output (stderr). Pure. */
+export function parseVolumeDetect(stderr: string): Loudness {
+  const pick = (key: string): number | null => {
+    const m = new RegExp(`${key}:\\s*(-?inf|-?[\\d.]+) dB`).exec(stderr);
+    if (!m) return null;
+    return m[1]?.endsWith("inf") ? Number.NEGATIVE_INFINITY : Number(m[1]);
+  };
+  return { maxVolumeDb: pick("max_volume"), meanVolumeDb: pick("mean_volume") };
+}
+
+/** Decode one stream's segment and measure its loudness (no file written). */
+export async function analyzeAudio(opts: {
+  input: string;
+  startSec: number;
+  durationSec: number;
+  streamIndex?: number;
+}): Promise<Loudness> {
+  const { stderr } = await run(
+    ffmpegPath(),
+    [
+      "-hide_banner",
+      "-nostats",
+      "-ss",
+      String(opts.startSec),
+      "-t",
+      String(opts.durationSec),
+      "-i",
+      opts.input,
+      "-vn",
+      "-map",
+      opts.streamIndex === undefined ? "0:a:0" : `0:${opts.streamIndex}`,
+      "-af",
+      "volumedetect",
+      "-f",
+      "null",
+      "-",
+    ],
+    { timeoutMs: Math.max(60_000, opts.durationSec * 1_000) },
+  );
+  return parseVolumeDetect(stderr);
 }

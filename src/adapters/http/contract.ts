@@ -54,6 +54,8 @@ export interface ConvertResponse {
     codec: "opus";
     origin: "video" | "file";
     durationSec: number;
+    /** Volume boost applied to quiet sound (dB), if any. */
+    gainDb?: number;
   } | null;
   source: {
     durationSec: number;

@@ -81,7 +81,7 @@ export function createSaudio(
       }),
     );
 
-    let delivered = "separado";
+    let delivered = result.audioPath ? "separado" : "solo sticker (sin sonido)";
     const sendSeparate = async () => {
       await sock.sendMessage(jid, { sticker: { url: result.webpPath } }, { quoted: origin });
       if (result.audioPath) {
@@ -113,7 +113,8 @@ export function createSaudio(
     const s = result.stats.sticker;
     const notes = result.warnings.length ? `\n⚠️ ${result.warnings.join("\n⚠️ ")}` : "";
     const shape = s.animated ? `${s.fps} fps · ${(s.durationMs / 1000).toFixed(1)} s` : "estático";
-    const sound = result.stats.audio ? ` · 🔊 ${result.stats.audio.durationSec.toFixed(1)} s` : "";
+    const a = result.stats.audio;
+    const sound = a ? ` · 🔊 ${a.durationSec.toFixed(1)} s${a.gainDb ? ` (+${a.gainDb} dB)` : ""}` : "";
     await reply(
       origin,
       `✔ ${(s.bytes / 1024).toFixed(0)} KB · ${shape} · q${s.quality}${sound} · ${delivered}${notes}`,

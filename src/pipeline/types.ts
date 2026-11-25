@@ -66,7 +66,15 @@ export interface ConvertResult {
       attempts: number;
       metadata: StickerMetadata | null;
     };
-    audio?: { bytes: number; codec: "opus"; origin: "video" | "file"; durationSec: number };
+    audio?: {
+      bytes: number;
+      codec: "opus";
+      origin: "video" | "file";
+      /** Measured length of the produced sound. */
+      durationSec: number;
+      /** Volume boost applied to quiet sound (dB), if any. */
+      gainDb?: number;
+    };
     elapsedMs: number;
   };
 }
