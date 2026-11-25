@@ -1,13 +1,14 @@
 import { PlusIcon, XIcon } from "@/components/icons";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
-import { type DragEvent, useEffect, useRef, useState } from "react";
+import { type DragEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { selectBusy, useConverterStore } from "../store/converterStore";
 import { usePlaybackStore } from "../store/playbackStore";
 import { notify } from "@/lib/notify";
+import { VideoEditor } from "./trim/VideoEditor";
 
 const KIND_LABEL = { video: "Video", gif: "GIF", image: "Imagen" } as const;
 
@@ -53,9 +54,13 @@ export function MediaDropzone() {
           transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
           className="space-y-3"
         >
-          <div className="overflow-hidden rounded-2xl bg-black">
-            {inputKind === "video" ? <SourceVideo url={previewUrl} /> : <SourceImage url={previewUrl} name={file.name} />}
-          </div>
+          {inputKind === "video" ? (
+            <VideoEditor url={previewUrl} />
+          ) : (
+            <div className="overflow-hidden rounded-2xl bg-black">
+              <SourceImage url={previewUrl} name={file.name} />
+            </div>
+          )}
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="truncate text-[15px] font-medium" title={file.name}>
@@ -116,32 +121,6 @@ export function MediaDropzone() {
         </m.div>
       )}
     </AnimatePresence>
-  );
-}
-
-/** Video preview wired to the playback store; seeks when the segment start changes. */
-function SourceVideo({ url }: { url: string }) {
-  const ref = useRef<HTMLVideoElement>(null);
-  const startSec = useConverterStore((s) => s.options.startSec);
-  const setCurrentTime = usePlaybackStore((s) => s.setCurrentTime);
-  const setDuration = usePlaybackStore((s) => s.setDuration);
-
-  useEffect(() => {
-    const v = ref.current;
-    if (v && Math.abs(v.currentTime - startSec) > 0.25) v.currentTime = startSec;
-  }, [startSec]);
-
-  return (
-    // biome-ignore lint/a11y/useMediaCaption: user-supplied preview
-    <video
-      ref={ref}
-      src={url}
-      controls
-      playsInline
-      className="aspect-video w-full object-contain"
-      onTimeUpdate={(e) => setCurrentTime(e.currentTarget.currentTime)}
-      onLoadedMetadata={(e) => setDuration(e.currentTarget.duration)}
-    />
   );
 }
 

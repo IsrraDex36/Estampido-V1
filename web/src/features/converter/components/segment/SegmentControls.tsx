@@ -2,7 +2,6 @@ import { ArrowRightToLineIcon, TimerIcon } from "@/components/icons";
 import { TimeInput } from "@/components/time-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Slider } from "@/components/ui/slider";
 import { formatTime, presetLabel } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useConverterStore } from "../../store/converterStore";
@@ -15,7 +14,9 @@ export function SegmentControls() {
   return (
     <div className="space-y-5">
       <Summary />
-      {seg.known && seg.end !== undefined && <Range />}
+      {seg.isVideo && (
+        <p className="text-[13px] text-muted-foreground">Arrastra los bordes blancos sobre el video, o ajusta aquí con precisión.</p>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         {!seg.isImage && <StartField />}
         <DurationField />
@@ -40,28 +41,6 @@ function Summary() {
             ? formatTime(effective)
             : `auto · hasta ${maxDuration} s`}
       </p>
-    </div>
-  );
-}
-
-function Range() {
-  const { start, end, sourceDuration, minDuration, disabled, setRange } = useSegment();
-  return (
-    <div className="space-y-1.5">
-      <Slider
-        min={0}
-        max={Math.round(sourceDuration * 10) / 10}
-        step={0.1}
-        minStepsBetweenThumbs={Math.round(minDuration * 10)}
-        value={[start, end as number]}
-        disabled={disabled}
-        onValueChange={setRange}
-        aria-label="Inicio y fin del tramo"
-      />
-      <div className="flex justify-between font-mono text-[11px] tabular-nums text-muted-foreground">
-        <span>0:00</span>
-        <span>{formatTime(sourceDuration)}</span>
-      </div>
     </div>
   );
 }
