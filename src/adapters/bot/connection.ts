@@ -1,12 +1,7 @@
-import makeWASocket, {
-  Browsers,
-  DisconnectReason,
-  fetchLatestBaileysVersion,
-  useMultiFileAuthState,
-  type WASocket,
-} from "baileys";
+import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState, type WASocket } from "baileys";
 import pino from "pino";
 import qrcode from "qrcode-terminal";
+import { isRotateRequest, newAdvSecret, resolveWaVersion, withAdvSecret } from "./pairing.js";
 
 export interface ConnectOptions {
   /** Auth state folder. Contains session keys → never commit. */
@@ -18,9 +13,8 @@ export interface ConnectOptions {
 /** Connect with QR login and auto-reconnect (except on logout). */
 export async function connect({ authDir, onReady, logLevel = "warn" }: ConnectOptions): Promise<void> {
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
-  const { version } = await fetchLatestBaileysVersion().catch(() => ({
-    version: undefined,
-  }));
+  const { version, source } = await resolveWaVersion();
+  if (!state.creds.me) console.log(`WhatsApp Web ${version?.join(".") ?? "?"} (${source})`);
 
   const sock = makeWASocket({
     auth: state,
@@ -32,11 +26,29 @@ export async function connect({ authDir, onReady, logLevel = "warn" }: ConnectOp
   });
 
   sock.ev.on("creds.update", saveCreds);
-  sock.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
-    if (qr) {
-      console.log("\nEscanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:\n");
-      qrcode.generate(qr, { small: true });
+
+  // Always render the QR with the *current* ADV secret (it may be rotated below).
+  let lastQr: string | undefined;
+  const showQr = (qr: string, note: string) => {
+    lastQr = withAdvSecret(qr, state.creds.advSecretKey);
+    console.log(`\n${note}\n`);
+    qrcode.generate(lastQr, { small: true });
+  };
+
+  sock.ws.on("CB:notification,type:companion_reg_refresh", (node: { content?: unknown }) => {
+    if (state.creds.me || !isRotateRequest(node)) return;
+    state.creds.advSecretKey = newAdvSecret(); // same object Baileys verifies pair-success with
+    void saveCreds();
+    if (lastQr) {
+      showQr(
+        lastQr,
+        '🔄 WhatsApp pidió renovar el código. Si el teléfono dijo "No se pudo vincular", escanea ESTE QR nuevo:',
+      );
     }
+  });
+
+  sock.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
+    if (qr) showQr(qr, "Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:");
     if (connection === "open") {
       console.log(`✔ Conectado como ${sock.user?.id ?? "?"}`);
       onReady(sock);
