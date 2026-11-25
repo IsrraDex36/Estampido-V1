@@ -58,6 +58,26 @@ describe("Estampido web (real browser, real API)", () => {
     await page.close();
   });
 
+  it("collection: each conversion is added and preselected; survives reload", async () => {
+    const { page, problems } = await openPage(browser, url);
+    const input = await page.$('input[type=file][accept="video/*,image/*"]');
+    await input?.uploadFile(inject("clip"));
+    await page.waitForSelector("video");
+    for (const n of [1, 2]) {
+      await clickButtonWithText(page, "Crear sticker");
+      await page.waitForFunction(
+        (k) => document.body.innerText.includes(`${k} de ${k} seleccionados`),
+        { timeout: 90_000 },
+        n,
+      );
+    }
+    expect(await page.$$eval('button[aria-pressed="true"][aria-label^="Sticker"]', (els) => els.length)).toBe(2);
+    await page.reload({ waitUntil: "networkidle0" });
+    await page.waitForFunction(() => document.body.innerText.includes("2 de 2 seleccionados"));
+    expect(problems).toEqual([]);
+    await page.close();
+  });
+
   it("theme choice persists across reloads", async () => {
     const { page } = await openPage(browser, url, { scheme: "light" });
     await page.click('button[aria-label="Cambiar tema"]');

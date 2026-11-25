@@ -1,3 +1,5 @@
+import { CollectionSection } from "@/features/collection/components/CollectionSection";
+import { useCollectResults } from "@/features/collection/useCollectResults";
 import { useConvertShortcut } from "./hooks/useConvertShortcut";
 import { ClipSection } from "./sections/ClipSection";
 import { Hero } from "./sections/Hero";
@@ -10,6 +12,7 @@ import { SettingsSection } from "./sections/SettingsSection";
  */
 export function ConverterPage() {
   useConvertShortcut();
+  useCollectResults();
   return (
     <>
       <Hero />
@@ -18,6 +21,7 @@ export function ConverterPage() {
         <SettingsSection className="lg:col-start-1 lg:row-start-2 2xl:col-start-2 2xl:row-start-1" />
         <ResultSection className="scroll-mt-20 lg:sticky lg:top-20 lg:col-start-2 lg:row-span-2 lg:row-start-1 2xl:col-start-3 2xl:row-span-1" />
       </div>
+      <CollectionSection className="mt-5 2xl:mt-6" />
     </>
   );
 }
