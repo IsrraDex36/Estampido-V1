@@ -40,9 +40,10 @@ const sendMode = (modes as string[]).includes(process.env.SVA_SEND_MODE ?? "")
 const defaultFit: FitMode = process.env.SVA_FIT === "pad" ? "pad" : "crop";
 const ratePerMinute = Number(process.env.SVA_RATE_PER_MIN ?? 6) || 0;
 const selfChatOnly = /^(1|true|yes|si|sí)$/i.test(process.env.SVA_SELF_CHAT_ONLY ?? "");
+const debug = /^(1|true|yes|si|sí)$/i.test(process.env.SVA_DEBUG ?? "");
 
 console.log(
-  `Estampido (bot) · envío ${sendMode} · encuadre ${defaultFit} · límite ${ratePerMinute || "∞"}/min${selfChatOnly ? " · solo chat propio" : ""} · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
+  `Estampido (bot) · envío ${sendMode} · encuadre ${defaultFit} · límite ${ratePerMinute || "∞"}/min${selfChatOnly ? " · solo chat propio" : ""} · captura ${capture ? "ON" : "OFF"}${debug ? " · diagnóstico ON" : ""} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
 );
 
 // Temp folders left by a previous crash (the bot is the only writer of these).
@@ -58,6 +59,7 @@ await connect({
   onReady: (sock) => {
     current = sock;
     registerHandlers(sock, {
+      debug,
       allowed,
       capture,
       captureDir: resolve("captures"),

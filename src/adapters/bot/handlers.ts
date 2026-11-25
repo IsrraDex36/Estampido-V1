@@ -5,7 +5,7 @@ import { isCancel } from "./command.js";
 import { HELP_TEXT, isHelp } from "./help.js";
 import { savePackCapture } from "./packCapture.js";
 import { takeRawFor } from "./rawCapture.js";
-import { SentIds, selfIdsOf, shouldHandle, trackOwnSends } from "./routing.js";
+import { describeChat, ignoreReason, SentIds, selfIdsOf, trackOwnSends } from "./routing.js";
 import { createSaudio, type SendMode } from "./saudio.js";
 
 export interface BotConfig {
@@ -22,6 +22,8 @@ export interface BotConfig {
   ratePerMinute?: number;
   /** Only act on your own messages in your chat with yourself. */
   selfChatOnly?: boolean;
+  /** Log every received message and why it is handled/ignored (no content, masked ids). */
+  debug?: boolean;
 }
 
 function textOf(m: proto.IMessage | null | undefined): string | undefined {
@@ -43,9 +45,21 @@ export function registerHandlers(sock: WASocket, config: BotConfig): void {
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     for (const msg of messages) {
-      if (
-        !shouldHandle({ ...msg, type }, { allowed: config.allowed, sent, selfChatOnly: config.selfChatOnly, selfIds })
-      ) {
+      const reason = ignoreReason(
+        { ...msg, type },
+        { allowed: config.allowed, sent, selfChatOnly: config.selfChatOnly, selfIds },
+      );
+      const chat = describeChat(msg.key.remoteJid, selfIds);
+      if (config.debug) {
+        const kind = getContentType(msg.message ?? undefined) ?? "sin contenido (¿no se pudo descifrar?)";
+        const cmd = textOf(msg.message)?.trim().startsWith("/")
+          ? ` «${textOf(msg.message)?.trim().split(/\s+/)[0]}»`
+          : "";
+        console.log(
+          `· [${type}] ${chat} · ${msg.key.fromMe ? "tuyo" : "de otro"} · ${kind}${cmd} → ${reason ? `ignorado: ${reason}` : "atendido"}`,
+        );
+      }
+      if (reason) {
         takeRawFor(msg.message); // drop any pending raw decode; never persist strangers' data
         continue;
       }
@@ -76,6 +90,9 @@ export function registerHandlers(sock: WASocket, config: BotConfig): void {
       try {
         const text = textOf(msg.message);
         if (await saudio.onAudio(msg)) continue;
+        const command = text?.trim().split(/\s+/)[0]?.toLowerCase();
+        if (isHelp(text) || isCancel(text) || /^[/!.]saudio$/.test(command ?? ""))
+          console.log(`→ ${command} en ${chat}`);
         if (isHelp(text)) await sock.sendMessage(msg.key.remoteJid as string, { text: HELP_TEXT }, { quoted: msg });
         else if (isCancel(text)) await saudio.onCancel(msg);
         else if (text && /^[/!.]saudio\b/i.test(text.trim())) await saudio.onCommand(msg, text);

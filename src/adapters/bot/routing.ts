@@ -65,20 +65,35 @@ export interface RoutingContext {
   selfIds?: ReadonlySet<string>;
 }
 
-export function shouldHandle(
+export function shouldHandle(m: Incoming, ctx: RoutingContext): boolean {
+  return ignoreReason(m, ctx) === null;
+}
+
+/** Why an upsert is ignored (null = handle it). Same rules as shouldHandle; used by SVA_DEBUG logs. */
+export function ignoreReason(
   m: Incoming,
   { allowed, sent, nowSec = Date.now() / 1000, selfChatOnly, selfIds }: RoutingContext,
-): boolean {
-  if (sent.has(m.key.id)) return false;
-  if (!isAllowedSender(m.key, allowed)) return false;
+): string | null {
+  if (sent.has(m.key.id)) return "es un envío del propio bot";
+  if (!isAllowedSender(m.key, allowed)) return "remitente no permitido (SVA_ALLOWED)";
   if (selfChatOnly && m.key.fromMe) {
     const chat = jidDigits(m.key.remoteJid);
-    if (!chat || !selfIds?.has(chat)) return false;
+    if (!chat || !selfIds?.has(chat)) return "no es tu chat contigo (SVA_SELF_CHAT_ONLY)";
   }
-  if (m.type === "notify") return true;
-  if (m.type !== "append") return false;
+  if (m.type === "notify") return null;
+  if (m.type !== "append") return `tipo de entrega «${m.type}»`;
   const ts = toSeconds(m.messageTimestamp);
-  return ts !== null && nowSec - ts <= MAX_OFFLINE_AGE_SEC;
+  return ts !== null && nowSec - ts <= MAX_OFFLINE_AGE_SEC ? null : "mensaje antiguo (llegó con el bot apagado)";
+}
+
+/** Chat kind + last 4 digits, never the full number (logs). */
+export function describeChat(jid: string | null | undefined, selfIds?: ReadonlySet<string>): string {
+  if (!jid) return "chat ?";
+  if (jid.endsWith("@g.us")) return "grupo";
+  if (jid === "status@broadcast") return "estados";
+  const digits = jidDigits(jid);
+  if (digits && selfIds?.has(digits)) return "tu chat contigo";
+  return `privado …${(digits ?? "").slice(-4)}`;
 }
 
 /** Digits of the bot account's own JIDs (PN + LID) for self-chat detection. */
