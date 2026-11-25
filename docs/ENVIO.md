@@ -36,13 +36,13 @@ Web: «Enviar a mi WhatsApp»
 
 ## Después: servidor y número dedicado
 
-| Fase                        | Contenido                                                                                                                                                                               |
-| --------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **S1. Número dedicado**     | Chip prepago o eSIM; `npm run bot:relink` (respalda `.auth`, pide el QR y verifica). Los vínculos se reinician solos                                                                    |
-| **S2a. Túnel (hecho)**      | `npm run start:public`: producción en tu Mac + Cloudflare quick tunnel (URL temporal), límites por IP, CSP, publicar requiere vínculo, tope de disco, reinicio automático, `caffeinate` |
-| **S2b. Railway (R0 hecho)** | `Dockerfile` + `railway.json` + volumen `/data` + vinculación con código (`SVA_PAIRING_NUMBER`). Guía: [DEPLOY-RAILWAY.md](DEPLOY-RAILWAY.md)                                           |
-| **S2. Despliegue**          | VPS o mini-PC siempre encendido: Docker o systemd, FFmpeg, reverse proxy (Caddy) con HTTPS y dominio, la API detrás del proxy (hoy solo escucha en `127.0.0.1`), CORS y límites por IP  |
-| **S3. Vigilante + alertas** | Detectar «conectado pero sin recibir» (como lo de ayer), reconectar o pedir revincular, y avisar al dueño                                                                               |
-| **S4. Respaldo oficial**    | WhatsApp Cloud API: sticker + audio aparte, ventana de 24 h, 1 000 mensajes al mes gratis por número. Entra si Baileys cae                                                              |
-| **S5. Datos y cuentas**     | Postgres o Turso para vínculos y comunidad; iniciar sesión con este mismo código (cuentas → favoritos sincronizados)                                                                    |
-| **S6. Operación**           | Métricas (envíos, fallos, bloqueos), moderación, aviso de privacidad y términos                                                                                                         |
+| Fase                           | Contenido                                                                                                                                                                               |
+| ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **S1. Número dedicado**        | Chip prepago o eSIM; `npm run bot:relink` (respalda `.auth`, pide el QR y verifica). Los vínculos se reinician solos                                                                    |
+| **S2a. Túnel (hecho)**         | `npm run start:public`: producción en tu Mac + Cloudflare quick tunnel (URL temporal), límites por IP, CSP, publicar requiere vínculo, tope de disco, reinicio automático, `caffeinate` |
+| **S2b. Railway (R0 hecho)**    | `Dockerfile` + `railway.json` + volumen `/data` + vinculación con código (`SVA_PAIRING_NUMBER`). Guía: [DEPLOY-RAILWAY.md](DEPLOY-RAILWAY.md)                                           |
+| **S2. Despliegue**             | VPS o mini-PC siempre encendido: Docker o systemd, FFmpeg, reverse proxy (Caddy) con HTTPS y dominio, la API detrás del proxy (hoy solo escucha en `127.0.0.1`), CORS y límites por IP  |
+| **S3. Vigilante + alertas ✅** | Detectar «conectado pero sin recibir» (como lo de ayer), reconectar o pedir revincular, y avisar al dueño                                                                               |
+| **S4. Respaldo oficial**       | WhatsApp Cloud API: sticker + audio aparte, ventana de 24 h, 1 000 mensajes al mes gratis por número. Entra si Baileys cae                                                              |
+| **S5. Datos y cuentas**        | Postgres o Turso para vínculos y comunidad; iniciar sesión con este mismo código (cuentas → favoritos sincronizados)                                                                    |
+| **S6. Operación**              | Métricas (envíos, fallos, bloqueos), moderación, aviso de privacidad y términos                                                                                                         |

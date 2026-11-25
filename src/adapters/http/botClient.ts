@@ -1,5 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { controlFile } from "../../config/paths.js";
+import type { AdminHealth } from "./contract.js";
 
 export interface SendRequest {
   /** SHA-256 of the browser id (see CLIENT_HEADER). */
@@ -25,6 +26,8 @@ export interface BotClient {
   send(req: SendRequest): Promise<{ delivered: "native" | "sticker" }>;
   /** Bot linking progress (raw QR data / code / connected). */
   pairing(): Promise<BotPairing>;
+  /** Watchdog report. */
+  health(): Promise<Omit<AdminHealth, "status"> & { status: Exclude<AdminHealth["status"], "offline"> }>;
 }
 
 export type BotPairing =
@@ -106,6 +109,9 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
     },
     async unlink(client) {
       await json(await call(`/links/${client}`, { method: "DELETE" }));
+    },
+    async health() {
+      return json(await call("/health", { signal: AbortSignal.timeout(3_000) }));
     },
     async pairing() {
       return json<BotPairing>(await call("/pairing", { signal: AbortSignal.timeout(3_000) }));

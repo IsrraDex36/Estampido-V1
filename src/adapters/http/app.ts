@@ -18,6 +18,7 @@ import { type BotClient, type BotPairing, BotRequestError, BotUnavailableError, 
 import { CommunityRepo } from "./community/repo.js";
 import { communityRoutes, type PublishGuard } from "./community/routes.js";
 import {
+  type AdminHealth,
   type AdminPairing,
   API_LIMITS,
   type ApiErrorBody,
@@ -230,7 +231,8 @@ export function createApp(deps: AppDeps = {}): Hono {
 
   // ── Owner: link the BOT itself (QR shown big in /admin, token-protected) ──
   const adminToken = deps.adminToken && deps.adminToken.length >= 16 ? deps.adminToken : null;
-  app.get("/admin/pairing", async (c) => {
+  /** null = allowed; else the response to return (404 when /admin is off, 401 bad password). */
+  const adminDenied = (c: Context) => {
     if (!adminToken) return c.json(fail("not_found", "Ruta de la API no encontrada."), 404);
     const given = Buffer.from(c.req.header("authorization")?.replace(/^Bearer /, "") ?? "");
     const want = Buffer.from(adminToken);
@@ -238,6 +240,31 @@ export function createApp(deps: AppDeps = {}): Hono {
       return c.json(fail("unauthorized", "Contraseña incorrecta."), 401);
     }
     c.header("Cache-Control", "no-store");
+    return null;
+  };
+
+  app.get("/admin/health", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    try {
+      return c.json((await bot.health()) satisfies AdminHealth);
+    } catch {
+      return c.json({
+        status: "offline",
+        since: null,
+        connected: false,
+        lastInboundAt: null,
+        lastProbeOkAt: null,
+        decryptFailuresRecent: 0,
+        reconnects24h: 0,
+        problems: ["El bot no está corriendo."],
+      } satisfies AdminHealth);
+    }
+  });
+
+  app.get("/admin/pairing", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
     let p: BotPairing;
     try {
       p = await bot.pairing();

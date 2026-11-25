@@ -18,6 +18,10 @@ export interface ConnectOptions {
   pairingNumber?: string;
   /** Linking progress, for the protected /admin page (QR as data, code, connected). */
   onPairing?: (state: PairingState) => void;
+  /** Socket opened/closed (watchdog). */
+  onConnection?: (open: boolean, sock: WASocket) => void;
+  /** The phone removed this (linked) device; the dead session was wiped (watchdog alert). */
+  onLoggedOut?: () => void;
 }
 
 export type PairingState =
@@ -114,9 +118,11 @@ export async function connect(opts: ConnectOptions): Promise<void> {
     if (connection === "open") {
       console.log(`✔ Conectado como ${sock.user?.id ?? "?"}`);
       opts.onPairing?.({ kind: "connected", id: sock.user?.id ?? "?" });
+      opts.onConnection?.(true, sock);
       onReady(sock);
     }
     if (connection === "close") {
+      opts.onConnection?.(false, sock);
       const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
       if (code === DisconnectReason.loggedOut && !state.creds.registered) {
         // Linking never finished (code/QR expired, or a half-done pairing): there is no real
@@ -127,8 +133,13 @@ export async function connect(opts: ConnectOptions): Promise<void> {
         return;
       }
       if (code === DisconnectReason.loggedOut) {
-        console.error(`✘ Sesión cerrada desde el teléfono. Borra ${authDir} y vuelve a vincular.`);
-        process.exit(1);
+        // The phone removed this device: the session is dead. Wipe it and show a new QR/code
+        // (/admin) instead of exiting and restarting into the same dead session forever.
+        console.error("✘ Sesión cerrada desde el teléfono. Borro la sesión; vuelve a vincular el bot en /admin.");
+        opts.onLoggedOut?.();
+        opts.onPairing?.({ kind: "waiting" });
+        void rm(authDir, { recursive: true, force: true }).then(() => setTimeout(() => void connect(opts), 1_000));
+        return;
       }
       if (code === DisconnectReason.restartRequired) {
         // Expected right after scanning the QR: WhatsApp closes the socket so the

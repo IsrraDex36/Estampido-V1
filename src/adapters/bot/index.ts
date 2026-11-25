@@ -1,7 +1,9 @@
+import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { WASocket } from "baileys";
 import type { FitMode } from "../../config/limits.js";
 import { authDir, linksFile } from "../../config/paths.js";
+import { consoleSink, fanOut, probeLinkedDevice, webhookSink, whatsappSink } from "./alerts.js";
 import { jidDigits } from "./command.js";
 import { connect, type PairingState } from "./connection.js";
 import { startControlServer } from "./control.js";
@@ -12,6 +14,7 @@ import type { SendMode } from "./saudio.js";
 import { BOT_TMP_PREFIX } from "./saudio.js";
 import { installRawEncode } from "./soundSticker.js";
 import { cleanupTempDirs } from "./tempCleanup.js";
+import { Watchdog } from "./watchdog.js";
 
 /**
  * WhatsApp bot (Baileys, unofficial → use a secondary number).
@@ -65,8 +68,44 @@ const linksFor = (sock: WASocket | null): LinkStore | null => {
   return stores.get(digits) ?? null;
 };
 
+// ── Watchdog: notice «connected but useless», heal what it can, tell the owner ──
+const webhook = process.env.SVA_ALERT_WEBHOOK?.trim();
+const watchdog = new Watchdog(
+  {
+    now: Date.now,
+    probe: async () => {
+      const sock = current;
+      const result = sock ? await probeLinkedDevice(sock) : ("unknown" as const);
+      if (debug) console.log(`[vigilante] prueba de vinculación: ${result}`);
+      return result;
+    },
+    reconnect: (reason) => {
+      console.warn(`[vigilante] Reconectando: ${reason}.`);
+      current?.end(new Error(`watchdog: ${reason}`)); // close → the connection loop reconnects
+    },
+    relink: async (reason) => {
+      console.warn(`[vigilante] Sesión muerta (${reason}): la borro para vincular de nuevo.`);
+      const sock = current;
+      current = null;
+      pairing = { kind: "waiting" };
+      sock?.end(new Error("watchdog: relink"));
+      await rm(authDir(), { recursive: true, force: true }); // the reconnect (2 s) starts a fresh pairing
+    },
+    alert: fanOut(
+      consoleSink,
+      ...(/^(0|false|no)$/i.test(process.env.SVA_ALERT_WHATSAPP ?? "") ? [] : [whatsappSink(() => current)]),
+      ...(webhook ? [webhookSink(webhook)] : []),
+    ),
+  },
+  { autoRelink: /^(1|true|yes|si|sí)$/i.test(process.env.SVA_WATCHDOG_AUTORELINK ?? "") },
+);
+setInterval(() => void watchdog.tick(), 30_000).unref();
+if (webhook) console.log("Vigilante: alertas también por webhook.");
+
 await connect({
   authDir: authDir(),
+  onConnection: (open) => watchdog.connectionChanged(open),
+  onLoggedOut: () => watchdog.markUnlinked("cerrada desde el teléfono"),
   logLevel: process.env.SVA_LOG ?? "warn",
   pairingNumber: process.env.SVA_PAIRING_NUMBER,
   onPairing: (s) => {
@@ -84,6 +123,7 @@ await connect({
       defaultFit,
       ratePerMinute,
       selfChatOnly,
+      onInbound: (ok) => (ok ? watchdog.inbound() : watchdog.decryptFailure()),
       metadata: { packName: process.env.SVA_PACK || undefined, publisher: process.env.SVA_AUTHOR || undefined },
     });
   },
@@ -91,5 +131,10 @@ await connect({
 
 // "Enviar a mi WhatsApp" from the web goes through this localhost-only endpoint.
 const live = () => (current && (current.ws as { isOpen?: boolean }).isOpen !== false ? current : null);
-const control = await startControlServer({ current: live, links: () => linksFor(live()), pairing: () => pairing });
+const control = await startControlServer({
+  current: live,
+  links: () => linksFor(live()),
+  pairing: () => pairing,
+  health: () => watchdog.health(),
+});
 console.log(`Control local en 127.0.0.1:${control.port} (para el botón de la web)`);

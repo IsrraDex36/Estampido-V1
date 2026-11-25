@@ -209,3 +209,15 @@ export type AdminPairing =
   | { state: "qr"; qrSvg: string }
   | { state: "code"; code: string }
   | { state: "connected"; phone: string };
+
+/** /api/admin/health — watchdog report (token-protected). */
+export interface AdminHealth {
+  status: "ok" | "degraded" | "down" | "unlinked" | "starting" | "offline";
+  since: number | null;
+  connected: boolean;
+  lastInboundAt: number | null;
+  lastProbeOkAt: number | null;
+  decryptFailuresRecent: number;
+  reconnects24h: number;
+  problems: string[];
+}

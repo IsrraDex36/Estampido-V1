@@ -1,4 +1,4 @@
-import { getContentType, jidNormalizedUser, type proto, type WASocket } from "baileys";
+import { getContentType, jidNormalizedUser, proto, type WASocket } from "baileys";
 import type { FitMode } from "../../config/limits.js";
 import { saveCapture } from "./capture.js";
 import { isCancel } from "./command.js";
@@ -27,7 +27,12 @@ export interface BotConfig {
   debug?: boolean;
   /** Web ↔ chat links (codes EST-XXXX). Absent → linking disabled. */
   links?: LinkStore;
+  /** Delivery signals for the watchdog (message arrived / couldn't be decrypted). */
+  onInbound?: (decrypted: boolean) => void;
 }
+
+/** WebMessageInfo stub for «message arrived but couldn't be decrypted». */
+const CIPHERTEXT = proto.WebMessageInfo.StubType.CIPHERTEXT;
 
 const LINK_REPLY = {
   ok: "✅ ¡Listo! Este chat quedó vinculado a Estampido: ya puedes enviarte stickers con sonido desde la web. Para desvincular, hazlo desde la web.",
@@ -55,6 +60,8 @@ export function registerHandlers(sock: WASocket, config: BotConfig): void {
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     for (const msg of messages) {
+      // Watchdog: real-time deliveries prove the link works; CIPHERTEXT stubs = decryption failed.
+      if (type === "notify" && !sent.has(msg.key.id)) config.onInbound?.(msg.messageStubType !== CIPHERTEXT);
       // Link codes come from ANY direct chat (that's the point: new users), before the allow-list.
       const code = config.links && !sent.has(msg.key.id) ? extractCode(textOf(msg.message)) : null;
       if (code && config.links && isDirectChat(msg.key.remoteJid) && isFresh({ ...msg, type })) {

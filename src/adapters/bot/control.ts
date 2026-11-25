@@ -13,6 +13,7 @@ import { jidDigits } from "./command.js";
 import type { PairingState } from "./connection.js";
 import { isClientHash, type LinkStore, maskJid } from "./links.js";
 import { sendSoundSticker } from "./soundSticker.js";
+import type { HealthReport } from "./watchdog.js";
 
 /**
  * Local control endpoint so the web/API can say "send this result to my
@@ -29,6 +30,8 @@ export interface BotHandle {
   links(): LinkStore | null;
   /** Bot linking progress (QR / code / connected) for the admin page. */
   pairing?(): PairingState;
+  /** Watchdog report for the admin page. */
+  health?(): HealthReport;
 }
 
 export const SENDS_PER_MINUTE = 10;
@@ -79,6 +82,8 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
     // The bot's own number: the web builds wa.me/<number> links with it.
     return c.json({ connected: Boolean(sock?.user), botNumber: jidDigits(sock?.user?.id) });
   });
+
+  app.get("/health", (c) => (bot.health ? c.json(bot.health()) : c.json({ error: "sin vigilante" }, 404)));
 
   app.get("/pairing", (c) => c.json(bot.pairing?.() ?? ({ kind: "waiting" } satisfies PairingState)));
 

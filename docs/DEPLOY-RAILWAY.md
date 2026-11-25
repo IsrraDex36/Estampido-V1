@@ -66,6 +66,28 @@ Desde el celular **con datos móviles**: abre la URL → crea un sticker → «E
 
 En producción, el modo «mándamelo sin vincular» está apagado a propósito: todos, tú incluido, vinculan su WhatsApp una vez.
 
+## Vigilante y alertas (S3)
+
+El bot se vigila solo:
+
+- cada 5 min le pregunta a WhatsApp si su dispositivo sigue vinculado;
+- detecta caídas largas y mensajes indescifrables (`Bad MAC`).
+
+Además se arregla solo:
+
+- si las pruebas no responden, se reconecta;
+- si WhatsApp lo desvinculó, borra la sesión muerta y deja el QR nuevo en `/admin`.
+
+La salud se ve en **`/admin` → Vigilante**.
+
+**Alertas en tu celular, aunque el bot esté caído** (recomendado):
+
+1. Instala la app **ntfy** (Android o iOS, gratis).
+2. Inventa un tema difícil de adivinar, por ejemplo `estampido-k3j9x2`, y suscríbete en la app.
+3. En Railway → _Variables_: `SVA_ALERT_WEBHOOK=https://ntfy.sh/estampido-k3j9x2`
+
+También acepta webhooks de Discord. Las alertas además llegan a tu chat de WhatsApp contigo mismo, cuando el bot puede enviar (`SVA_ALERT_WHATSAPP=0` para apagarlas). Cada tipo de alerta se repite como máximo cada 30 min, y avisa cuando el bot se recupera.
+
 ## R6. Mantenimiento
 
 | Tarea             | Cómo                                                                                                                                                                       |

@@ -1,4 +1,4 @@
-import type { AdminPairing } from "@contract";
+import type { AdminHealth, AdminPairing } from "@contract";
 import { useQuery } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { CircleCheckIcon, Loader2Icon } from "@/components/icons";
@@ -85,6 +85,7 @@ export function AdminPage() {
       ) : (
         <div className="mt-8 space-y-5">
           <Status data={pairing.data} loading={pairing.isPending} />
+          <HealthPanel token={token} />
           <Button variant="ghost" size="sm" className="rounded-full" onClick={logout}>
             Salir
           </Button>
@@ -145,5 +146,62 @@ function Status({ data, loading }: { data: AdminPairing | undefined; loading: bo
     <div className="rounded-3xl bg-stage p-6 text-[14px] text-muted-foreground">
       {data.state === "offline" ? "El bot no está corriendo." : "Preparando la vinculación…"}
     </div>
+  );
+}
+
+const HEALTH: Record<AdminHealth["status"], { label: string; dot: string }> = {
+  ok: { label: "Todo bien", dot: "bg-sound" },
+  degraded: { label: "Con problemas", dot: "bg-retro-a" },
+  down: { label: "Sin conexión", dot: "bg-destructive" },
+  unlinked: { label: "Desvinculado", dot: "bg-destructive" },
+  starting: { label: "Arrancando", dot: "bg-muted-foreground/50" },
+  offline: { label: "Bot apagado", dot: "bg-muted-foreground/50" },
+};
+
+const ago = (t: number | null) => {
+  if (!t) return "—";
+  const min = Math.round((Date.now() - t) / 60_000);
+  return min < 1 ? "hace un momento" : min < 60 ? `hace ${min} min` : `hace ${Math.round(min / 60)} h`;
+};
+
+/** Watchdog report: status, last activity, recent trouble. */
+function HealthPanel({ token }: { token: string }) {
+  const health = useQuery({
+    queryKey: ["admin", "health", token],
+    queryFn: async ({ signal }) =>
+      readJson<AdminHealth>(await fetch("/api/admin/health", { headers: { authorization: `Bearer ${token}` }, signal })),
+    refetchInterval: 15_000,
+    retry: false,
+    meta: { errorMessage: false },
+  });
+  const h = health.data;
+  if (!h) return null;
+  const s = HEALTH[h.status];
+  return (
+    <section aria-label="Salud del bot" className="space-y-3 rounded-3xl bg-muted/40 p-5 ring-1 ring-border/60">
+      <div className="flex items-center justify-between">
+        <h2 className="text-[15px] font-semibold">Vigilante</h2>
+        <span className="flex items-center gap-2 text-[13px]">
+          <span className={`size-2 rounded-full ${s.dot}`} aria-hidden /> {s.label}
+        </span>
+      </div>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-[13px]">
+        <dt className="text-muted-foreground">Último mensaje recibido</dt>
+        <dd className="text-right tabular-nums">{ago(h.lastInboundAt)}</dd>
+        <dt className="text-muted-foreground">Última prueba OK</dt>
+        <dd className="text-right tabular-nums">{ago(h.lastProbeOkAt)}</dd>
+        <dt className="text-muted-foreground">Reconexiones (24 h)</dt>
+        <dd className="text-right tabular-nums">{h.reconnects24h}</dd>
+        <dt className="text-muted-foreground">Indescifrables (1 h)</dt>
+        <dd className="text-right tabular-nums">{h.decryptFailuresRecent}</dd>
+      </dl>
+      {h.problems.length > 0 && (
+        <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
+          {h.problems.map((p) => (
+            <li key={p}>{p}</li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }

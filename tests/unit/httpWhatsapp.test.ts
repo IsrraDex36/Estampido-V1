@@ -233,3 +233,42 @@ describe("admin pairing (owner links the bot from /admin)", () => {
     expect(await (await down.request("/api/admin/pairing", { headers: auth })).json()).toEqual({ state: "offline" });
   });
 });
+
+describe("admin health (watchdog)", () => {
+  const TOKEN = "s3cret-token-0123456789";
+  const auth = { authorization: `Bearer ${TOKEN}` };
+  it("proxies the watchdog report; bot down → offline; same password rules", async () => {
+    const report = {
+      status: "degraded",
+      since: 1,
+      connected: true,
+      lastInboundAt: 2,
+      lastProbeOkAt: 3,
+      decryptFailuresRecent: 6,
+      reconnects24h: 1,
+      problems: ["x"],
+    };
+    const app = createApp({
+      store: new ResultStore(root),
+      bot: fakeBot({ health: vi.fn(async () => report) } as Partial<BotClient>),
+      adminToken: TOKEN,
+    });
+    expect((await app.request("/api/admin/health")).status).toBe(401);
+    expect(await (await app.request("/api/admin/health", { headers: auth })).json()).toEqual(report);
+    const down = createApp({
+      store: new ResultStore(root),
+      bot: fakeBot({ health: () => Promise.reject(new Error("x")) } as Partial<BotClient>),
+      adminToken: TOKEN,
+    });
+    expect(await (await down.request("/api/admin/health", { headers: auth })).json()).toMatchObject({
+      status: "offline",
+    });
+    expect(
+      (
+        await createApp({ store: new ResultStore(root), bot: fakeBot() }).request("/api/admin/health", {
+          headers: auth,
+        })
+      ).status,
+    ).toBe(404);
+  });
+});
