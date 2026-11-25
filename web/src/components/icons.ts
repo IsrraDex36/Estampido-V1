@@ -27,6 +27,7 @@ export {
   FilmStripIcon as VideoIcon,
   FrameCornersIcon as FrameIcon,
   HandGrabbingIcon as HandIcon,
+  GithubLogoIcon as GitHubIcon,
   ImageIcon,
   InfoIcon,
   LockSimpleIcon as LockIcon,

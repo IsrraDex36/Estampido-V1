@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { sfx } from "@/lib/sfx";
 import { cn } from "@/lib/utils";
 import { PixelSprite } from "./PixelSprite";
 import { PUM_H, PUM_LAYERS as LAYERS, PUM_NOTE as NOTE, PUM_NOTE_PALETTE as NOTE_PALETTE, PUM_PALETTE as PALETTE, PUM_W } from "./pum";
@@ -10,7 +11,7 @@ interface MascotProps {
   mood?: MascotMood;
   /** No idle bob/shadow (e.g. header logo). */
   still?: boolean;
-  /** Tap/click → jump + "¡PUM!" bubble. */
+  /** Tap/click → jump + "¡PUM!" bubble and sound. */
   interactive?: boolean;
   className?: string;
 }
@@ -94,7 +95,10 @@ export function Mascot({ size = 64, mood = "idle", still = false, interactive = 
   return (
     <button
       type="button"
-      onClick={() => setJumping(true)}
+      onClick={() => {
+        setJumping(true);
+        sfx.pum(); // synthesized «pum», copyright-free (lib/sfx)
+      }}
       aria-label="Pum, la mascota de Estampido. Tócalo."
       className={cn("inline-block cursor-pointer rounded-lg focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none", className)}
     >

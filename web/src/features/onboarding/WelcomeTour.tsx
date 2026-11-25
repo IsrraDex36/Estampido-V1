@@ -6,6 +6,8 @@ import { ROUTES } from "@/app/routes";
 import {
   AudioWaveformIcon,
   CheckIcon,
+  Volume2Icon,
+  VolumeXIcon,
   CompassIcon,
   DownloadIcon,
   LockIcon,
@@ -16,11 +18,16 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { Mascot, type MascotMood } from "@/components/pixel/Mascot";
+import { sfx, useSfx } from "@/lib/sfx";
 import { useTourStore } from "./tourStore";
 
 interface Step {
   icon: ReactNode;
   tone: "sound" | "retro" | "muted";
+  /** What Pum says in its speech bubble. */
+  say: string;
+  mood: MascotMood;
   title: string;
   lead: string;
   body: ReactNode;
@@ -30,6 +37,8 @@ const STEPS: Step[] = [
   {
     icon: <AudioWaveformIcon weight="duotone" />,
     tone: "sound",
+    say: "¡Hola! Soy Pum 👋",
+    mood: "singing",
     title: "Bienvenido a Estampido",
     lead: "Convierte un video, GIF o imagen en un sticker de WhatsApp que suena al tocarlo.",
     body: (
@@ -49,6 +58,8 @@ const STEPS: Step[] = [
   {
     icon: <SendIcon weight="duotone" />,
     tone: "sound",
+    say: "Te explico cómo llega a tu WhatsApp",
+    mood: "idle",
     title: "Dos caminos para llevarlo a WhatsApp",
     lead: "Ambos están en «Resultado» cuando tu sticker esté listo.",
     body: (
@@ -71,6 +82,8 @@ const STEPS: Step[] = [
   {
     icon: <StarIcon weight="duotone" />,
     tone: "retro",
+    say: "Truco: créalo una vez, úsalo siempre",
+    mood: "singing",
     title: "Guárdalo y compártelo",
     lead: "Así lo creas una vez y lo usas siempre.",
     body: (
@@ -91,6 +104,8 @@ const STEPS: Step[] = [
   {
     icon: <CompassIcon weight="duotone" />,
     tone: "muted",
+    say: "Te cuento la verdad, sin humo",
+    mood: "idle",
     title: "Cómo está hoy y a dónde vamos",
     lead: "Los stickers con sonido son nuevos en WhatsApp (noviembre de 2026).",
     body: (
@@ -110,6 +125,8 @@ const STEPS: Step[] = [
   {
     icon: <LockIcon weight="duotone" />,
     tone: "sound",
+    say: "Lo tuyo es tuyo, palabra de Pum",
+    mood: "idle",
     title: "Tus stickers son tuyos",
     lead: "Sin letra pequeña.",
     body: (
@@ -147,9 +164,18 @@ function TourBody({ onDone }: { onDone: () => void }) {
   const [dir, setDir] = useState(1);
   const step = STEPS[i] as Step;
   const last = i === STEPS.length - 1;
+  const muted = useSfx((st) => st.muted);
+  const toggleSound = useSfx((st) => st.toggle);
   const go = (next: number) => {
-    setDir(next > i ? 1 : -1);
-    setI(Math.max(0, Math.min(STEPS.length - 1, next)));
+    const n = Math.max(0, Math.min(STEPS.length - 1, next));
+    if (n === i) return;
+    sfx.blip(n > i);
+    setDir(n > i ? 1 : -1);
+    setI(n);
+  };
+  const finish = () => {
+    sfx.tada();
+    onDone();
   };
 
   return (
@@ -178,18 +204,25 @@ function TourBody({ onDone }: { onDone: () => void }) {
             transition={{ duration: 0.18, ease: [0.2, 0, 0, 1] }}
             className="space-y-4"
           >
-            <span
-              className={cn(
-                "grid size-14 place-items-center rounded-2xl [&_svg]:size-7",
-                step.tone === "sound" && "bg-sound-soft text-sound",
-                step.tone === "retro" && "bg-retro-a/15 text-retro-a",
-                step.tone === "muted" && "bg-muted text-foreground",
-              )}
-            >
-              {step.icon}
-            </span>
+            <div className="flex items-end gap-3 pt-5">
+              <Mascot size={76} mood={step.mood} interactive className="shrink-0 p-1" />
+              <p className="relative mb-6 rounded-2xl rounded-bl-sm bg-muted px-3.5 py-2 text-[13px] font-medium shadow-sm">
+                {step.say}
+              </p>
+            </div>
             <div className="space-y-1.5">
-              <p className="font-pixel text-[11px] text-muted-foreground">
+              <p className="flex items-center gap-2 font-pixel text-[11px] text-muted-foreground">
+                <span
+                  className={cn(
+                    "grid size-6 place-items-center rounded-lg [&_svg]:size-3.5",
+                    step.tone === "sound" && "bg-sound-soft text-sound",
+                    step.tone === "retro" && "bg-retro-a/15 text-retro-a",
+                    step.tone === "muted" && "bg-muted text-foreground",
+                  )}
+                  aria-hidden
+                >
+                  {step.icon}
+                </span>
                 {i + 1} / {STEPS.length}
               </p>
               <DialogTitle className="text-xl font-semibold tracking-tight">{step.title}</DialogTitle>
@@ -210,6 +243,16 @@ function TourBody({ onDone }: { onDone: () => void }) {
       </div>
 
       <div className="flex items-center gap-2 border-t border-border px-6 py-4 sm:px-7">
+        <button
+          type="button"
+          onClick={toggleSound}
+          aria-pressed={muted}
+          aria-label={muted ? "Activar sonidos" : "Silenciar sonidos"}
+          title={muted ? "Activar sonidos" : "Silenciar sonidos"}
+          className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          {muted ? <VolumeXIcon className="size-4" /> : <Volume2Icon className="size-4" />}
+        </button>
         <div className="mr-auto flex gap-1.5" role="tablist" aria-label="Pasos">
           {STEPS.map((s, n) => (
             <button
@@ -232,7 +275,7 @@ function TourBody({ onDone }: { onDone: () => void }) {
             Atrás
           </Button>
         )}
-        <Button className="rounded-full px-5 font-semibold" onClick={() => (last ? onDone() : go(i + 1))} autoFocus>
+        <Button className="rounded-full px-5 font-semibold" onClick={() => (last ? finish() : go(i + 1))} autoFocus>
           {last ? (
             <>
               <RocketIcon data-icon="inline-start" /> ¡Empezar!

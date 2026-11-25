@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 
 /**
  * End of a paginated list: auto-loads when it scrolls into view
- * (IntersectionObserver, 600 px early) and offers «Cargar más» as the
+ * (IntersectionObserver, 1200 px early — also when jumping to the page end past the footer) and offers «Cargar más» as the
  * accessible fallback. Shows the end and retries on error.
  */
 export function InfiniteFooter({
@@ -31,7 +31,7 @@ export function InfiniteFooter({
     const el = sentinel.current;
     if (!el || !auto || typeof IntersectionObserver === "undefined") return;
     const io = new IntersectionObserver((entries) => entries[0]?.isIntersecting && onMoreRef.current(), {
-      rootMargin: "600px 0px",
+      rootMargin: "1200px 0px",
     });
     io.observe(el);
     return () => io.disconnect();
