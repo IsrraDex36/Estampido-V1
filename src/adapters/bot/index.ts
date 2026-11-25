@@ -1,10 +1,12 @@
 import { resolve } from "node:path";
 import type { WASocket } from "baileys";
 import type { FitMode } from "../../config/limits.js";
-import { authDir } from "../../config/paths.js";
+import { authDir, linksFile } from "../../config/paths.js";
+import { jidDigits } from "./command.js";
 import { connect } from "./connection.js";
 import { startControlServer } from "./control.js";
 import { registerHandlers } from "./handlers.js";
+import { LinkStore } from "./links.js";
 import { installRawCapture } from "./rawCapture.js";
 import type { SendMode } from "./saudio.js";
 import { BOT_TMP_PREFIX } from "./saudio.js";
@@ -52,6 +54,14 @@ if (cleaned) console.log(`Limpieza: ${cleaned} carpeta(s) temporal(es) huérfana
 
 // Current socket (replaced on reconnect) for the local control endpoint.
 let current: WASocket | null = null;
+// One link store per bot number (kept across reconnects; a new number starts empty).
+const stores = new Map<string, LinkStore>();
+const linksFor = (sock: WASocket | null): LinkStore | null => {
+  const digits = jidDigits(sock?.user?.id);
+  if (!digits) return null;
+  if (!stores.has(digits)) stores.set(digits, new LinkStore(linksFile(digits)));
+  return stores.get(digits) ?? null;
+};
 
 await connect({
   authDir: authDir(),
@@ -60,6 +70,7 @@ await connect({
     current = sock;
     registerHandlers(sock, {
       debug,
+      links: linksFor(sock) ?? undefined,
       allowed,
       capture,
       captureDir: resolve("captures"),
@@ -73,7 +84,6 @@ await connect({
 });
 
 // "Enviar a mi WhatsApp" from the web goes through this localhost-only endpoint.
-const control = await startControlServer({
-  current: () => (current && (current.ws as { isOpen?: boolean }).isOpen !== false ? current : null),
-});
+const live = () => (current && (current.ws as { isOpen?: boolean }).isOpen !== false ? current : null);
+const control = await startControlServer({ current: live, links: () => linksFor(live()) });
 console.log(`Control local en 127.0.0.1:${control.port} (para el botón de la web)`);

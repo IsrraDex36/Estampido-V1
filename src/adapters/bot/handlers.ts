@@ -1,11 +1,12 @@
-import { getContentType, type proto, type WASocket } from "baileys";
+import { getContentType, jidNormalizedUser, type proto, type WASocket } from "baileys";
 import type { FitMode } from "../../config/limits.js";
 import { saveCapture } from "./capture.js";
 import { isCancel } from "./command.js";
 import { HELP_TEXT, isHelp } from "./help.js";
+import { extractCode, type LinkStore } from "./links.js";
 import { savePackCapture } from "./packCapture.js";
 import { takeRawFor } from "./rawCapture.js";
-import { describeChat, ignoreReason, SentIds, selfIdsOf, trackOwnSends } from "./routing.js";
+import { describeChat, ignoreReason, isDirectChat, isFresh, SentIds, selfIdsOf, trackOwnSends } from "./routing.js";
 import { createSaudio, type SendMode } from "./saudio.js";
 
 export interface BotConfig {
@@ -24,7 +25,16 @@ export interface BotConfig {
   selfChatOnly?: boolean;
   /** Log every received message and why it is handled/ignored (no content, masked ids). */
   debug?: boolean;
+  /** Web ↔ chat links (codes EST-XXXX). Absent → linking disabled. */
+  links?: LinkStore;
 }
+
+const LINK_REPLY = {
+  ok: "✅ ¡Listo! Este chat quedó vinculado a Estampido: ya puedes enviarte stickers con sonido desde la web. Para desvincular, hazlo desde la web.",
+  expired: "⌛ Ese código caducó. Genera uno nuevo en la web y vuelve a enviarlo.",
+  unknown: "🤔 No reconozco ese código. Genera uno nuevo en la web.",
+  rate_limited: "⏳ Demasiados intentos. Espera unos minutos y genera un código nuevo.",
+} as const;
 
 function textOf(m: proto.IMessage | null | undefined): string | undefined {
   return (
@@ -45,6 +55,19 @@ export function registerHandlers(sock: WASocket, config: BotConfig): void {
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     for (const msg of messages) {
+      // Link codes come from ANY direct chat (that's the point: new users), before the allow-list.
+      const code = config.links && !sent.has(msg.key.id) ? extractCode(textOf(msg.message)) : null;
+      if (code && config.links && isDirectChat(msg.key.remoteJid) && isFresh({ ...msg, type })) {
+        const jid = jidNormalizedUser(msg.key.remoteJid as string);
+        try {
+          const r = await config.links.redeem(code, jid, jid);
+          console.log(`🔗 Código ${r.ok ? "aceptado" : `rechazado (${r.reason})`} · ${describeChat(jid, selfIds)}`);
+          await sock.sendMessage(jid, { text: LINK_REPLY[r.ok ? "ok" : r.reason] }, { quoted: msg });
+        } catch (err) {
+          console.error("[link]", err);
+        }
+        continue;
+      }
       const reason = ignoreReason(
         { ...msg, type },
         { allowed: config.allowed, sent, selfChatOnly: config.selfChatOnly, selfIds },

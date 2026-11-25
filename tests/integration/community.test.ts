@@ -13,7 +13,7 @@ let results: ResultStore;
 let app: ReturnType<typeof createApp>;
 const noBot = {
   status: async () => ({ available: false, connected: false }),
-  sendToSelf: async () => ({ delivered: "sticker" as const }),
+  send: async () => ({ delivered: "sticker" as const }),
 };
 
 /** A finished result like /api/convert leaves behind (webp + optional ogg). */

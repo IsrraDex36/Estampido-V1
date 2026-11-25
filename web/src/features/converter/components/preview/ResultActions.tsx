@@ -9,6 +9,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBotStatus, useSendToWhatsApp } from "@/features/bot/api";
+import { LinkDialog } from "@/features/bot/LinkDialog";
+import { useLinkGate } from "@/features/bot/useLinkGate";
 import { downloadUrl } from "@/lib/api";
 import { notify } from "@/lib/notify";
 import { PublishButton } from "./PublishButton";
@@ -27,6 +29,7 @@ export function ResultActions({ result }: { result: ConvertResponse }) {
 function SendButton({ resultId }: { resultId: string }) {
   const bot = useBotStatus();
   const send = useSendToWhatsApp();
+  const { gate, dialog } = useLinkGate();
   const ready = bot?.connected === true;
   // The mutation is shared per component; only reflect it for this result.
   const mine = send.variables === resultId;
@@ -34,11 +37,14 @@ function SendButton({ resultId }: { resultId: string }) {
   const sent = mine && send.isSuccess;
 
   // Errors: global MutationCache toast (ApiError message) + bot re-check in the hook.
+  // Not linked yet → the link dialog opens and the send runs as soon as it's linked.
   const onClick = () =>
-    send.mutate(resultId, {
-      onSuccess: ({ delivered }) =>
-        notify.success(delivered === "native" ? "Enviado a tu chat con sonido" : "Enviado a tu chat"),
-    });
+    gate(() =>
+      send.mutate(resultId, {
+        onSuccess: ({ delivered }) =>
+          notify.success(delivered === "native" ? "Enviado a tu chat con sonido" : "Enviado a tu chat"),
+      }),
+    );
 
   const button = (
     <Button className="h-12 min-w-48 flex-1 rounded-full text-[15px] font-semibold" disabled={!ready || sending} onClick={onClick}>
@@ -53,7 +59,14 @@ function SendButton({ resultId }: { resultId: string }) {
     </Button>
   );
 
-  if (ready) return button;
+  if (ready) {
+    return (
+      <>
+        {button}
+        <LinkDialog {...dialog} />
+      </>
+    );
+  }
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -75,6 +88,9 @@ function DownloadMenu({ stickerUrl, audioUrl }: { stickerUrl: string; audioUrl?:
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-44">
+        {canShareFiles() && (
+          <DropdownMenuItem onSelect={() => void shareSticker(stickerUrl)}>Compartir…</DropdownMenuItem>
+        )}
         <DropdownMenuItem asChild>
           <a href={downloadUrl(stickerUrl)}>Sticker (.webp)</a>
         </DropdownMenuItem>
@@ -84,4 +100,22 @@ function DownloadMenu({ stickerUrl, audioUrl }: { stickerUrl: string; audioUrl?:
       </DropdownMenuContent>
     </DropdownMenu>
   );
+}
+
+/** Phones: native share sheet with the .webp (fallback when WhatsApp sending isn't available). */
+function canShareFiles(): boolean {
+  try {
+    return typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([""], "x.webp", { type: "image/webp" })] });
+  } catch {
+    return false;
+  }
+}
+
+async function shareSticker(url: string): Promise<void> {
+  try {
+    const blob = await (await fetch(url)).blob();
+    await navigator.share({ files: [new File([blob], "estampido.webp", { type: "image/webp" })], title: "Sticker de Estampido" });
+  } catch (err) {
+    if (!(err instanceof DOMException && err.name === "AbortError")) notify.error("No se pudo compartir. Descárgalo y envíalo desde WhatsApp.");
+  }
 }

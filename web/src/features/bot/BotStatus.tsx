@@ -1,7 +1,9 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useBotStatus } from "./api";
+import { useState } from "react";
+import { useBotStatus, useLink } from "./api";
+import { LinkDialog } from "./LinkDialog";
 
 const COPY = {
   on: { label: "Bot conectado", hint: "Puedes enviar stickers directo a tu chat." },
@@ -9,20 +11,38 @@ const COPY = {
   off: { label: "Bot apagado", hint: "Ejecuta «npm run bot» para enviar desde aquí." },
 } as const;
 
-/** Header status: skeleton while the first check runs. */
+/** Header status: skeleton while the first check runs; click → manage the WhatsApp link. */
 export function BotStatus() {
   const status = useBotStatus();
+  const link = useLink();
+  const [open, setOpen] = useState(false);
   if (status === undefined) return <Skeleton className="h-8 w-32 rounded-full" />;
   const state = status.connected ? "on" : status.available ? "linking" : "off";
+  const phone = link.data?.state === "linked" ? link.data.phone : null;
+  const label = state === "on" && phone ? `WhatsApp ${phone}` : COPY[state].label;
+  const hint =
+    state === "on" ? (phone ? "Tus stickers llegan a ese chat. Toca para gestionar." : "Toca para vincular tu WhatsApp.") : COPY[state].hint;
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span role="status" className="inline-flex h-8 items-center gap-2 rounded-full bg-muted px-3 text-[13px] font-medium">
-          <span className={cn("size-2 rounded-full", state === "on" ? "bg-sound" : state === "linking" ? "bg-retro-a" : "bg-muted-foreground/40")} />
-          <span className="hidden sm:inline">{COPY[state].label}</span>
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{COPY[state].hint}</TooltipContent>
-    </Tooltip>
+    <>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            disabled={state !== "on"}
+            className="inline-flex h-8 items-center gap-2 rounded-full bg-muted px-3 text-[13px] font-medium transition-colors hover:bg-muted/70 disabled:cursor-default"
+          >
+            <span
+              role="status"
+              aria-label={label}
+              className={cn("size-2 rounded-full", state === "on" ? "bg-sound" : state === "linking" ? "bg-retro-a" : "bg-muted-foreground/40")}
+            />
+            <span className="hidden sm:inline">{label}</span>
+          </button>
+        </TooltipTrigger>
+        <TooltipContent>{hint}</TooltipContent>
+      </Tooltip>
+      <LinkDialog open={open} onOpenChange={setOpen} />
+    </>
   );
 }

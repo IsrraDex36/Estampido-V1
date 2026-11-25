@@ -6,7 +6,7 @@ import type { CommunityFilters } from "@/features/community/store/filters";
  * Keys contain every variable their query function uses.
  */
 export const queryKeys = {
-  bot: { status: ["bot", "status"] as const },
+  bot: { status: ["bot", "status"] as const, link: ["bot", "link"] as const },
   community: {
     all: ["community"] as const,
     feed: (f: CommunityFilters) => ["community", "feed", f] as const,

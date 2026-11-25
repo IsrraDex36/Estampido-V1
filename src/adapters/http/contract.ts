@@ -76,7 +76,18 @@ export interface WhatsAppStatus {
   available: boolean;
   /** Bot linked and connected to WhatsApp. */
   connected: boolean;
+  /** The bot's number (digits) — users send their link code to it via wa.me. */
+  botNumber?: string | null;
 }
+
+/** Header carrying the browser's random id (the API hashes it; never stored raw). */
+export const CLIENT_HEADER = "x-estampido-client";
+
+/** "This browser ↔ my WhatsApp chat" link. */
+export type WhatsAppLink =
+  | { state: "unlinked" }
+  | { state: "pending"; code: string; expiresAt: number; waLink: string | null }
+  | { state: "linked"; phone: string; linkedAt: number };
 
 export interface SendToWhatsAppResponse {
   /** native = one sound sticker; sticker = plain sticker (result had no sound). */

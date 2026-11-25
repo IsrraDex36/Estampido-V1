@@ -3,8 +3,11 @@ import type {
   ConvertRequestFields,
   ConvertResponse,
   SendToWhatsAppResponse,
+  WhatsAppLink,
   WhatsAppStatus,
 } from "@contract";
+import { CLIENT_HEADER } from "@contract";
+import { getClientId } from "./clientId";
 
 export class ApiError extends Error {
   readonly code: string;
@@ -99,9 +102,23 @@ export async function getWhatsAppStatus(signal?: AbortSignal): Promise<WhatsAppS
   }
 }
 
-/** Send a result to the bot owner's own WhatsApp chat (native sound sticker). */
+const clientHeaders = () => ({ [CLIENT_HEADER]: getClientId() });
+
+/** Send a result to THIS browser's linked WhatsApp chat (native sound sticker). 409 not_linked if none. */
 export async function sendToWhatsApp(resultId: string): Promise<SendToWhatsAppResponse> {
   return readJson<SendToWhatsAppResponse>(
-    await fetch(`/api/results/${encodeURIComponent(resultId)}/whatsapp`, { method: "POST" }),
+    await fetch(`/api/results/${encodeURIComponent(resultId)}/whatsapp`, { method: "POST", headers: clientHeaders() }),
   );
+}
+
+export async function getWhatsAppLink(signal?: AbortSignal): Promise<WhatsAppLink> {
+  return readJson<WhatsAppLink>(await fetch("/api/whatsapp/link", { headers: clientHeaders(), signal }));
+}
+
+export async function createWhatsAppLink(): Promise<WhatsAppLink> {
+  return readJson<WhatsAppLink>(await fetch("/api/whatsapp/link", { method: "POST", headers: clientHeaders() }));
+}
+
+export async function deleteWhatsAppLink(): Promise<WhatsAppLink> {
+  return readJson<WhatsAppLink>(await fetch("/api/whatsapp/link", { method: "DELETE", headers: clientHeaders() }));
 }

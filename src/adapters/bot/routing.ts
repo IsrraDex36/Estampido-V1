@@ -100,3 +100,14 @@ export function describeChat(jid: string | null | undefined, selfIds?: ReadonlyS
 export function selfIdsOf(user: { id?: string; lid?: string } | undefined): Set<string> {
   return new Set([user?.id, user?.lid].map((j) => jidDigits(j)).filter((d): d is string => d !== null));
 }
+
+/** Direct 1:1 chat (not a group, status, broadcast list or channel). */
+export const isDirectChat = (jid: string | null | undefined): boolean => !!jid && /@(s\.whatsapp\.net|lid)$/.test(jid);
+
+/** Real-time (or recent offline) delivery — same freshness rule as commands. */
+export function isFresh(m: Incoming, nowSec = Date.now() / 1000): boolean {
+  if (m.type === "notify") return true;
+  if (m.type !== "append") return false;
+  const ts = toSeconds(m.messageTimestamp);
+  return ts !== null && nowSec - ts <= MAX_OFFLINE_AGE_SEC;
+}

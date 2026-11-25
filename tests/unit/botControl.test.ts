@@ -3,7 +3,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WASocket } from "baileys";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { assertResultFile, createControlApp } from "../../src/adapters/bot/control.js";
+import { assertResultFile, createControlApp, SENDS_PER_MINUTE } from "../../src/adapters/bot/control.js";
+import { LinkStore } from "../../src/adapters/bot/links.js";
 
 let base: string;
 let results: string;
@@ -46,75 +47,108 @@ describe("assertResultFile", () => {
 });
 
 describe("control app", () => {
+  const CLIENT = "c".repeat(64);
+  const OTHER = "d".repeat(64);
+  const USER = "5215511112222@s.whatsapp.net";
+  const handle = (sock: WASocket | null, links: LinkStore | null = null) => ({
+    current: () => sock,
+    links: () => links,
+  });
+  const webp = () => join(results, "job", "sticker.webp");
+  const post = (app: ReturnType<typeof createControlApp>, path: string, body: unknown) =>
+    app.request(path, { method: "POST", headers: auth, body: typeof body === "string" ? body : JSON.stringify(body) });
+
+  async function linked() {
+    const links = new LinkStore(join(base, "links.json"));
+    await links.redeem(links.createCode(CLIENT).code, USER, USER);
+    return links;
+  }
+
   it("rejects missing/wrong token", async () => {
-    const app = createControlApp({ current: () => null }, TOKEN, results);
+    const app = createControlApp(handle(null), TOKEN, results);
     expect((await app.request("/status")).status).toBe(401);
     expect((await app.request("/status", { headers: { authorization: "Bearer nope" } })).status).toBe(401);
   });
 
-  it("status reflects the socket", async () => {
+  it("status reflects the socket and exposes the bot number (for wa.me)", async () => {
     const { sock } = fakeSock();
-    expect(
-      await (
-        await createControlApp({ current: () => null }, TOKEN, results).request("/status", { headers: auth })
-      ).json(),
-    ).toEqual({ connected: false });
-    expect(
-      await (
-        await createControlApp({ current: () => sock }, TOKEN, results).request("/status", { headers: auth })
-      ).json(),
-    ).toEqual({ connected: true });
+    const off = await createControlApp(handle(null), TOKEN, results).request("/status", { headers: auth });
+    expect(await off.json()).toEqual({ connected: false, botNumber: null });
+    const on = await createControlApp(handle(sock), TOKEN, results).request("/status", { headers: auth });
+    expect(await on.json()).toEqual({ connected: true, botNumber: "525500000001" });
   });
 
-  it("sends a sticker ONLY to the owner's own chat", async () => {
-    const { sock, sent } = fakeSock();
-    const app = createControlApp({ current: () => sock }, TOKEN, results);
-    const res = await app.request("/send-self", {
-      method: "POST",
-      headers: auth,
-      body: JSON.stringify({
-        webpPath: join(results, "job", "sticker.webp"),
-        animated: true,
-        to: "1234@s.whatsapp.net",
-      }),
+  it("link lifecycle: create code → pending → (redeemed) linked with masked phone → delete", async () => {
+    const { sock } = fakeSock();
+    const links = new LinkStore(join(base, "links.json"));
+    const app = createControlApp(handle(sock, links), TOKEN, results);
+    const created = (await (await post(app, "/links", { client: CLIENT })).json()) as { code: string };
+    expect(created.code).toMatch(/^EST-/);
+    expect(await (await app.request(`/links/${CLIENT}`, { headers: auth })).json()).toMatchObject({ state: "pending" });
+    await links.redeem(created.code, USER, USER);
+    const st = (await (await app.request(`/links/${CLIENT}`, { headers: auth })).json()) as Record<string, unknown>;
+    expect(st).toMatchObject({ state: "linked", phone: "…2222" });
+    expect(JSON.stringify(st)).not.toContain("5215511112222"); // never the full number
+    expect(await (await app.request(`/links/${CLIENT}`, { method: "DELETE", headers: auth })).json()).toEqual({
+      removed: true,
     });
-    expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ delivered: "sticker" });
-    expect(sent).toHaveLength(1);
-    expect(sent[0]?.jid).toBe("525500000001@s.whatsapp.net"); // normalized self, `to` ignored
+    expect((await post(app, "/links", { client: "nope" })).status).toBe(400);
+    expect((await app.request("/links/nope", { headers: auth })).status).toBe(400);
+  });
+
+  it("sends ONLY to the client's linked chat; unlinked → 409; a `to` field is ignored", async () => {
+    const { sock, sent } = fakeSock();
+    const app = createControlApp(handle(sock, await linked()), TOKEN, results);
+    const ok = await post(app, "/send", {
+      client: CLIENT,
+      webpPath: webp(),
+      animated: true,
+      to: "1234@s.whatsapp.net",
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ delivered: "sticker" });
+    expect(sent.map((s) => s.jid)).toEqual([USER]);
+    const nope = await post(app, "/send", { client: OTHER, webpPath: webp(), animated: true });
+    expect(nope.status).toBe(409);
+    expect(await nope.json()).toMatchObject({ code: "not_linked" });
+  });
+
+  it(`per-chat limit: ${SENDS_PER_MINUTE}/min → 429`, async () => {
+    const { sock } = fakeSock();
+    const app = createControlApp(handle(sock, await linked()), TOKEN, results);
+    for (let i = 0; i < SENDS_PER_MINUTE; i++) {
+      expect((await post(app, "/send", { client: CLIENT, webpPath: webp(), animated: true })).status).toBe(200);
+    }
+    const limited = await post(app, "/send", { client: CLIENT, webpPath: webp(), animated: true });
+    expect(limited.status).toBe(429);
+    expect(await limited.json()).toMatchObject({ code: "rate_limited" });
   });
 
   it("accepts long sounds up to the pipeline limit (e.g. 180.0065 s), rejects beyond", async () => {
     const { sock } = fakeSock();
-    const app = createControlApp({ current: () => sock }, TOKEN, results);
+    const app = createControlApp(handle(sock, await linked()), TOKEN, results);
     await writeFile(join(results, "job", "sticker.ogg"), "OggS");
-    const body = (sec: number) =>
-      JSON.stringify({
-        webpPath: join(results, "job", "sticker.webp"),
-        audioPath: join(results, "job", "sticker.ogg"),
-        audioDurationSec: sec,
-        animated: true,
-      });
+    const body = (sec: number) => ({
+      client: CLIENT,
+      webpPath: webp(),
+      audioPath: join(results, "job", "sticker.ogg"),
+      audioDurationSec: sec,
+      animated: true,
+    });
     // Passes validation (then fails later at upload on the fake socket → 502, not 400).
-    expect((await app.request("/send-self", { method: "POST", headers: auth, body: body(180.0065) })).status).not.toBe(
-      400,
-    );
-    const tooLong = await app.request("/send-self", { method: "POST", headers: auth, body: body(500) });
+    expect((await post(app, "/send", body(180.0065))).status).not.toBe(400);
+    const tooLong = await post(app, "/send", body(500));
     expect(tooLong.status).toBe(400);
     expect(JSON.stringify(await tooLong.json())).toMatch(/audioDurationSec/);
   });
 
   it("403 for files outside results; 503 when disconnected; 400 bad body", async () => {
     const { sock } = fakeSock();
-    const app = createControlApp({ current: () => sock }, TOKEN, results);
-    const bad = await app.request("/send-self", {
-      method: "POST",
-      headers: auth,
-      body: JSON.stringify({ webpPath: outside, animated: false }),
-    });
-    expect(bad.status).toBe(403);
-    expect((await app.request("/send-self", { method: "POST", headers: auth, body: "{" })).status).toBe(400);
-    const off = createControlApp({ current: () => null }, TOKEN, results);
-    expect((await off.request("/send-self", { method: "POST", headers: auth, body: "{}" })).status).toBe(503);
+    const app = createControlApp(handle(sock, await linked()), TOKEN, results);
+    expect((await post(app, "/send", { client: CLIENT, webpPath: outside, animated: false })).status).toBe(403);
+    expect((await post(app, "/send", "{")).status).toBe(400);
+    const off = createControlApp(handle(null), TOKEN, results);
+    expect((await post(off, "/send", {})).status).toBe(503);
+    expect((await post(off, "/links", { client: CLIENT })).status).toBe(503);
   });
 });

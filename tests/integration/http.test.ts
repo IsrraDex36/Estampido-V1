@@ -19,7 +19,7 @@ afterAll(async () => {
 
 const noBot = {
   status: async () => ({ available: false, connected: false }),
-  sendToSelf: async () => ({ delivered: "sticker" as const }),
+  send: async () => ({ delivered: "sticker" as const }),
 };
 
 describe("HTTP end-to-end (real ffmpeg)", () => {

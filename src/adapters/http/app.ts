@@ -1,9 +1,11 @@
+import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { communityRoot } from "../../config/paths.js";
 import { CancelledError, UserInputError } from "../../core/errors.js";
 import { probe } from "../../core/probe/probe.js";
@@ -11,14 +13,16 @@ import { inspectWebp } from "../../core/webp/inspect.js";
 import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
 import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
-import { type BotClient, BotUnavailableError, createBotClient } from "./botClient.js";
+import { type BotClient, BotRequestError, BotUnavailableError, createBotClient } from "./botClient.js";
 import { CommunityRepo } from "./community/repo.js";
 import { communityRoutes } from "./community/routes.js";
 import {
   API_LIMITS,
   type ApiErrorBody,
+  CLIENT_HEADER,
   type ConvertResponse,
   type SendToWhatsAppResponse,
+  type WhatsAppLink,
   type WhatsAppStatus,
 } from "./contract.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
@@ -32,6 +36,16 @@ export interface AppDeps {
   maxConcurrent?: number;
   maxQueue?: number;
 }
+
+/** Browser id (random UUID) → SHA-256 hex. The raw id never leaves the API. */
+export function clientHash(raw: string | undefined): string | null {
+  if (!raw || !/^[0-9a-f-]{36}$/i.test(raw)) return null;
+  return createHash("sha256").update(`estampido:${raw.toLowerCase()}`).digest("hex");
+}
+
+/** wa.me link that opens WhatsApp with the code pre-typed. */
+export const waLink = (botNumber: string | null | undefined, code: string): string | null =>
+  botNumber ? `https://wa.me/${botNumber}?text=${encodeURIComponent(`Hola Estampido 👋 mi código: ${code}`)}` : null;
 
 const fail = (code: string, message: string): ApiErrorBody => ({
   error: { code, message },
@@ -167,8 +181,57 @@ export function createApp(deps: AppDeps = {}): Hono {
 
   app.get("/whatsapp/status", async (c) => c.json((await bot.status()) satisfies WhatsAppStatus));
 
-  // Send a finished result to the bot owner's own chat as a native sound sticker.
+  /** Bot failures → uniform JSON (unavailable 503, known 4xx from the bot, else 502). */
+  const botFailure = (c: Context, err: unknown, what: string) => {
+    if (err instanceof BotUnavailableError) return c.json(fail("bot_unavailable", err.message), 503);
+    if (err instanceof BotRequestError && err.status < 500) {
+      return c.json(fail(err.code, err.message), err.status as ContentfulStatusCode);
+    }
+    console.error(`[whatsapp:${what}]`, err);
+    return c.json(fail("send_failed", "No se pudo completar con WhatsApp."), 502);
+  };
+
+  // ── "This browser ↔ my WhatsApp" link (code sent from the user's WhatsApp) ──
+  app.get("/whatsapp/link", async (c) => {
+    const client = clientHash(c.req.header(CLIENT_HEADER));
+    if (!client) return c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
+    try {
+      const st = await bot.linkStatus(client);
+      if (st.state !== "pending") return c.json(st satisfies WhatsAppLink);
+      const { botNumber } = await bot.status();
+      return c.json({ ...st, waLink: waLink(botNumber, st.code) } satisfies WhatsAppLink);
+    } catch (err) {
+      return botFailure(c, err, "link-status");
+    }
+  });
+
+  app.post("/whatsapp/link", async (c) => {
+    const client = clientHash(c.req.header(CLIENT_HEADER));
+    if (!client) return c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
+    try {
+      const { code, expiresAt } = await bot.createLink(client);
+      const { botNumber } = await bot.status();
+      return c.json({ state: "pending", code, expiresAt, waLink: waLink(botNumber, code) } satisfies WhatsAppLink);
+    } catch (err) {
+      return botFailure(c, err, "link-create");
+    }
+  });
+
+  app.delete("/whatsapp/link", async (c) => {
+    const client = clientHash(c.req.header(CLIENT_HEADER));
+    if (!client) return c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
+    try {
+      await bot.unlink(client);
+      return c.json({ state: "unlinked" } satisfies WhatsAppLink);
+    } catch (err) {
+      return botFailure(c, err, "unlink");
+    }
+  });
+
+  // Send a finished result to THIS browser's linked chat as a native sound sticker.
   app.post("/results/:id/whatsapp", async (c) => {
+    const client = clientHash(c.req.header(CLIENT_HEADER));
+    if (!client) return c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
     const webpPath = store.resolve(c.req.param("id"), "sticker.webp");
     if (!webpPath) return c.json(fail("not_found", "Resultado no encontrado."), 404);
     const webp = await readFile(webpPath).catch(() => null);
@@ -180,17 +243,15 @@ export function createApp(deps: AppDeps = {}): Hono {
       () => false,
     );
     try {
-      const sent = await bot.sendToSelf({
+      const sent = await bot.send({
+        client,
         webpPath,
         animated: inspectWebp(webp).animated,
         ...(hasAudio ? { audioPath: oggPath, audioDurationSec: (await probe(oggPath)).durationSec } : {}),
       });
       return c.json(sent satisfies SendToWhatsAppResponse);
     } catch (err) {
-      if (err instanceof BotUnavailableError) return c.json(fail("bot_unavailable", err.message), 503);
-      console.error("[whatsapp]", err);
-      const reason = err instanceof Error && err.message ? ` ${err.message}` : "";
-      return c.json(fail("send_failed", `No se pudo enviar a WhatsApp.${reason}`), 502);
+      return botFailure(c, err, "send");
     }
   });
 

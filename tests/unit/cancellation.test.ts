@@ -67,7 +67,7 @@ describe("HTTP: client disconnect cancels the job", () => {
         convert: convert as never,
         bot: {
           status: async () => ({ available: false, connected: false }),
-          sendToSelf: async () => ({ delivered: "sticker" }),
+          send: async () => ({ delivered: "sticker" }),
         },
       });
       const fd = new FormData();

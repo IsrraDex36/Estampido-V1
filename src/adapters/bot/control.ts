@@ -3,25 +3,35 @@ import { realpath, rm, writeFile } from "node:fs/promises";
 import { type AddressInfo, createServer, type Server } from "node:net";
 import { sep } from "node:path";
 import { serve } from "@hono/node-server";
-import { jidNormalizedUser, type WASocket } from "baileys";
+import type { WASocket } from "baileys";
 import { Hono } from "hono";
 import { z } from "zod";
 import { STICKER_LIMITS } from "../../config/limits.js";
 import { controlFile, RESULTS_ROOT } from "../../config/paths.js";
+import { jidDigits } from "./command.js";
+import { isClientHash, type LinkStore, maskJid } from "./links.js";
+import { RateLimiter } from "./rateLimit.js";
 import { sendSoundSticker } from "./soundSticker.js";
 
 /**
  * Local control endpoint so the web/API can say "send this result to my
  * WhatsApp". Hardening:
  * - binds 127.0.0.1 only, random bearer token in .auth/control.json (0600)
- * - destination is ALWAYS the bot owner's own chat (no arbitrary numbers)
+ * - destination is ALWAYS the chat linked to that web client (a code the
+ *   user sent from their own WhatsApp) — never an arbitrary number
+ * - per-chat send limit
  * - only files inside the API results folder can be sent (realpath-checked)
  */
 export interface BotHandle {
   current(): WASocket | null;
+  /** Link store for the connected bot number (null while disconnected). */
+  links(): LinkStore | null;
 }
 
+export const SENDS_PER_MINUTE = 10;
+
 const sendSchema = z.object({
+  client: z.string().refine(isClientHash, "cliente inválido"),
   webpPath: z.string().min(1),
   audioPath: z.string().min(1).optional(),
   // Same ceiling as the pipeline (+1 s: containers report e.g. 180.0065 s).
@@ -57,14 +67,52 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
     await next();
   });
 
+  const perChat = new RateLimiter(SENDS_PER_MINUTE);
+
   app.get("/status", (c) => {
     const sock = bot.current();
-    return c.json({ connected: Boolean(sock?.user) });
+    // The bot's own number: the web builds wa.me/<number> links with it.
+    return c.json({ connected: Boolean(sock?.user), botNumber: jidDigits(sock?.user?.id) });
   });
 
-  app.post("/send-self", async (c) => {
+  // ── Links ────────────────────────────────────────────────────────────────
+  const storeOr503 = () => bot.links();
+
+  app.post("/links", async (c) => {
+    const store = storeOr503();
+    if (!store) return c.json({ error: "Bot no conectado." }, 503);
+    const body = (await c.req.json().catch(() => null)) as { client?: string } | null;
+    if (!body?.client || !isClientHash(body.client)) return c.json({ error: "cliente inválido" }, 400);
+    try {
+      return c.json(store.createCode(body.client));
+    } catch (err) {
+      return c.json({ error: err instanceof Error ? err.message : "No se pudo crear el código." }, 429);
+    }
+  });
+
+  app.get("/links/:client", async (c) => {
+    const store = storeOr503();
+    if (!store) return c.json({ error: "Bot no conectado." }, 503);
+    const client = c.req.param("client");
+    if (!isClientHash(client)) return c.json({ error: "cliente inválido" }, 400);
+    const st = await store.status(client);
+    // Never return the full number: the browser only needs "…5678".
+    return c.json(st.state === "linked" ? { state: "linked", phone: maskJid(st.jid), linkedAt: st.linkedAt } : st);
+  });
+
+  app.delete("/links/:client", async (c) => {
+    const store = storeOr503();
+    if (!store) return c.json({ error: "Bot no conectado." }, 503);
+    const client = c.req.param("client");
+    if (!isClientHash(client)) return c.json({ error: "cliente inválido" }, 400);
+    return c.json({ removed: await store.unlink(client) });
+  });
+
+  // ── Send to the client's linked chat ─────────────────────────────────────
+  app.post("/send", async (c) => {
     const sock = bot.current();
-    if (!sock?.user) return c.json({ error: "Bot no conectado." }, 503);
+    const store = bot.links();
+    if (!sock?.user || !store) return c.json({ error: "Bot no conectado." }, 503);
     const parsed = sendSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) {
       const why = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
@@ -81,10 +129,15 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
       return c.json({ error: "Archivo no permitido o inexistente." }, 403);
     }
 
-    const self = jidNormalizedUser(sock.user.id);
+    const target = await store.target(parsed.data.client);
+    if (!target) return c.json({ error: "Este navegador no tiene un WhatsApp vinculado.", code: "not_linked" }, 409);
+    const wait = perChat.take(target);
+    if (wait > 0) {
+      return c.json({ error: `Vas muy rápido: espera ${Math.ceil(wait / 1000)} s.`, code: "rate_limited" }, 429);
+    }
     try {
       if (audioPath && parsed.data.audioDurationSec) {
-        await sendSoundSticker(sock, self, {
+        await sendSoundSticker(sock, target, {
           webpPath,
           audioPath,
           audioDurationSec: parsed.data.audioDurationSec,
@@ -92,7 +145,7 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
         });
         return c.json({ delivered: "native" } satisfies SendToSelfResponse);
       }
-      await sock.sendMessage(self, { sticker: { url: webpPath } });
+      await sock.sendMessage(target, { sticker: { url: webpPath } });
       return c.json({ delivered: "sticker" } satisfies SendToSelfResponse);
     } catch (err) {
       console.error("[control] envío falló", err);

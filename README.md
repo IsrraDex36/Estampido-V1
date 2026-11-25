@@ -26,7 +26,9 @@ _Estampa + estampido._ Estampido genera **stickers con sonido nativos** de Whats
 
 1. **Clip**: arrastra un video, GIF o imagen. Marca el tramo con el control de rango o escribiendo los tiempos en `m:ss`.
 2. **Ajustes**: pestañas Tiempo, Sonido (el del video, un audio propio o **🎙️ grabar tu voz**: hasta 30 s; con imagen, 10 s), Estilo (encuadre `crop`/`pad`, Calidad alta) y Pack (nombre, autor, emojis).
-3. **Resultado**: lo escuchas ahí mismo, lo descargas o lo **envías a tu WhatsApp** con un clic, si el bot está corriendo.
+3. **Resultado**: lo escuchas ahí mismo, lo descargas, lo compartes o lo **envías a tu WhatsApp** con sonido.
+   - La primera vez se **vincula tu WhatsApp con un código**: un botón abre WhatsApp con el código ya escrito, solo tocas Enviar, y la web lo detecta y envía el sticker sola.
+   - Cualquier persona puede vincular el suyo; cada navegador envía solo a su chat. Detalles en [docs/ENVIO.md](docs/ENVIO.md).
 4. **Colección**: cada sticker que creas se guarda en la sesión. Selecciona varios y **envíalos todos a la vez**: llegan en orden y con sonido, con barra de progreso y opción de cancelar.
 
 Otros detalles: tema claro/oscuro (negro puro), atajo `⌘/Ctrl + Enter` para crear el sticker, carga real y cancelación (que también detiene FFmpeg en el servidor). Es responsive desde el móvil hasta monitores de 27″, con fondo pixel-art y Pum, la mascota.

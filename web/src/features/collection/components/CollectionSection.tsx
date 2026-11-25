@@ -3,6 +3,8 @@ import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBotStatus, useRefreshBot } from "@/features/bot/api";
+import { LinkDialog } from "@/features/bot/LinkDialog";
+import { useLinkGate } from "@/features/bot/useLinkGate";
 import { Section } from "@/components/section";
 import { selectSelectedItems, useCollectionStore } from "../collectionStore";
 import { useBatchSend } from "../useBatchSend";
@@ -24,6 +26,7 @@ export function CollectionSection({ className }: { className?: string }) {
   const selectedItems = useCollectionStore(useShallow(selectSelectedItems));
   const bot = useBotStatus();
   const refreshBot = useRefreshBot();
+  const { gate, dialog } = useLinkGate();
   const { phase, send, cancel, reset } = useBatchSend();
 
   if (items.length === 0) return null;
@@ -43,7 +46,7 @@ export function CollectionSection({ className }: { className?: string }) {
   };
 
   const sendButton = (
-    <Button className="h-11 rounded-full px-5 font-semibold" disabled={!ready || count === 0 || sending} onClick={onSend}>
+    <Button className="h-11 rounded-full px-5 font-semibold" disabled={!ready || count === 0 || sending} onClick={() => gate(() => void onSend())}>
       <SendIcon data-icon="inline-start" />
       {count <= 1 ? "Enviar a WhatsApp" : `Enviar ${count} a WhatsApp`}
     </Button>
@@ -125,6 +128,7 @@ export function CollectionSection({ className }: { className?: string }) {
       <p className="mt-3 text-[12px] text-muted-foreground">
         Se envían uno tras otro, en este orden, como stickers con sonido. Los stickers se guardan 30 min.
       </p>
+      <LinkDialog {...dialog} />
     </Section>
   );
 }

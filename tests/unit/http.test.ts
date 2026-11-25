@@ -65,7 +65,7 @@ const video = () => new File([new Uint8Array(10)], "clip.mp4", { type: "video/mp
 
 const noBot = {
   status: async () => ({ available: false, connected: false }),
-  sendToSelf: async () => ({ delivered: "sticker" as const }),
+  send: async () => ({ delivered: "sticker" as const }),
 };
 
 describe("POST /api/convert", () => {
