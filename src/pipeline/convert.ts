@@ -12,7 +12,7 @@ export type { ConvertOptions, ConvertResult, ReplacementAudio } from "./types.js
  * Detects the kind (video / GIF-animated WebP / still image) and dispatches.
  */
 export async function convertToSoundSticker(opts: ConvertOptions): Promise<ConvertResult> {
-  const source = await probeUserFile(opts.input, "el archivo");
+  const source = await probeUserFile(opts.input, "el archivo", opts.signal);
   if (!source.hasVideo) throw new UserInputError("El archivo no es un video, GIF ni imagen.");
   const kind = classifyMedia(source);
   return kind === "image" ? convertImage(opts, source) : convertAnimated(opts, source, kind);

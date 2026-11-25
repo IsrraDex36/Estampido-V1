@@ -12,6 +12,7 @@ export interface EncodeAudioOptions {
   streamIndex?: number;
   /** Peak-normalization gain in dB (0 = untouched). */
   gainDb?: number;
+  signal?: AbortSignal;
 }
 
 /**
@@ -60,7 +61,10 @@ export function buildAudioArgs(opts: EncodeAudioOptions): string[] {
 }
 
 export async function encodeAudio(opts: EncodeAudioOptions): Promise<void> {
-  await run(ffmpegPath(), buildAudioArgs(opts), { timeoutMs: Math.max(120_000, opts.durationSec * 2_000) });
+  await run(ffmpegPath(), buildAudioArgs(opts), {
+    timeoutMs: Math.max(120_000, opts.durationSec * 2_000),
+    signal: opts.signal,
+  });
 }
 
 export interface Loudness {
@@ -85,6 +89,7 @@ export async function analyzeAudio(opts: {
   startSec: number;
   durationSec: number;
   streamIndex?: number;
+  signal?: AbortSignal;
 }): Promise<Loudness> {
   const { stderr } = await run(
     ffmpegPath(),
@@ -106,7 +111,7 @@ export async function analyzeAudio(opts: {
       "null",
       "-",
     ],
-    { timeoutMs: Math.max(60_000, opts.durationSec * 1_000) },
+    { timeoutMs: Math.max(60_000, opts.durationSec * 1_000), signal: opts.signal },
   );
   return parseVolumeDetect(stderr);
 }

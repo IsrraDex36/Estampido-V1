@@ -174,3 +174,15 @@ describe("convertToSoundSticker", () => {
     expect(explicit.stats.segment.durationSec).toBe(2);
   });
 });
+
+describe("pipeline cancellation", () => {
+  it("aborting mid-conversion throws CancelledError quickly", async () => {
+    const { CancelledError } = await import("../../src/core/errors.js");
+    const controller = new AbortController();
+    const t0 = Date.now();
+    const pending = convertToSoundSticker({ input: withAudio, outDir: dir, name: "cancel", signal: controller.signal });
+    setTimeout(() => controller.abort(), 150);
+    await expect(pending).rejects.toBeInstanceOf(CancelledError);
+    expect(Date.now() - t0).toBeLessThan(3000);
+  });
+});

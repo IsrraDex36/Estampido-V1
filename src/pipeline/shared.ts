@@ -1,7 +1,7 @@
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeAudio, encodeAudio, type Loudness } from "../core/audio/encodeAudio.js";
-import { UserInputError } from "../core/errors.js";
+import { CancelledError, throwIfCancelled, UserInputError } from "../core/errors.js";
 import { buildStickerExif, resolveMetadata, type StickerMetadata } from "../core/metadata/stickerExif.js";
 import { type AudioStreamInfo, type MediaInfo, probe } from "../core/probe/probe.js";
 import { embedExif, exifOverhead } from "../core/webp/chunks.js";
@@ -9,17 +9,18 @@ import { inspectWebp, type WebpInfo } from "../core/webp/inspect.js";
 import type { ConvertOptions, ConvertResult, ReplacementAudio } from "./types.js";
 
 /** ffprobe a user-supplied file; unreadable input is the user's problem, not ours. */
-export async function probeUserFile(path: string, what: string): Promise<MediaInfo> {
+export async function probeUserFile(path: string, what: string, signal?: AbortSignal): Promise<MediaInfo> {
   try {
-    return await probe(path);
-  } catch {
+    return await probe(path, signal);
+  } catch (err) {
+    if (err instanceof CancelledError) throw err;
     throw new UserInputError(`No se pudo leer ${what}. ¿Es un archivo válido?`);
   }
 }
 
 /** Validate a replacement sound before any costly encode. Returns its probe. */
-export async function validateReplacement(audio: ReplacementAudio): Promise<MediaInfo> {
-  const info = await probeUserFile(audio.file, "el audio");
+export async function validateReplacement(audio: ReplacementAudio, signal?: AbortSignal): Promise<MediaInfo> {
+  const info = await probeUserFile(audio.file, "el audio", signal);
   if (!info.hasAudio) throw new UserInputError("El archivo de audio elegido no tiene sonido.");
   const start = audio.startSec ?? 0;
   if (info.durationSec > 0 && start >= info.durationSec) {
@@ -97,7 +98,12 @@ const secs = (n: number) => `${n.toFixed(1)} s`;
  * Quiet sound is peak-normalized; the output is re-measured. When nothing
  * usable exists the sticker is still produced and a specific warning returned.
  */
-export async function extractSound(outDir: string, name: string, src: SoundSource): Promise<SoundOutcome> {
+export async function extractSound(
+  outDir: string,
+  name: string,
+  src: SoundSource,
+  signal?: AbortSignal,
+): Promise<SoundOutcome> {
   const candidates: (AudioStreamInfo | undefined)[] = src.streams.length ? src.streams : [undefined];
   const audioPath = join(outDir, `${name}.ogg`);
   let reason: "undecodable" | "empty" | "silent" = "empty";
@@ -106,8 +112,9 @@ export async function extractSound(outDir: string, name: string, src: SoundSourc
   for (const stream of candidates) {
     let loud: Loudness;
     try {
-      loud = await analyzeAudio({ ...src, streamIndex: stream?.index });
-    } catch {
+      loud = await analyzeAudio({ ...src, streamIndex: stream?.index, signal });
+    } catch (err) {
+      if (err instanceof CancelledError) throw err;
       if (reason !== "silent") reason = "undecodable";
       badCodec ??= stream?.codec;
       continue;
@@ -119,13 +126,15 @@ export async function extractSound(outDir: string, name: string, src: SoundSourc
     }
     const gainDb = gainFor(loud.maxVolumeDb);
     try {
-      await encodeAudio({ ...src, output: audioPath, streamIndex: stream?.index, gainDb });
-    } catch {
+      await encodeAudio({ ...src, output: audioPath, streamIndex: stream?.index, gainDb, signal });
+    } catch (err) {
+      if (err instanceof CancelledError) throw err;
       reason = "undecodable";
       badCodec ??= stream?.codec;
       continue;
     }
-    const measured = (await probe(audioPath).catch(() => null))?.durationSec ?? 0;
+    const measured = (await probe(audioPath, signal).catch(() => null))?.durationSec ?? 0;
+    throwIfCancelled(signal);
     if (measured < 0.1) {
       await rm(audioPath, { force: true });
       continue;

@@ -1,6 +1,7 @@
 import { rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { DEFAULT_FIT, STICKER_LIMITS } from "../config/limits.js";
+import { throwIfCancelled } from "../core/errors.js";
 import { fitFpsFirst } from "../core/optimize/fpsFirst.js";
 import type { MediaInfo } from "../core/probe/probe.js";
 import { encodeVideo } from "../core/video/encodeVideo.js";
@@ -36,7 +37,7 @@ export async function convertAnimated(
   assertMaxDuration(opts.durationSec, STICKER_LIMITS.maxDurationSec, "El sticker animado");
 
   const audioMode = opts.audio ?? "source";
-  const replacement = typeof audioMode === "object" ? await validateReplacement(audioMode) : null;
+  const replacement = typeof audioMode === "object" ? await validateReplacement(audioMode, opts.signal) : null;
   const { metadata, exif, overhead } = prepareMetadata(opts.metadata);
 
   const max = STICKER_LIMITS.maxDurationSec;
@@ -67,6 +68,7 @@ export async function convertAnimated(
         quality: req.quality,
         fps: req.fps,
         seek: kind === "animated" ? "output" : "input",
+        signal: opts.signal,
       });
       return (await stat(output)).size;
     },
@@ -89,6 +91,7 @@ export async function convertAnimated(
       `El sticker pesa ${kb(fitted.bytes + overhead)} y supera ${kb(maxBytes)} incluso a calidad mínima. Prueba un clip más corto.`,
     );
   }
+  throwIfCancelled(opts.signal);
   const { bytes, info } = await finalizeWebp(webpPath, exif);
 
   let audioPath: string | undefined;
@@ -101,23 +104,33 @@ export async function convertAnimated(
       ? (opts.durationSec ?? (fullLength ? max : STICKER_LIMITS.defaultDurationSec))
       : segment.durationSec;
     const duration = Math.min(wanted, availableAfter(replacement, start));
-    const sound = await extractSound(opts.outDir, name, {
-      input: audioMode.file,
-      startSec: start,
-      durationSec: duration,
-      origin: "file",
-      streams: replacement.audioStreams,
-    });
+    const sound = await extractSound(
+      opts.outDir,
+      name,
+      {
+        input: audioMode.file,
+        startSec: start,
+        durationSec: duration,
+        origin: "file",
+        streams: replacement.audioStreams,
+      },
+      opts.signal,
+    );
     if ("warning" in sound) warnings.push(sound.warning);
     else ({ audioPath, stats: audioStats } = sound);
   } else if (audioMode === "source" && source.hasAudio) {
-    const sound = await extractSound(opts.outDir, name, {
-      input: opts.input,
-      startSec: segment.startSec,
-      durationSec: segment.durationSec,
-      origin: "video",
-      streams: source.audioStreams,
-    });
+    const sound = await extractSound(
+      opts.outDir,
+      name,
+      {
+        input: opts.input,
+        startSec: segment.startSec,
+        durationSec: segment.durationSec,
+        origin: "video",
+        streams: source.audioStreams,
+      },
+      opts.signal,
+    );
     if ("warning" in sound) warnings.push(sound.warning);
     else ({ audioPath, stats: audioStats } = sound);
   } else if (audioMode === "source") {

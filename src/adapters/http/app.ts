@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
-import { UserInputError } from "../../core/errors.js";
+import { CancelledError, UserInputError } from "../../core/errors.js";
 import { probe } from "../../core/probe/probe.js";
 import { inspectWebp } from "../../core/webp/inspect.js";
 import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
@@ -97,28 +97,34 @@ export function createApp(deps: AppDeps = {}): Hono {
           await writeFile(audioPath, Buffer.from(await audioFile.arrayBuffer()));
         }
 
-        const result = await jobs.run(() =>
-          convert({
-            input,
-            outDir: job.dir,
-            name: "sticker",
-            startSec: opts.startSec,
-            durationSec: opts.durationSec,
-            maxBytes: opts.hq ? API_LIMITS.maxExperimentalKb * 1024 : undefined,
-            fit: opts.fit,
-            audio: !opts.includeAudio
-              ? "none"
-              : audioPath
-                ? { file: audioPath, startSec: opts.audioStartSec }
-                : "source",
-            metadata: opts.includeMetadata
-              ? {
-                  packName: opts.packName,
-                  publisher: opts.publisher,
-                  emojis: opts.emojis ? opts.emojis.split(",") : undefined,
-                }
-              : false,
-          }),
+        // Fires when the client disconnects (e.g. "Cancelar" in the web):
+        // leaves the queue or kills the running ffmpeg.
+        const signal = c.req.raw.signal;
+        const result = await jobs.run(
+          () =>
+            convert({
+              signal,
+              input,
+              outDir: job.dir,
+              name: "sticker",
+              startSec: opts.startSec,
+              durationSec: opts.durationSec,
+              maxBytes: opts.hq ? API_LIMITS.maxExperimentalKb * 1024 : undefined,
+              fit: opts.fit,
+              audio: !opts.includeAudio
+                ? "none"
+                : audioPath
+                  ? { file: audioPath, startSec: opts.audioStartSec }
+                  : "source",
+              metadata: opts.includeMetadata
+                ? {
+                    packName: opts.packName,
+                    publisher: opts.publisher,
+                    emojis: opts.emojis ? opts.emojis.split(",") : undefined,
+                  }
+                : false,
+            }),
+          { signal },
         );
 
         const s = result.stats;
@@ -136,6 +142,10 @@ export function createApp(deps: AppDeps = {}): Hono {
         return c.json(response);
       } catch (err) {
         await store.remove(job.id);
+        if (err instanceof CancelledError) {
+          // Client is gone; nobody reads this. 499 = "client closed request".
+          return c.body(null, 499 as never);
+        }
         if (err instanceof UserInputError) {
           return c.json(fail("unprocessable", err.message), 422);
         }

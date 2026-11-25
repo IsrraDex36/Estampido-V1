@@ -20,6 +20,7 @@ export interface EncodeVideoOptions {
    * whose demuxer breaks with input seeking (libwebp_anim then fails).
    */
   seek?: "input" | "output";
+  signal?: AbortSignal;
 }
 
 /** Build the -vf chain. Exported for unit testing. */
@@ -67,5 +68,5 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
 export const encodeTimeoutMs = (durationSec: number): number => Math.max(120_000, durationSec * 3_000);
 
 export async function encodeVideo(opts: EncodeVideoOptions): Promise<void> {
-  await run(ffmpegPath(), buildVideoArgs(opts), { timeoutMs: encodeTimeoutMs(opts.durationSec) });
+  await run(ffmpegPath(), buildVideoArgs(opts), { timeoutMs: encodeTimeoutMs(opts.durationSec), signal: opts.signal });
 }

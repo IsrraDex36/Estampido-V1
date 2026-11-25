@@ -31,12 +31,19 @@ export async function convertImage(opts: ConvertOptions, source: MediaInfo): Pro
   if (opts.startSec) warnings.push("El inicio no aplica a imágenes; se ignoró.");
 
   const audioMode = opts.audio ?? "source";
-  const replacement = typeof audioMode === "object" ? await validateReplacement(audioMode) : null;
+  const replacement = typeof audioMode === "object" ? await validateReplacement(audioMode, opts.signal) : null;
   const { metadata, exif, overhead } = prepareMetadata(opts.metadata);
 
   const webpPath = join(opts.outDir, `${name}.webp`);
   const fitted = await fitToSize(
-    (a) => encodeImage({ input: opts.input, output: webpPath, fit: opts.fit ?? DEFAULT_FIT, quality: a.quality }),
+    (a) =>
+      encodeImage({
+        input: opts.input,
+        output: webpPath,
+        fit: opts.fit ?? DEFAULT_FIT,
+        quality: a.quality,
+        signal: opts.signal,
+      }),
     webpPath,
     maxBytes - overhead,
     STATIC_LADDER,
@@ -57,13 +64,18 @@ export async function convertImage(opts: ConvertOptions, source: MediaInfo): Pro
       warnings.push(`El audio se recortó a ${STICKER_LIMITS.maxImageAudioSec} s (máximo para imágenes).`);
     }
     segment = { startSec: start, durationSec: duration };
-    const sound = await extractSound(opts.outDir, name, {
-      input: audioMode.file,
-      startSec: start,
-      durationSec: duration,
-      origin: "file",
-      streams: replacement.audioStreams,
-    });
+    const sound = await extractSound(
+      opts.outDir,
+      name,
+      {
+        input: audioMode.file,
+        startSec: start,
+        durationSec: duration,
+        origin: "file",
+        streams: replacement.audioStreams,
+      },
+      opts.signal,
+    );
     if ("warning" in sound) warnings.push(sound.warning);
     else ({ audioPath, stats: audioStats } = sound);
   } else if (audioMode === "source") {

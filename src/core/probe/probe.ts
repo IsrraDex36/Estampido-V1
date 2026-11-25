@@ -124,15 +124,11 @@ export function parseProbeOutput(json: string): MediaInfo {
   };
 }
 
-export async function probe(input: string): Promise<MediaInfo> {
-  const { stdout } = await run(ffprobePath(), [
-    "-v",
-    "error",
-    "-print_format",
-    "json",
-    "-show_format",
-    "-show_streams",
-    input,
-  ]);
+export async function probe(input: string, signal?: AbortSignal): Promise<MediaInfo> {
+  const { stdout } = await run(
+    ffprobePath(),
+    ["-v", "error", "-print_format", "json", "-show_format", "-show_streams", input],
+    { signal },
+  );
   return parseProbeOutput(stdout);
 }

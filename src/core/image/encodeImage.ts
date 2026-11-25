@@ -9,6 +9,7 @@ export interface EncodeImageOptions {
   quality?: number;
   fit?: FitMode;
   size?: number;
+  signal?: AbortSignal;
 }
 
 /** Quality-only ladder for static stickers (fps unused → 0). */
@@ -47,5 +48,5 @@ export function buildImageArgs(opts: EncodeImageOptions): string[] {
 }
 
 export async function encodeImage(opts: EncodeImageOptions): Promise<void> {
-  await run(ffmpegPath(), buildImageArgs(opts));
+  await run(ffmpegPath(), buildImageArgs(opts), { signal: opts.signal });
 }

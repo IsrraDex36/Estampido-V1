@@ -38,6 +38,8 @@ export interface ConvertOptions {
    * sources — up to STICKER_LIMITS.maxDurationSec, instead of the 5 s default.
    */
   fullLength?: boolean;
+  /** Cancels the whole conversion (kills running ffmpeg processes). */
+  signal?: AbortSignal;
   /** Override the size limit (default: 500 KB animated, 100 KB static). */
   maxBytes?: number;
   /** WhatsApp pack/author metadata (EXIF). Defaults applied; `false` = none. */

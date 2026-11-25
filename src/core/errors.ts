@@ -11,3 +11,16 @@ export class UserInputError extends Error {
 }
 
 export const formatMB = (bytes: number): string => `${Math.round(bytes / 1024 / 1024)} MB`;
+
+/** The caller cancelled (client disconnected, /cancelar…). Not an error to report. */
+export class CancelledError extends Error {
+  constructor(message = "Cancelado.") {
+    super(message);
+    this.name = "CancelledError";
+  }
+}
+
+/** Throw CancelledError if the signal already fired (cheap checkpoint between steps). */
+export function throwIfCancelled(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new CancelledError();
+}
