@@ -157,4 +157,20 @@ describe("convertToSoundSticker", () => {
       convertToSoundSticker({ input: withAudio, outDir: dir, name: "bad", metadata: { emojis: ["no"] } }),
     ).rejects.toBeInstanceOf(UserInputError);
   });
+
+  it("fullLength: whole video (8 s) with no 'recortada' warning; explicit duration still wins", async () => {
+    const r = await convertToSoundSticker({ input: withAudio, outDir: dir, name: "full", fullLength: true });
+    expect(r.stats.segment.durationSec).toBeCloseTo(8, 0);
+    expect(r.warnings.join(" ")).not.toMatch(/recortada/);
+    expect((await probe(r.audioPath as string)).durationSec).toBeCloseTo(8, 0);
+
+    const explicit = await convertToSoundSticker({
+      input: withAudio,
+      outDir: dir,
+      name: "full2",
+      fullLength: true,
+      durationSec: 2,
+    });
+    expect(explicit.stats.segment.durationSec).toBe(2);
+  });
 });

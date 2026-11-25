@@ -71,6 +71,8 @@ export function createSaudio(
         audio,
         loops,
         maxBytes: hq ? STICKER_LIMITS.experimentalMaxBytes : undefined,
+        // No duration typed → whole video / whole voice note (up to the max).
+        fullLength: segment.durationSec === undefined,
         metadata: {
           packName: metadataDefaults.packName,
           // Sender's WhatsApp display name, so "author" shows who made it.

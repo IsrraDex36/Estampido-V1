@@ -38,7 +38,12 @@ export async function convertAnimated(
   const replacement = typeof audioMode === "object" ? await validateReplacement(audioMode) : null;
   const { metadata, exif, overhead } = prepareMetadata(opts.metadata);
 
-  const segment = resolveSegment(source.durationSec, opts.startSec, opts.durationSec);
+  const max = STICKER_LIMITS.maxDurationSec;
+  const fullLength = opts.fullLength === true && opts.durationSec === undefined;
+  const segment = resolveSegment(source.durationSec, opts.startSec, fullLength ? max : opts.durationSec);
+  if (fullLength && kind === "video" && source.durationSec - (opts.startSec ?? 0) > max + 0.05) {
+    warnings.push(`El video es más largo que el máximo: se usaron ${max} s desde el inicio.`);
+  }
   if (kind === "video" && opts.durationSec !== undefined && segment.durationSec < opts.durationSec) {
     warnings.push(`Duración recortada a ${segment.durationSec.toFixed(2)} s (fin del video).`);
   }
@@ -84,7 +89,9 @@ export async function convertAnimated(
     const start = audioMode.startSec ?? 0;
     // Animated sources loop, so their sound isn't bound to the animation length.
     const loops = kind === "animated" || opts.loops === true;
-    const wanted = loops ? (opts.durationSec ?? STICKER_LIMITS.defaultDurationSec) : segment.durationSec;
+    const wanted = loops
+      ? (opts.durationSec ?? (fullLength ? max : STICKER_LIMITS.defaultDurationSec))
+      : segment.durationSec;
     const duration = Math.min(wanted, availableAfter(replacement, start));
     ({ audioPath, stats: audioStats } = await encodeTrack(opts.outDir, name, audioMode.file, start, duration, "file"));
   } else if (audioMode === "source" && source.hasAudio) {

@@ -32,6 +32,12 @@ export interface ConvertOptions {
    * arrive as silent MP4): a replacement sound may then outlast the clip.
    */
   loops?: boolean;
+  /**
+   * When `durationSec` is omitted: take the whole source (video from
+   * `startSec` to its end) — or the whole replacement sound for looping
+   * sources — up to STICKER_LIMITS.maxDurationSec, instead of the 5 s default.
+   */
+  fullLength?: boolean;
   /** Override the size limit (default: 500 KB animated, 100 KB static). */
   maxBytes?: number;
   /** WhatsApp pack/author metadata (EXIF). Defaults applied; `false` = none. */

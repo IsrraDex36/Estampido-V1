@@ -99,6 +99,14 @@ describe("/saudio via fake socket (real pipeline)", () => {
     expect(summary).toMatch(/^✔/);
   });
 
+  it("plain /saudio (no duration) takes the whole video", async () => {
+    const { sock, sent } = fakeSock();
+    const saudio = createSaudio(sock, downloader, {}, "fallback");
+    await saudio.onCommand(msg("full", { videoMessage: { caption: "/saudio" } }), "/saudio");
+    // fixture video is 4 s → sticker and sound are 4 s, not the old 5 s default
+    expect(String(sent.find((s) => "text" in s.content)?.content.text)).toMatch(/· 4\.0 s · q\d+ · 🔊 4\.0 s/);
+  });
+
   it("voz: waits for audio, then uses it", async () => {
     const { sock, sent } = fakeSock();
     const saudio = createSaudio(sock, downloader, {}, "fallback");

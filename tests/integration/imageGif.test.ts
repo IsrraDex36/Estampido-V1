@@ -104,6 +104,18 @@ describe("GIF / animated WebP", () => {
     expect(await audioSec(r.audioPath)).toBeCloseTo(5, 0);
   });
 
+  it("GIF + fullLength: uses the whole replacement sound (15 s), animation still 2 s", async () => {
+    const r = await convertToSoundSticker({
+      input: gif,
+      outDir: dir,
+      name: "giffull",
+      audio: { file: tone15 },
+      fullLength: true,
+    });
+    expect(r.stats.sticker.durationMs).toBeLessThanOrEqual(2100);
+    expect(await audioSec(r.audioPath)).toBeCloseTo(15, 0);
+  });
+
   it("animated WebP input is supported", async () => {
     const r = await convertToSoundSticker({ input: awebp, outDir: dir, name: "awebp", audio: { file: tone3 } });
     expect(r.kind).toBe("animated");
