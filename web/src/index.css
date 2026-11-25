@@ -144,7 +144,7 @@
 /* ── Product layer: neutral, high-contrast (Apple/Nike-like). Green is a
    functional color reserved for sound (playing, has audio). ── */
 :root {
-  --background: oklch(0.972 0.002 286);        /* #f5f5f7 */
+  --background: oklch(0.955 0.006 280);        /* a touch darker, faint indigo */
   --foreground: oklch(0.21 0.004 286);         /* #1d1d1f */
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
@@ -167,7 +167,7 @@
   --shimmer: oklch(1 0 0 / 0.65);
 }
 .dark {
-  --background: oklch(0.13 0 0);
+  --background: oklch(0.115 0.012 280);
   --foreground: oklch(0.97 0 0);
   --card: oklch(0.19 0.002 286);
   --card-foreground: var(--foreground);
@@ -254,10 +254,14 @@
   --retro-b: oklch(0.72 0.13 230); /* cyan */
   --dither: oklch(0.21 0.004 286 / 0.06);
   --pum-ink: #1d1d1f;
+  --sky-top: oklch(0.9 0.03 285);
+  --star: oklch(0.45 0.03 285 / 0.55);
 }
 .dark {
   --dither: oklch(1 0 0 / 0.05);
   --pum-ink: #6b6b73;
+  --sky-top: oklch(0.2 0.05 285);
+  --star: oklch(0.95 0.02 285 / 0.85);
 }
 
 @theme inline {
@@ -351,23 +355,7 @@
 .pum-note { animation: pum-note 1.4s steps(5, end) infinite; }
 .pum-note-2 { animation-delay: 0.7s; }
 
-/* ── 8-bit music backdrop: VU-meter stage + twinkling stars ── */
-@utility eq-column {
-  /* classic VU colors: green → yellow → red, cut into pixel blocks */
-  background: linear-gradient(to top, var(--sound) 0 55%, oklch(0.85 0.17 95) 55% 78%, var(--retro-a) 78% 100%);
-  -webkit-mask: repeating-linear-gradient(to top, black 0 10px, transparent 10px 13px);
-  mask: repeating-linear-gradient(to top, black 0 10px, transparent 10px 13px);
-}
-@keyframes eq {
-  0% { clip-path: inset(72% 0 0 0); }
-  20% { clip-path: inset(28% 0 0 0); }
-  40% { clip-path: inset(56% 0 0 0); }
-  60% { clip-path: inset(10% 0 0 0); }
-  80% { clip-path: inset(44% 0 0 0); }
-  100% { clip-path: inset(72% 0 0 0); }
-}
-.eq-bar { animation: eq 2.4s steps(1, end) infinite; }
-
+/* ── Pixel night sky ── */
 @keyframes twinkle {
   0%, 100% { opacity: 0.15; }
   50% { opacity: 1; }
@@ -376,7 +364,7 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pixel-bob, .pixel-blink, .pixel-float, .pixel-wave, .pixel-twinkle,
-  .pum-frame-b, .pum-mouth-b, .pum-dance, .pum-jump, .pum-shadow, .pum-shadow-dance, .pum-note, .eq-bar {
+  .pum-frame-b, .pum-mouth-b, .pum-dance, .pum-jump, .pum-shadow, .pum-shadow-dance, .pum-note {
     animation: none;
   }
   .pixel-wave { opacity: 1; }
@@ -384,9 +372,8 @@
   .pum-frame-b, .pum-mouth-b { opacity: 0; }
 }
 
-@utility eq-fade {
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, transparent 38%, black 72%), linear-gradient(to top, black 40%, transparent);
-  -webkit-mask-composite: source-in;
-  mask-image: linear-gradient(to right, transparent 0%, transparent 38%, black 72%), linear-gradient(to top, black 40%, transparent);
-  mask-composite: intersect;
+
+/* Night-sky depth: soft glow from the top, fading into the page color. */
+@utility sky {
+  background: radial-gradient(120% 70% at 50% -10%, var(--sky-top), transparent 70%);
 }

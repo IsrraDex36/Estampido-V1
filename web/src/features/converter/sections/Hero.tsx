@@ -1,13 +1,11 @@
 import { Mascot } from "@/components/pixel/Mascot";
-import { PixelStage } from "@/components/pixel/PixelStage";
 import { useConverterStore } from "../store/converterStore";
 
-/** Big statement + Pum performing on an 8-bit VU-meter stage. */
+/** Big statement + Pum singing. */
 export function Hero() {
   const hasFile = useConverterStore((s) => Boolean(s.file));
   return (
     <div className="relative isolate">
-      <PixelStage className="inset-x-auto left-1/2 w-screen -translate-x-1/2" />
       <div className="flex items-end justify-between gap-6 py-10 sm:py-14 2xl:py-16">
         <div className="min-w-0">
           <p className="font-pixel mb-4 inline-flex items-center gap-2 rounded-md bg-foreground px-2.5 py-1 text-[11px] text-background">
