@@ -139,3 +139,55 @@
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0;
 }
+
+/* ── Brand layer: emerald/teal accent on neutral base (light + dark) ── */
+:root {
+  --background: oklch(0.985 0.004 165);
+  --primary: oklch(0.56 0.14 165);
+  --primary-foreground: oklch(0.99 0.01 165);
+  --ring: oklch(0.62 0.13 165);
+  --accent: oklch(0.955 0.03 165);
+  --accent-foreground: oklch(0.32 0.08 165);
+  --chat: oklch(0.955 0.012 95);
+  --chat-dot: oklch(0.88 0.015 95);
+  --bubble: oklch(0.93 0.06 150);
+  --brand-glow: oklch(0.8 0.12 165 / 0.35);
+}
+.dark {
+  --background: oklch(0.16 0.01 200);
+  --card: oklch(0.2 0.012 200);
+  --popover: oklch(0.21 0.012 200);
+  --muted: oklch(0.25 0.012 200);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --primary: oklch(0.74 0.15 165);
+  --primary-foreground: oklch(0.18 0.04 165);
+  --ring: oklch(0.7 0.13 165);
+  --accent: oklch(0.29 0.05 165);
+  --accent-foreground: oklch(0.9 0.06 165);
+  --chat: oklch(0.19 0.015 200);
+  --chat-dot: oklch(0.25 0.015 200);
+  --bubble: oklch(0.34 0.06 162);
+  --brand-glow: oklch(0.6 0.13 165 / 0.25);
+}
+
+@theme inline {
+  --color-chat: var(--chat);
+  --color-chat-dot: var(--chat-dot);
+  --color-bubble: var(--bubble);
+  --color-brand-glow: var(--brand-glow);
+}
+
+/* Subtle dotted wallpaper for the chat preview (generic, brand-free). */
+@utility chat-wallpaper {
+  background-color: var(--chat);
+  background-image: radial-gradient(var(--chat-dot) 1px, transparent 1px);
+  background-size: 14px 14px;
+}
+
+/* Soft brand glow behind the header. */
+@utility hero-glow {
+  background-image:
+    radial-gradient(60% 120% at 15% 0%, var(--brand-glow), transparent 70%),
+    radial-gradient(40% 90% at 90% 10%, oklch(0.75 0.12 250 / 0.15), transparent 70%);
+}

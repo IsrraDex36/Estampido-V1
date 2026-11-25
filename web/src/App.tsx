@@ -1,24 +1,28 @@
-import { Toaster } from "@/components/ui/sonner";
+import { AppHeader } from "@/app/AppHeader";
+import { Providers } from "@/app/providers";
+import { useBotStatus } from "@/features/bot/useBotStatus";
 import { ConverterPage } from "@/features/converter/ConverterPage";
+
+function Shell() {
+  const { status, refresh } = useBotStatus();
+  return (
+    <div className="relative min-h-svh bg-background">
+      <div className="hero-glow pointer-events-none absolute inset-x-0 top-0 h-72" aria-hidden />
+      <AppHeader bot={status} />
+      <main className="relative mx-auto max-w-6xl px-4 py-8 sm:py-10">
+        <ConverterPage bot={status} onRefreshBot={() => void refresh()} />
+      </main>
+      <footer className="relative mx-auto max-w-6xl px-4 pb-8 text-xs text-muted-foreground">
+        Hecho para pruebas locales · los archivos se borran a los 30 min.
+      </footer>
+    </div>
+  );
+}
 
 export default function App() {
   return (
-    <div className="min-h-svh bg-background">
-      <header className="border-b">
-        <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-4">
-          <span className="text-2xl" aria-hidden>
-            🔊
-          </span>
-          <div>
-            <h1 className="font-heading text-lg font-semibold">Sticker Video Audio</h1>
-            <p className="text-sm text-muted-foreground">Video → sticker WebP animado + audio para WhatsApp</p>
-          </div>
-        </div>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 py-8">
-        <ConverterPage />
-      </main>
-      <Toaster richColors position="top-center" />
-    </div>
+    <Providers>
+      <Shell />
+    </Providers>
   );
 }

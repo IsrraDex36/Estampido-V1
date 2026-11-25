@@ -66,7 +66,7 @@ export function SegmentControls({
   };
 
   return (
-    <div className="space-y-4 rounded-lg border p-3 sm:col-span-2">
+    <div className="space-y-4">
       <div className="flex items-baseline justify-between gap-2">
         <Label className="text-sm font-medium">
           {isVideo ? "Segmento del video" : isImage ? "Duración del sonido" : "Duración del sonido (el GIF se repite)"}

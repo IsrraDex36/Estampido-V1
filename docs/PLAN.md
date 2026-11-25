@@ -151,6 +151,14 @@ sticker-video-audio/
 - [x] Botón «Enviar a mi WhatsApp» en la web. La API llama al endpoint de control del bot, que escucha solo en `127.0.0.1` y usa un token aleatorio guardado en `.auth/control.json` (0600). Solo envía al chat propio y solo archivos de la carpeta de resultados (verificado con `realpath`)
 - [x] `/saudio` usa `crop` por defecto (`SVA_FIT=pad` para cambiarlo)
 
+### Fase 5c — Rediseño del front ✅
+
+- [x] Identidad: acento esmeralda/turquesa, tema claro/oscuro/sistema (proveedor propio, sin parpadeo), brillo en el encabezado
+- [x] `motion` para transiciones y microinteracciones (respeta «reducir movimiento»)
+- [x] shadcn: Tabs, ToggleGroup, Tooltip, Skeleton, DropdownMenu
+- [x] UX: encabezado con estado del bot (se consulta cada 10 s), pasos Archivo → Ajustes → Resultado, opciones en pestañas (Tiempo · Sonido · Estilo · Pack), encuadre visual, vista previa tipo chat con ecualizador, estadísticas en tarjetas, `Ctrl/⌘+Enter` y desplazamiento automático al resultado en móvil
+- [x] QA en navegador real (headless): claro, oscuro, móvil, flujo completo y consola limpia
+
 ### Fase 6 — Pulido
 
 - [ ] Dockerfile con FFmpeg
