@@ -1,4 +1,4 @@
-# Plan de trabajo — Sticker Video Audio
+# Plan de trabajo — Estampido
 
 Objetivo del prototipo: **video → sticker WebP animado + pista de audio**, listo para enviarse como _sound sticker_ de WhatsApp. El MVP es una CLI local. El bot de WhatsApp llega después.
 

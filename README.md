@@ -1,4 +1,6 @@
-# 🔊 Sticker Video Audio
+# 🔊 Estampido
+
+> _Estampa + estampido_: stickers de WhatsApp que suenan.
 
 Proyecto para crear **stickers de WhatsApp con sonido** a partir de video, GIF o imagen, aprovechando el nuevo formato nativo de _sound stickers_ (despliegue limitado desde nov 2026).
 

@@ -3,7 +3,7 @@ import { formatTime } from "../../utils/time.js";
 
 /** /ayuda text. */
 export const HELP_TEXT = [
-  "🔊 *Stickers con sonido*",
+  "🔊 *Estampido* · stickers que suenan",
   "",
   "Envía un video, GIF, imagen o sticker con */saudio* en el texto, o responde a uno con */saudio*.",
   "",

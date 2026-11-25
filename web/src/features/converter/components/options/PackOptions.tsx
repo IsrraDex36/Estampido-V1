@@ -5,8 +5,8 @@ import { GroupedList, Row, SwitchListRow } from "../ui/GroupedList";
 
 type TextKey = "packName" | "publisher" | "emojis";
 const FIELDS: { key: TextKey; label: string; placeholder: string; maxLength: number }[] = [
-  { key: "packName", label: "Pack", placeholder: "Sticker Video Audio", maxLength: 128 },
-  { key: "publisher", label: "Autor", placeholder: "sva", maxLength: 128 },
+  { key: "packName", label: "Pack", placeholder: "Estampido", maxLength: 128 },
+  { key: "publisher", label: "Autor", placeholder: "estampido", maxLength: 128 },
   { key: "emojis", label: "Emojis", placeholder: "😂, 🔊 (máx. 3)", maxLength: 64 },
 ];
 

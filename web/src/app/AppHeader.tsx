@@ -9,7 +9,7 @@ export function AppHeader() {
         <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground" aria-hidden>
           <AudioWaveformIcon className="size-4" />
         </span>
-        <span className="text-[15px] font-semibold tracking-tight">Sticker Video Audio</span>
+        <span className="text-[15px] font-semibold tracking-tight">Estampido</span>
         <div className="ml-auto flex items-center gap-1.5">
           <BotStatus />
           <ThemeToggle />

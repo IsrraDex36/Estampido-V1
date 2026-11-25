@@ -42,7 +42,7 @@ const ratePerMinute = Number(process.env.SVA_RATE_PER_MIN ?? 6) || 0;
 const selfChatOnly = /^(1|true|yes|si|sí)$/i.test(process.env.SVA_SELF_CHAT_ONLY ?? "");
 
 console.log(
-  `Bot SVA · envío ${sendMode} · encuadre ${defaultFit} · límite ${ratePerMinute || "∞"}/min${selfChatOnly ? " · solo chat propio" : ""} · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
+  `Estampido (bot) · envío ${sendMode} · encuadre ${defaultFit} · límite ${ratePerMinute || "∞"}/min${selfChatOnly ? " · solo chat propio" : ""} · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
 );
 
 // Temp folders left by a previous crash (the bot is the only writer of these).

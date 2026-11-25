@@ -16,7 +16,7 @@ export interface StickerMetadata {
 
 export type StickerMetadataInput = Partial<StickerMetadata>;
 
-export const DEFAULT_METADATA = { packName: "Sticker Video Audio", publisher: "sva" } as const;
+export const DEFAULT_METADATA = { packName: "Estampido", publisher: "estampido" } as const;
 const MAX_TEXT = 128;
 const MAX_EMOJIS = 3;
 const WA_TAG = 0x5741;
