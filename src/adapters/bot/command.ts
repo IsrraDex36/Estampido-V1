@@ -1,4 +1,5 @@
 import { type FitMode, STICKER_LIMITS } from "../../config/limits.js";
+import { formatTime, parseTime } from "../../utils/time.js";
 
 export interface SaudioCommand {
   startSec: number;
@@ -38,12 +39,15 @@ export function parseSaudio(
     if (/^(crop|pad)$/i.test(p)) cmd.fit = p.toLowerCase() as FitMode;
     else if (/^(voz|audio)$/i.test(p)) cmd.customAudio = true;
     else if (/^hq$/i.test(p)) cmd.hq = true;
-    else if (/^\d+(\.\d+)?$/.test(p)) nums.push(Number(p));
+    else if (parseTime(p) !== null)
+      nums.push(parseTime(p) as number); // 90, 1:30, 1:30.5
     else throw new Error(`Argumento no válido: "${p}". ${SAUDIO_USAGE}`);
   }
   if (nums[0] !== undefined) cmd.startSec = nums[0];
   if (nums[1] !== undefined) {
-    if (nums[1] <= 0 || nums[1] > maxDuration) throw new Error(`La duración debe estar entre 0 y ${maxDuration} s.`);
+    if (nums[1] <= 0 || nums[1] > maxDuration) {
+      throw new Error(`La duración debe estar entre 0 y ${formatTime(maxDuration)} (m:ss).`);
+    }
     cmd.durationSec = nums[1];
   }
   return cmd;

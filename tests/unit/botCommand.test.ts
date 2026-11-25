@@ -78,3 +78,15 @@ describe("access control", () => {
     expect(isAllowedSender({ remoteJid: "x@g.us", participant: "595981234567@s.whatsapp.net" }, allowed)).toBe(true);
   });
 });
+
+describe("parseSaudio m:ss", () => {
+  it("accepts m:ss for start and duration, mixed with seconds and flags", () => {
+    expect(parseSaudio("/saudio 1:20 0:45")).toMatchObject({ startSec: 80, durationSec: 45 });
+    expect(parseSaudio("/saudio 0:05.5 3 crop")).toMatchObject({ startSec: 5.5, durationSec: 3, fit: "crop" });
+    expect(parseSaudio("/saudio 1:00:00")).toMatchObject({ startSec: 3600 });
+  });
+  it("rejects malformed times and over-max durations with m:ss wording", () => {
+    expect(() => parseSaudio("/saudio 1:75")).toThrow(/no válido/);
+    expect(() => parseSaudio("/saudio 0 3:01")).toThrow(/3:00 \(m:ss\)/);
+  });
+});
