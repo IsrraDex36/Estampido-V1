@@ -41,3 +41,20 @@ describe("buildVideoArgs", () => {
     expect(def.indexOf("-ss")).toBeLessThan(def.indexOf("-i"));
   });
 });
+
+describe("long-clip encoder settings", async () => {
+  const { buildAudioArgs } = await import("../../src/core/audio/encodeAudio.js");
+  const { encodeTimeoutMs } = await import("../../src/core/video/encodeVideo.js");
+  it("audio: 48 kbps short, 32 kbps constrained VBR long", () => {
+    const short = buildAudioArgs({ input: "i", output: "o", startSec: 0, durationSec: 5 });
+    expect(short[short.indexOf("-b:a") + 1]).toBe("48k");
+    expect(short).not.toContain("-vbr");
+    const long = buildAudioArgs({ input: "i", output: "o", startSec: 0, durationSec: 180 });
+    expect(long[long.indexOf("-b:a") + 1]).toBe("32k");
+    expect(long[long.indexOf("-vbr") + 1]).toBe("constrained");
+  });
+  it("timeouts scale with duration", () => {
+    expect(encodeTimeoutMs(5)).toBe(120_000);
+    expect(encodeTimeoutMs(180)).toBe(540_000);
+  });
+});

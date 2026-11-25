@@ -7,16 +7,18 @@ export const STICKER_LIMITS = {
   size: 512,
   /** Max bytes for an animated WebP (official Business Platform doc). */
   maxAnimatedBytes: 500 * 1024,
+  /** EXPERIMENTAL "hq" cap: ignore the 500 KB rule to see what WhatsApp does. */
+  experimentalMaxBytes: 5 * 1024 * 1024,
   /** Max bytes for a static WebP. */
   maxStaticBytes: 100 * 1024,
   /** Default clip length in seconds (matches native video→sticker audio). */
   defaultDurationSec: 5,
   /**
-   * Max clip length accepted by any adapter. EXPERIMENTAL: raised 5 → 10 s to
+   * Max clip length accepted by any adapter. EXPERIMENTAL: raised 5 → 180 s to
    * test whether WhatsApp accepts longer sound stickers (native app uses 5 s
-   * from video, up to 10 s for images). Revert this commit to go back.
+   * from video, up to 10 s for images). Revert the experiment commits to go back.
    */
-  maxDurationSec: 10,
+  maxDurationSec: 180,
   /** Max audio length for image-based sound stickers. */
   maxImageAudioSec: 10,
   /** Default and minimum frame rate for animated output. */

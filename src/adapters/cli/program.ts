@@ -57,7 +57,11 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
     .option(
       "-d, --duration <seg>",
       `duración: clip de video o sonido de GIF (máx. ${STICKER_LIMITS.maxDurationSec}); sonido de imagen (máx. ${STICKER_LIMITS.maxImageAudioSec}). Por defecto ${STICKER_LIMITS.defaultDurationSec}, o lo que dure el audio en imágenes`,
-      seconds("--duration", { min: 0, max: STICKER_LIMITS.maxImageAudioSec, exclusiveMin: true }),
+      seconds("--duration", {
+        min: 0,
+        max: Math.max(STICKER_LIMITS.maxDurationSec, STICKER_LIMITS.maxImageAudioSec),
+        exclusiveMin: true,
+      }),
     )
     .option("--crop", "recortar al centro en vez de padding transparente")
     .option("-a, --audio <archivo>", "sonido de otro archivo (audio o video); necesario para imágenes y GIF")
@@ -69,6 +73,11 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
     .option("--author <nombre>", "autor del pack (metadatos de WhatsApp)")
     .option("--emoji <lista>", "hasta 3 emojis separados por coma, p. ej. 😂,🔊")
     .option("--no-metadata", "no incrustar metadatos de pack/autor")
+    .option(
+      "--max-kb <kb>",
+      `EXPERIMENTAL: tope de tamaño del sticker en KB (por defecto 500/100; máx. ${STICKER_LIMITS.experimentalMaxBytes / 1024})`,
+      seconds("--max-kb", { min: 1, max: STICKER_LIMITS.experimentalMaxBytes / 1024 }),
+    )
     .option("--json", "imprimir el resultado como JSON")
     .action(async (video: string, o) => {
       const outDir = resolve(o.out);
@@ -87,6 +96,7 @@ export function buildProgram(version: string, deps: CliDeps = {}): Command {
         durationSec: o.duration,
         fit: o.crop ? "crop" : "pad",
         audio,
+        maxBytes: o.maxKb ? Math.round(o.maxKb * 1024) : undefined,
         metadata:
           o.metadata === false
             ? false

@@ -63,6 +63,9 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
   ];
 }
 
+/** Long clips need more time than run()'s 2-minute default. */
+export const encodeTimeoutMs = (durationSec: number): number => Math.max(120_000, durationSec * 3_000);
+
 export async function encodeVideo(opts: EncodeVideoOptions): Promise<void> {
-  await run(ffmpegPath(), buildVideoArgs(opts));
+  await run(ffmpegPath(), buildVideoArgs(opts), { timeoutMs: encodeTimeoutMs(opts.durationSec) });
 }

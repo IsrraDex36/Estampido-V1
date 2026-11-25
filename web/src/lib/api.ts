@@ -51,6 +51,7 @@ export function convertVideo(
     form.set("includeAudio", String(fields.includeAudio));
     form.set("audioStartSec", String(fields.audioStartSec));
     form.set("includeMetadata", String(fields.includeMetadata));
+    if (fields.hq) form.set("hq", "true");
     for (const key of ["packName", "publisher", "emojis"] as const) {
       const v = fields[key]?.trim();
       if (v) form.set(key, v);

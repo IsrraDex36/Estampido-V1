@@ -7,10 +7,12 @@ export interface SaudioCommand {
   fit: FitMode;
   /** `voz`/`audio` flag: wait for a voice note/audio to use instead of the video's sound. */
   customAudio: boolean;
+  /** EXPERIMENTAL `hq` flag: lift the 500 KB cap (up to 5 MB). */
+  hq: boolean;
 }
 
 export const SAUDIO_USAGE =
-  "Uso: /saudio [inicio] [duración] [crop|pad] [voz] — con un video, GIF, imagen o sticker (o respondiendo a uno)";
+  "Uso: /saudio [inicio] [duración] [crop|pad] [voz] [hq] — con un video, GIF, imagen o sticker (o respondiendo a uno)";
 
 /**
  * Parse `/saudio [start] [duration] [crop|pad] [voz]` (also `!saudio`, `.saudio`).
@@ -19,7 +21,7 @@ export const SAUDIO_USAGE =
  */
 export function parseSaudio(
   text: string | null | undefined,
-  maxDuration: number = STICKER_LIMITS.maxImageAudioSec,
+  maxDuration: number = Math.max(STICKER_LIMITS.maxDurationSec, STICKER_LIMITS.maxImageAudioSec),
   defaultFit: FitMode = "pad",
 ): SaudioCommand | null {
   const parts = (text ?? "").trim().split(/\s+/);
@@ -29,11 +31,13 @@ export function parseSaudio(
     startSec: 0,
     fit: defaultFit,
     customAudio: false,
+    hq: false,
   };
   const nums: number[] = [];
   for (const p of parts.slice(1)) {
     if (/^(crop|pad)$/i.test(p)) cmd.fit = p.toLowerCase() as FitMode;
     else if (/^(voz|audio)$/i.test(p)) cmd.customAudio = true;
+    else if (/^hq$/i.test(p)) cmd.hq = true;
     else if (/^\d+(\.\d+)?$/.test(p)) nums.push(Number(p));
     else throw new Error(`Argumento no válido: "${p}". ${SAUDIO_USAGE}`);
   }

@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WAMessage, WASocket } from "baileys";
-import { type FitMode, INPUT_LIMITS } from "../../config/limits.js";
+import { type FitMode, INPUT_LIMITS, STICKER_LIMITS } from "../../config/limits.js";
 import { UserInputError } from "../../core/errors.js";
 import { convertToSoundSticker, type ReplacementAudio } from "../../pipeline/convert.js";
 import { Semaphore } from "../../utils/semaphore.js";
@@ -61,7 +61,7 @@ export function createSaudio(
     loops = false,
   ): Promise<void> {
     const jid = origin.key.remoteJid as string;
-    const { customAudio: _c, ...segment } = cmd;
+    const { customAudio: _c, hq, ...segment } = cmd;
     const result = await jobs.run(() =>
       convertToSoundSticker({
         input: inputPath,
@@ -70,6 +70,7 @@ export function createSaudio(
         ...segment,
         audio,
         loops,
+        maxBytes: hq ? STICKER_LIMITS.experimentalMaxBytes : undefined,
         metadata: {
           packName: metadataDefaults.packName,
           // Sender's WhatsApp display name, so "author" shows who made it.

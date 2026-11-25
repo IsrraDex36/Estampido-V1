@@ -15,6 +15,8 @@ export interface ConvertRequestFields {
   includeAudio: boolean;
   /** Start offset inside the replacement audio file (multipart field `audio`). */
   audioStartSec: number;
+  /** Experimental: lift the 500 KB cap up to API_LIMITS.maxExperimentalKb. */
+  hq?: boolean;
   /** WhatsApp pack metadata; empty → server defaults. */
   includeMetadata: boolean;
   packName?: string;
@@ -87,8 +89,10 @@ export const API_LIMITS = {
   /** Keep in sync with INPUT_LIMITS in src/config/limits.ts (asserted by tests). */
   maxUploadBytes: 50 * 1024 * 1024,
   maxAudioBytes: 20 * 1024 * 1024,
-  /** Video clip / GIF sound (experimental 10; mirrors STICKER_LIMITS). */
-  maxDurationSec: 10,
+  /** Video clip / GIF sound (experimental 180; mirrors STICKER_LIMITS). */
+  maxDurationSec: 180,
+  /** Experimental "hq" size cap in KB (mirrors STICKER_LIMITS.experimentalMaxBytes). */
+  maxExperimentalKb: 5 * 1024,
   /** Sound length for image stickers. */
   maxImageAudioSec: 10,
   minDurationSec: 0.5,

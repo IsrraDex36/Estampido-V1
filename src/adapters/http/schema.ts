@@ -11,11 +11,12 @@ export const convertFieldsSchema = z.object({
   durationSec: z.coerce
     .number()
     .min(API_LIMITS.minDurationSec, `La duración mínima es ${API_LIMITS.minDurationSec} s.`)
-    .max(API_LIMITS.maxImageAudioSec, `La duración máxima es ${API_LIMITS.maxImageAudioSec} s.`)
+    .max(API_LIMITS.maxDurationSec, `La duración máxima es ${API_LIMITS.maxDurationSec} s.`)
     .optional(),
   fit: z.enum(["pad", "crop"]).default("pad"),
   includeAudio: boolish.default(true),
   audioStartSec: z.coerce.number().min(0).default(0),
+  hq: boolish.default(false),
   includeMetadata: boolish.default(true),
   packName: z.string().max(128).optional(),
   publisher: z.string().max(128).optional(),

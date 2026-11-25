@@ -104,6 +104,7 @@ export function createApp(deps: AppDeps = {}): Hono {
             name: "sticker",
             startSec: opts.startSec,
             durationSec: opts.durationSec,
+            maxBytes: opts.hq ? API_LIMITS.maxExperimentalKb * 1024 : undefined,
             fit: opts.fit,
             audio: !opts.includeAudio
               ? "none"

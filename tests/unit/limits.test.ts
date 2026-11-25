@@ -8,5 +8,6 @@ describe("limits", () => {
     expect(API_LIMITS.maxAudioBytes).toBe(INPUT_LIMITS.maxAudioBytes);
     expect(API_LIMITS.maxDurationSec).toBe(STICKER_LIMITS.maxDurationSec);
     expect(API_LIMITS.maxImageAudioSec).toBe(STICKER_LIMITS.maxImageAudioSec);
+    expect(API_LIMITS.maxExperimentalKb * 1024).toBe(STICKER_LIMITS.experimentalMaxBytes);
   });
 });

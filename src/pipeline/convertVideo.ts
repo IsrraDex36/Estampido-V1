@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { DEFAULT_FIT, STICKER_LIMITS } from "../config/limits.js";
-import { fitToSize } from "../core/optimize/fitToSize.js";
+import { fitToSize, ladderFor } from "../core/optimize/fitToSize.js";
 import type { MediaInfo } from "../core/probe/probe.js";
 import { encodeVideo } from "../core/video/encodeVideo.js";
 import { resolveSegment } from "../core/video/segment.js";
@@ -61,7 +61,16 @@ export async function convertAnimated(
       }),
     webpPath,
     maxBytes - overhead,
+    ladderFor(segment.durationSec),
   );
+  if (fitted.fps < 2) {
+    warnings.push(
+      `Para entrar en ${kb(maxBytes)} quedó a ${fitted.fps} fps (calidad ${fitted.quality}). Usa «hq» o un clip más corto para más fluidez.`,
+    );
+  }
+  if (maxBytes > STICKER_LIMITS.maxAnimatedBytes) {
+    warnings.push(`Experimental: límite de ${kb(maxBytes)} en vez de 500 KB; WhatsApp podría no aceptarlo.`);
+  }
   if (!fitted.withinLimit) {
     warnings.push(
       `El sticker pesa ${kb(fitted.bytes + overhead)} y supera ${kb(maxBytes)} incluso a calidad mínima. Prueba un clip más corto.`,

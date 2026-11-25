@@ -188,6 +188,18 @@ export function ConvertOptionsForm({
         </div>
       )}
 
+      {!isImage && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-dashed p-3 sm:col-span-2">
+          <Label htmlFor="hq" className="flex flex-col items-start gap-0.5">
+            <span>Calidad alta · experimental</span>
+            <span className="text-xs font-normal text-muted-foreground">
+              Hasta {API_LIMITS.maxExperimentalKb / 1024} MB en vez de 500 KB. WhatsApp podría no aceptarlo.
+            </span>
+          </Label>
+          <Switch id="hq" checked={options.hq ?? false} disabled={disabled} onCheckedChange={(hq) => onChange({ hq })} />
+        </div>
+      )}
+
       <div className="space-y-3 rounded-lg border p-3 sm:col-span-2">
         <div className="flex items-center justify-between gap-4">
           <Label htmlFor="metadata" className="flex flex-col items-start gap-0.5">

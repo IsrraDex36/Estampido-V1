@@ -36,7 +36,10 @@ export function buildAudioArgs(opts: EncodeAudioOptions): string[] {
     "-c:a",
     "libopus",
     "-b:a",
-    `${opts.bitrateKbps ?? 48}k`,
+    // Long sounds (> 30 s, experimental) at 32 kbps, constrained VBR so the
+    // size stays predictable (free VBR overshot to ~48 kbps on tonal input).
+    `${opts.bitrateKbps ?? (opts.durationSec > 30 ? 32 : 48)}k`,
+    ...(opts.durationSec > 30 ? ["-vbr", "constrained"] : []),
     "-application",
     "audio",
     "-f",
@@ -46,5 +49,5 @@ export function buildAudioArgs(opts: EncodeAudioOptions): string[] {
 }
 
 export async function encodeAudio(opts: EncodeAudioOptions): Promise<void> {
-  await run(ffmpegPath(), buildAudioArgs(opts));
+  await run(ffmpegPath(), buildAudioArgs(opts), { timeoutMs: Math.max(120_000, opts.durationSec * 2_000) });
 }

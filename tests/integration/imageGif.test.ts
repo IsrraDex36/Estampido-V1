@@ -112,6 +112,6 @@ describe("GIF / animated WebP", () => {
   });
 
   it("animated > max request rejected", async () => {
-    await expect(convertToSoundSticker({ input: gif, outDir: dir, durationSec: 11 })).rejects.toThrow(/máximo 10 s/);
+    await expect(convertToSoundSticker({ input: gif, outDir: dir, durationSec: 181 })).rejects.toThrow(/máximo 180 s/);
   });
 });

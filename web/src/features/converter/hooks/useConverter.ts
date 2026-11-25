@@ -9,6 +9,7 @@ const DEFAULT_OPTIONS: ConverterOptions = {
   fit: "pad",
   includeAudio: true,
   audioStartSec: 0,
+  hq: false,
   includeMetadata: true,
   packName: "",
   publisher: "",

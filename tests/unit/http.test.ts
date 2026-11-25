@@ -135,11 +135,11 @@ describe("POST /api/convert", () => {
     expect(res.status).toBe(415);
   });
 
-  it("400 for duration over the absolute limit (10 s)", async () => {
+  it("400 for duration over the absolute limit (180 s)", async () => {
     const app = createApp({ store, convert: fakeConvert, bot: noBot });
     const res = await app.request("/api/convert", {
       method: "POST",
-      body: form({ durationSec: "30" }, video()),
+      body: form({ durationSec: "181" }, video()),
     });
     expect(res.status).toBe(400);
   });
