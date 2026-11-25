@@ -24,7 +24,7 @@ export default function CommunityPage() {
       <CommunityHero />
       <FeedToolbar />
 
-      <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:gap-6 3xl:grid-cols-[minmax(0,1fr)_26rem]">
+      <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:gap-6 3xl:grid-cols-[minmax(0,1fr)_26rem]">
         <Feed />
         <div className="grid gap-5 sm:grid-cols-2 lg:sticky lg:top-36 lg:grid-cols-1 2xl:gap-6">
           <Section index="02" title="Top de la semana">
@@ -36,7 +36,7 @@ export default function CommunityPage() {
         </div>
       </div>
 
-      <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:mt-6 2xl:gap-6 3xl:grid-cols-[minmax(0,1fr)_26rem]">
+      <div className="mt-5 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:mt-6 2xl:gap-6 3xl:grid-cols-[minmax(0,1fr)_26rem]">
         <Section index="04" title="Tu espacio">
           <MySpace />
         </Section>

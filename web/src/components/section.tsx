@@ -16,7 +16,7 @@ export function Section({
   aside?: ReactNode;
 }) {
   return (
-    <section className={cn("surface p-5 sm:p-6 2xl:p-7", className)} aria-labelledby={`sec-${index}`}>
+    <section className={cn("surface min-w-0 p-5 sm:p-6 2xl:p-7", className)} aria-labelledby={`sec-${index}`}>
       <header className="mb-5 flex items-center justify-between gap-3">
         <h2 id={`sec-${index}`} className="flex items-baseline gap-3">
           <span className="font-pixel text-xs text-muted-foreground">{index}</span>

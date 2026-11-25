@@ -132,6 +132,27 @@ describe("Estampido web (real browser, real API)", () => {
     await page.close();
   });
 
+  it("a very long file name never widens the layout (phone width)", async () => {
+    const { copyFile, mkdtemp } = await import("node:fs/promises");
+    const { tmpdir } = await import("node:os");
+    const { join } = await import("node:path");
+    const dir = await mkdtemp(join(tmpdir(), "sva-long-"));
+    const long = join(dir, `${"mi_video_super_largo_de_la_fiesta_".repeat(6)}final.mp4`);
+    await copyFile(inject("clip"), long);
+    const { page, problems } = await openPage(browser, url);
+    await page.setViewport({ width: 390, height: 844 });
+    const input = await page.$('input[type=file][accept="video/*,image/*"]');
+    await input?.uploadFile(long);
+    await page.waitForSelector("video");
+    const widths = await page.evaluate(() =>
+      [...document.querySelectorAll("main section")].map((s) => Math.round(s.getBoundingClientRect().width)),
+    );
+    expect(Math.max(...widths)).toBeLessThanOrEqual(390);
+    expect(await horizontalOverflow(page)).toBe(0);
+    expect(problems).toEqual([]);
+    await page.close();
+  });
+
   it("theme choice persists across reloads", async () => {
     const { page } = await openPage(browser, url, { scheme: "light" });
     await page.click('button[aria-label="Cambiar tema"]');

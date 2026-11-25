@@ -18,7 +18,7 @@ export function ConverterPage() {
   return (
     <>
       <Hero />
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] 2xl:gap-6 3xl:gap-8">
+      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] 2xl:gap-6 3xl:gap-8">
         <ClipSection />
         <SettingsSection />
       </div>

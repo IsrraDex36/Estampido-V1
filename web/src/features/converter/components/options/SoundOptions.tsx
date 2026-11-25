@@ -118,7 +118,7 @@ export function SoundOptions() {
       )}
       {includeAudio && audioFile && (
         <Row>
-          <RowText title={<span className="block truncate">{audioFile.name}</span>} detail={formatBytes(audioFile.size)} />
+          <RowText title={<span className="block truncate" title={audioFile.name}>{audioFile.name}</span>} detail={formatBytes(audioFile.size)} />
           <label className="flex items-center gap-2 text-[13px] text-muted-foreground" htmlFor="audio-start">
             Empieza en
             <TimeInput
