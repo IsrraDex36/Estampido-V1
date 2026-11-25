@@ -27,17 +27,27 @@ Así se cierra el ciclo **crear → publicar → descubrir → usar → crear**:
 
 ```
 /comunidad
-├── Hero            título · búsqueda · «Publicar» · «Crear sticker»
-├── Barra           Tendencias | Nuevos | Top (Hoy · Semana · Siempre)
-├── Categorías      chips (Reacciones, Memes, Música, Frases, Gaming, Anime, Deportes, Otros)
+├── Hero            título · «Publicar» · «Crear sticker» · cifras (stickers, creadores, envíos)
+├── Barra fija      Tendencias | Nuevos | Top (Hoy · Semana · Siempre) · búsqueda
+├── Categorías      17 chips con emoji (Reacciones, Memes, Música, Frases, Voces y doblajes,
+│                   Efectos de sonido, Saludos, Amor, Cumpleaños, Fiesta, Animales, Gaming,
+│                   Anime, Series y TV, Deportes, Virales, Otros)
 ├── 01 Feed         cuadrícula de tarjetas de sticker
 ├── 02 Ranking      podio top 3 + puestos 4–10 del periodo
-├── 03 Reto         reto semanal (tema, fecha de cierre, participar)
+├── 03 Sonidos      sonidos virales (los más reutilizados → «usar este sonido»)
+├── Reto            banner del reto semanal (tema, cierre, participantes, participar)
 ├── 04 Packs        packs creados por la comunidad
 ├── 05 Tu espacio   Publicados · Guardados · Votados
 └── 06 Creadores    creadores destacados
 Futuras: /comunidad/s/:id (detalle) · /comunidad/@usuario (perfil) · /comunidad/packs/:id
 ```
+
+### Estado del cliente (ya implementado)
+
+- **Filtros** (`orden`, `periodo`, `cat`, `q`) en un store de zustand (`features/community/store`), sincronizados con la URL en ambos sentidos. La URL manda al cargar y al ir atrás o adelante; los cambios usan `replaceState` para no llenar el historial mientras escribes. Los valores inválidos vuelven al predeterminado y la búsqueda se corta a 80 caracteres. Las funciones `parseFilters` y `serializeFilters` son puras y tienen tests.
+- Los componentes leen el store con **selectores atómicos** (`useCommunityStore((s) => s.sort)`), así cada uno se vuelve a renderizar solo cuando cambia lo que usa.
+- Los **datos del feed** (fase 2) no irán al store, sino a una caché de consultas con cancelación y paginación por cursor. El store guarda solo estado de interfaz.
+- **Marcadores vs. skeletons**: sin datos se usan bloques estáticos punteados. `CommunitySkeleton` (mientras carga la ruta) y `StickerCardSkeleton` usan shimmer porque ahí sí algo está cargando.
 
 ### Anatomía de la tarjeta (la pieza central)
 

@@ -50,3 +50,19 @@ function Action({ icon: Icon, label, count }: { icon: ComponentType<{ className?
     </button>
   );
 }
+
+/** Loading variant (real fetch, phase 2+): same box, shimmer instead of dashed frames. */
+export function StickerCardSkeleton({ className }: { className?: string }) {
+  return (
+    <div className={cn("flex flex-col overflow-hidden rounded-3xl bg-muted/40 ring-1 ring-border/60", className)} aria-hidden>
+      <div className="shimmer aspect-square bg-muted" />
+      <div className="space-y-3 p-3">
+        <div className="flex justify-between">
+          <div className="shimmer h-2.5 w-16 rounded-full bg-muted" />
+          <div className="shimmer h-2.5 w-10 rounded-full bg-muted" />
+        </div>
+        <div className="shimmer h-7 rounded-full bg-muted" />
+      </div>
+    </div>
+  );
+}

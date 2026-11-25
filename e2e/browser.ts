@@ -52,8 +52,8 @@ export async function openPage(
 export const horizontalOverflow = (page: Page) =>
   page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
 
-export async function clickButtonWithText(page: Page, text: string): Promise<void> {
-  for (const b of await page.$$("button")) {
+export async function clickButtonWithText(page: Page, text: string, selector = "button"): Promise<void> {
+  for (const b of await page.$$(selector)) {
     if ((await b.evaluate((e) => e.textContent ?? "")).includes(text)) {
       await b.click();
       return;

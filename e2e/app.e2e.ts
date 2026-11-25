@@ -89,6 +89,41 @@ describe("Estampido web (real browser, real API)", () => {
     await page.close();
   });
 
+  it("voice recording becomes the sticker's sound", async () => {
+    const { page, problems } = await openPage(browser, url);
+    // Headless can't get OS mic permission: feed a real WebAudio tone as the mic.
+    await page.evaluateOnNewDocument(() => {
+      navigator.mediaDevices.getUserMedia = async () => {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const dest = ctx.createMediaStreamDestination();
+        osc.connect(dest);
+        osc.start();
+        return dest.stream;
+      };
+    });
+    await page.reload({ waitUntil: "networkidle0" });
+    const input = await page.$('input[type=file][accept="video/*,image/*"]');
+    await input?.uploadFile(inject("clip"));
+    await page.waitForSelector("video");
+    await clickButtonWithText(page, "Sonido", "[role=tab]");
+    await clickButtonWithText(page, "Grabar");
+    await page.waitForFunction(() => document.body.innerText.includes("Listo"));
+    await new Promise((r) => setTimeout(r, 1500));
+    await clickButtonWithText(page, "Listo");
+    await page.waitForFunction(() => /Grabación 0-0\d\.\w+/.test(document.body.innerText));
+    await clickButtonWithText(page, "Crear sticker");
+    await page.waitForFunction(() => document.body.innerText.includes("Disponible hasta"), { timeout: 90_000 });
+    const sound = await page.evaluate(
+      () =>
+        [...document.querySelectorAll("dl dt")].find((d) => d.textContent === "Sonido")?.nextElementSibling
+          ?.textContent,
+    );
+    expect(sound).toMatch(/^0:0[1-2]/);
+    expect(problems).toEqual([]);
+    await page.close();
+  });
+
   it("theme choice persists across reloads", async () => {
     const { page } = await openPage(browser, url, { scheme: "light" });
     await page.click('button[aria-label="Cambiar tema"]');

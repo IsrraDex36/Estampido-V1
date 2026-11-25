@@ -14,6 +14,7 @@ _Estampa + estampido._ Estampido genera **stickers con sonido nativos** de Whats
 
 - **Video → sticker animado con su propio sonido.** Eliges el tramo, hasta **3 min**.
 - **Imagen, GIF o sticker + tu audio**, por ejemplo una nota de voz. Con imagen, hasta 10 s de sonido.
+- **Graba tu voz desde la web** (micrófono) y úsala como sonido del sticker, con medidor de nivel en vivo.
 - **Sticker con sonido nativo** (`audioStickerMessage`, campo 134), validado en teléfono real. Si falla, envía el sticker y una nota de voz por separado.
 - **Siempre dentro del límite de WhatsApp**: WebP 512×512 de ≤ 500 KB (estáticos ≤ 100 KB), con frames uniformes. El modo **«Calidad alta»** (`hq`) sube hasta 5 MB, pero es experimental.
 - **Sonido robusto**: elige la pista correcta, recorta los silencios, nivela el audio bajito (hasta +20 dB) y alinea el audio con la imagen.
@@ -24,7 +25,7 @@ _Estampa + estampido._ Estampido genera **stickers con sonido nativos** de Whats
 `npm run dev` → <http://localhost:5173>
 
 1. **Clip**: arrastra un video, GIF o imagen. Marca el tramo con el control de rango o escribiendo los tiempos en `m:ss`.
-2. **Ajustes**: pestañas Tiempo, Sonido (audio propio), Estilo (encuadre `crop`/`pad`, Calidad alta) y Pack (nombre, autor, emojis).
+2. **Ajustes**: pestañas Tiempo, Sonido (el del video, un audio propio o **🎙️ grabar tu voz**: hasta 30 s; con imagen, 10 s), Estilo (encuadre `crop`/`pad`, Calidad alta) y Pack (nombre, autor, emojis).
 3. **Resultado**: lo escuchas ahí mismo, lo descargas o lo **envías a tu WhatsApp** con un clic, si el bot está corriendo.
 4. **Colección**: cada sticker que creas se guarda en la sesión. Selecciona varios y **envíalos todos a la vez**: llegan en orden y con sonido, con barra de progreso y opción de cancelar.
 
@@ -36,12 +37,12 @@ Otros detalles: tema claro/oscuro (negro puro), atajo `⌘/Ctrl + Enter` para cr
 
 En `/comunidad` (pestaña **Comunidad** del encabezado) ya están todos los apartados, pero todavía sin datos:
 
-- **Feed** con Tendencias, Nuevos y Top (por periodo) y filtro por categorías.
-- **Ranking** con podio.
-- **Reto semanal**.
+- **Barra de filtros fija**: Tendencias, Nuevos y Top (Hoy, Semana, Siempre), búsqueda y 17 categorías. Los filtros viven en la URL (`?orden=top&cat=memes&q=gato`), así que una vista filtrada se puede compartir o recargar.
+- **Feed** y, a su lado, **Ranking** con podio y **Sonidos virales**.
+- **Reto semanal**, como banner destacado.
 - **Packs de la comunidad**.
-- **Tu espacio**: Publicados, Guardados y Votados.
-- **Creadores** destacados.
+- **Tu espacio** (Publicados, Guardados, Votados) y **Creadores** destacados.
+- Mientras la sección carga, se ve un skeleton con la misma forma que la página real.
 
 Cada tarjeta ya tiene su forma final: duración del sonido, votar, guardar, compartir y enviar a WhatsApp. Por ahora esos botones están desactivados y avisan «Pronto». El análisis (perfiles, flujos, ranking con Wilson y «hot», modelo de datos, API, moderación) y el plan por fases están en [docs/COMUNIDAD.md](docs/COMUNIDAD.md).
 

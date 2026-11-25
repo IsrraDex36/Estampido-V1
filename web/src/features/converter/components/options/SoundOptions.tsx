@@ -1,11 +1,15 @@
 import { XIcon } from "lucide-react";
-import { useRef } from "react";
+import { API_LIMITS } from "@contract";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { TimeInput } from "@/components/time-input";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/format";
+import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
+import { recordingLimitFor } from "../../model/recording";
 import { selectBusy, useConverterStore } from "../../store/converterStore";
+import { RecordButton, RecordingPanel } from "./VoiceRecorder";
 import { GroupedList, Row, RowText, SwitchListRow } from "../ui/GroupedList";
 
 export function SoundOptions() {
@@ -28,6 +32,22 @@ export function SoundOptions() {
     if (error) toast.error(error);
   };
 
+  const maxRecordSec = recordingLimitFor(kind, API_LIMITS.maxImageAudioSec);
+  const recorder = useVoiceRecorder({
+    maxSec: maxRecordSec,
+    onDone: (file) => {
+      chooseAudio(file);
+      toast.success("Grabación lista: será el sonido del sticker.");
+    },
+  });
+  const recording = recorder.state.kind === "recording";
+  useEffect(() => {
+    if (recorder.state.kind === "error") {
+      toast.error(recorder.state.message);
+      recorder.reset();
+    }
+  }, [recorder]);
+
   return (
     <GroupedList>
       <SwitchListRow
@@ -42,7 +62,15 @@ export function SoundOptions() {
         <Row>
           <RowText
             title="Sonido"
-            detail={audioFile ? "Archivo propio" : hasOwnSound ? "El del video, mismo tramo" : "Elige un audio para que suene"}
+            detail={
+              audioFile
+                ? audioFile.name.startsWith("Grabación")
+                  ? "Tu grabación"
+                  : "Archivo propio"
+                : hasOwnSound
+                  ? "El del video, mismo tramo · o graba tu voz"
+                  : "Graba tu voz o elige un audio"
+            }
           />
           {audioFile ? (
             <Button variant="ghost" size="sm" className="rounded-full" disabled={disabled} onClick={() => chooseAudio(null)}>
@@ -50,15 +78,18 @@ export function SoundOptions() {
               {hasOwnSound ? "Usar el del video" : "Quitar"}
             </Button>
           ) : (
-            <Button
-              variant={hasOwnSound ? "secondary" : "default"}
-              size="sm"
-              className="rounded-full"
-              disabled={disabled}
-              onClick={() => pickerRef.current?.click()}
-            >
-              {hasOwnSound ? "Usar otro…" : "Elegir audio…"}
-            </Button>
+            <div className="flex shrink-0 gap-2">
+              <RecordButton recorder={recorder} disabled={disabled || recording} />
+              <Button
+                variant={hasOwnSound ? "secondary" : "default"}
+                size="sm"
+                className="rounded-full"
+                disabled={disabled || recording}
+                onClick={() => pickerRef.current?.click()}
+              >
+                {hasOwnSound ? "Usar otro…" : "Elegir audio…"}
+              </Button>
+            </div>
           )}
           <input
             ref={pickerRef}
@@ -72,6 +103,11 @@ export function SoundOptions() {
             }}
           />
         </Row>
+      )}
+      {includeAudio && recording && (
+        <div className="px-4 pb-4">
+          <RecordingPanel recorder={recorder} maxSec={maxRecordSec} />
+        </div>
       )}
       {includeAudio && audioFile && (
         <Row>

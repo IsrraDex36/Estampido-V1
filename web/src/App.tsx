@@ -8,6 +8,7 @@ import { ROUTES } from "@/app/routes";
 import { useScrollTopOnNavigate } from "@/app/useScrollTopOnNavigate";
 import { PixelBackground } from "@/components/pixel/PixelBackground";
 import { useBotPolling } from "@/features/bot/botStore";
+import { CommunitySkeleton } from "@/features/community/components/CommunitySkeleton";
 import { ConverterPage } from "@/features/converter/ConverterPage";
 
 // Community is a separate chunk: the tool stays as light as before.
@@ -25,7 +26,7 @@ function Shell() {
         <Switch>
           <Route path={ROUTES.create} component={ConverterPage} />
           <Route path={ROUTES.community}>
-            <Suspense fallback={<div className="min-h-[60svh]" aria-busy="true" />}>
+            <Suspense fallback={<CommunitySkeleton />}>
               <CommunityPage />
             </Suspense>
           </Route>
