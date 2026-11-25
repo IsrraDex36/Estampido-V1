@@ -140,7 +140,9 @@ sticker-video-audio/
 - [x] Límite de descarga en el bot: 50 MB para video y 20 MB para audio. Se rechaza antes de descargar por `fileLength` y se corta en pleno stream si el tamaño declarado no coincide
 - [x] Errores de usuario tipados (`UserInputError`) con mensajes claros en API (422), bot y CLI (exit 2). Los errores internos no filtran detalles
 - [x] Comandos desde la propia cuenta del bot. Los de tiempo real llegan como `notify` + `fromMe`. Los enviados con el bot apagado llegan como `append` y se aceptan si tienen ≤ 5 min. Los mensajes del propio bot se excluyen por ID registrado _antes_ de enviar, así no hay bucles
-- [ ] Prueba entre 2 dispositivos
+- [x] Prueba en dispositivo real (chat propio)
+- [ ] Prueba con otra persona: con la función y sin ella (¿qué ve quien no tiene la función?)
+- [ ] ¿El sticker conserva el sonido al guardarlo en favoritos o reenviarlo?
 
 > ⚠️ Usar un **número secundario** para las pruebas: Baileys es no oficial y hay riesgo de baneo.
 

@@ -1,6 +1,6 @@
 # Protocolo: sound sticker (`audioStickerMessage`)
 
-> Estado al 2026-11-25: **formato confirmado con una captura real** e implementado el envío nativo (`src/adapters/bot/soundSticker.ts`). Falta validar la recepción en teléfonos.
+> Estado al 2026-11-25: **formato confirmado con una captura real** con el envío nativo implementado (`src/adapters/bot/soundSticker.ts`) y **validado en un teléfono real el 2026-11-25**: llega como sticker con 🔊 y suena al tocarlo.
 
 ## Lo verificado en el código local
 

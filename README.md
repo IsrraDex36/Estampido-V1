@@ -2,7 +2,7 @@
 
 Proyecto para crear **stickers de WhatsApp con sonido** a partir de video, GIF o imagen, aprovechando el nuevo formato nativo de _sound stickers_ (despliegue limitado desde nov 2026).
 
-> Estado: **prototipo funcional** (conversor + web + bot con fallback). Siguiente: **capturar un sound sticker real** → envío nativo. Ver [docs/PLAN.md](docs/PLAN.md), [docs/PROTOCOLO.md](docs/PROTOCOLO.md) e [INVESTIGACION.md](INVESTIGACION.md).
+> Estado: **funcional de punta a punta**. El bot envía **stickers con sonido nativos** de WhatsApp (validado en teléfono). También hay web, CLI y API. Ver [docs/PROTOCOLO.md](docs/PROTOCOLO.md), [docs/PLAN.md](docs/PLAN.md) e [INVESTIGACION.md](INVESTIGACION.md).
 
 ## Requisitos
 
