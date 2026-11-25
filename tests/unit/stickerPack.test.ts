@@ -58,7 +58,7 @@ describe("savePackCapture (injected download)", () => {
           },
         },
       } as unknown as WAMessage;
-      const { dir, report } = await savePackCapture(root, msg, async (m, type) => {
+      const { dir, report } = await savePackCapture(root, msg, async (_m, type) => {
         if (type === "sticker-pack") return zip;
         // pretend only the 2nd candidate decrypts the thumbnail
         const { MEDIA_HKDF_KEY_MAPPING } = await import("baileys");

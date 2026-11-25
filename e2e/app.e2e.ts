@@ -2,13 +2,6 @@ import type { Browser } from "puppeteer-core";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
 import { clickButtonWithText, horizontalOverflow, launch, openPage } from "./browser.js";
 
-declare module "vitest" {
-  export interface ProvidedContext {
-    webUrl: string;
-    clip: string;
-  }
-}
-
 let browser: Browser;
 const url = inject("webUrl");
 
@@ -24,7 +17,7 @@ describe("Estampido web (real browser, real API)", () => {
     const { page, problems } = await openPage(browser, url);
     expect(await page.title()).toMatch(/Estampido/);
     expect(await page.$('[aria-label^="Pum"]')).not.toBeNull();
-    expect(await page.evaluate(() => document.body.innerText)).toMatch(/Haz ruido en el chat/);
+    expect(await page.evaluate(() => document.body.textContent ?? "")).toMatch(/Haz ruido en el chat/);
     expect(problems).toEqual([]);
     await page.close();
   });
@@ -45,8 +38,8 @@ describe("Estampido web (real browser, real API)", () => {
     await input?.uploadFile(inject("clip"));
     await page.waitForSelector("video");
     await clickButtonWithText(page, "Crear sticker");
-    await page.waitForFunction(() => document.body.innerText.includes("Disponible hasta"), { timeout: 90_000 });
-    const text = await page.evaluate(() => document.body.innerText);
+    await page.waitForFunction(() => document.body.textContent ?? "".includes("Disponible hasta"), { timeout: 90_000 });
+    const text = await page.evaluate(() => document.body.textContent ?? "");
     expect(text).toMatch(/Tamaño/);
     expect(text).toMatch(/Sonido/);
     // the rendered sticker image actually loaded
@@ -66,14 +59,14 @@ describe("Estampido web (real browser, real API)", () => {
     for (const n of [1, 2]) {
       await clickButtonWithText(page, "Crear sticker");
       await page.waitForFunction(
-        (k) => document.body.innerText.includes(`${k} de ${k} seleccionados`),
+        (k) => document.body.textContent ?? "".includes(`${k} de ${k} seleccionados`),
         { timeout: 90_000 },
         n,
       );
     }
     expect(await page.$$eval('button[aria-pressed="true"][aria-label^="Sticker"]', (els) => els.length)).toBe(2);
     await page.reload({ waitUntil: "networkidle0" });
-    await page.waitForFunction(() => document.body.innerText.includes("2 de 2 seleccionados"));
+    await page.waitForFunction(() => document.body.textContent ?? "".includes("2 de 2 seleccionados"));
     expect(problems).toEqual([]);
     await page.close();
   });
@@ -93,7 +86,7 @@ describe("Estampido web (real browser, real API)", () => {
   it("tapping Pum makes it jump with a ¡PUM! bubble", async () => {
     const { page } = await openPage(browser, url);
     await page.click('button[aria-label^="Pum"]');
-    await page.waitForFunction(() => document.body.innerText.includes("¡PUM!"), { timeout: 2000 });
+    await page.waitForFunction(() => document.body.textContent ?? "".includes("¡PUM!"), { timeout: 2000 });
     await page.close();
   });
 });
