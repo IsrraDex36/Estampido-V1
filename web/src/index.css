@@ -253,11 +253,11 @@
   --retro-a: oklch(0.7 0.2 350);   /* magenta */
   --retro-b: oklch(0.72 0.13 230); /* cyan */
   --dither: oklch(0.21 0.004 286 / 0.06);
-  --grid-line: oklch(0.7 0.2 350 / 0.09);
+  --pum-ink: #1d1d1f;
 }
 .dark {
   --dither: oklch(1 0 0 / 0.05);
-  --grid-line: oklch(0.7 0.2 350 / 0.22);
+  --pum-ink: #6b6b73;
 }
 
 @theme inline {
@@ -271,18 +271,6 @@
   background: repeating-conic-gradient(var(--dither) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
   -webkit-mask-image: linear-gradient(to bottom, black, transparent 70%);
   mask-image: linear-gradient(to bottom, black, transparent 70%);
-}
-
-/* Synthwave perspective grid fading under the hero. */
-@utility synth-grid {
-  background-image:
-    linear-gradient(var(--grid-line) 2px, transparent 2px),
-    linear-gradient(90deg, var(--grid-line) 2px, transparent 2px);
-  background-size: 48px 48px;
-  transform: perspective(520px) rotateX(58deg) translateY(-30%) scale(2.2);
-  transform-origin: top center;
-  -webkit-mask-image: linear-gradient(to bottom, transparent, black 35%, transparent 95%);
-  mask-image: linear-gradient(to bottom, transparent, black 35%, transparent 95%);
 }
 
 @utility font-pixel {
@@ -321,7 +309,84 @@
 @utility pixel-float {
   animation: pixel-float 6s steps(4, jump-none) infinite;
 }
+/* ── Pum: 8-bit frames ── */
+@keyframes pum-frame {
+  0%, 49.9% { opacity: 1; }
+  50%, 100% { opacity: 0; }
+}
+.pum-frame-a { animation: pum-frame 0.6s infinite; }
+.pum-frame-b { animation: pum-frame 0.6s infinite; animation-delay: -0.3s; }
+.pum-mouth-a { animation: pum-frame 0.36s infinite; }
+.pum-mouth-b { animation: pum-frame 0.36s infinite; animation-delay: -0.18s; }
+
+@keyframes pum-dance {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  25% { transform: translateY(-7%) rotate(-4deg); }
+  50% { transform: translateY(0) rotate(0deg); }
+  75% { transform: translateY(-7%) rotate(4deg); }
+}
+.pum-dance { animation: pum-dance 0.6s steps(1, end) infinite; transform-origin: 50% 100%; }
+
+@keyframes pum-jump {
+  0% { transform: translateY(0) scale(1.08, 0.9); }
+  30% { transform: translateY(-34%) scale(0.94, 1.08); }
+  60% { transform: translateY(-34%) scale(1, 1); }
+  85% { transform: translateY(0) scale(1.08, 0.92); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+.pum-jump { animation: pum-jump 0.7s steps(1, end) 1; transform-origin: 50% 100%; }
+
+@keyframes pum-shadow {
+  0%, 100% { transform: scaleX(1); opacity: 1; }
+  50% { transform: scaleX(0.75); opacity: 0.6; }
+}
+.pum-shadow { animation: pum-shadow 1.4s steps(2, jump-none) infinite; }
+.pum-shadow-dance { animation: pum-shadow 0.3s steps(2, jump-none) infinite; }
+
+@keyframes pum-note {
+  0% { transform: translate(0, 60%); opacity: 0; }
+  20% { opacity: 1; }
+  100% { transform: translate(40%, -180%); opacity: 0; }
+}
+.pum-note { animation: pum-note 1.4s steps(5, end) infinite; }
+.pum-note-2 { animation-delay: 0.7s; }
+
+/* ── 8-bit music backdrop: VU-meter stage + twinkling stars ── */
+@utility eq-column {
+  /* classic VU colors: green → yellow → red, cut into pixel blocks */
+  background: linear-gradient(to top, var(--sound) 0 55%, oklch(0.85 0.17 95) 55% 78%, var(--retro-a) 78% 100%);
+  -webkit-mask: repeating-linear-gradient(to top, black 0 10px, transparent 10px 13px);
+  mask: repeating-linear-gradient(to top, black 0 10px, transparent 10px 13px);
+}
+@keyframes eq {
+  0% { clip-path: inset(72% 0 0 0); }
+  20% { clip-path: inset(28% 0 0 0); }
+  40% { clip-path: inset(56% 0 0 0); }
+  60% { clip-path: inset(10% 0 0 0); }
+  80% { clip-path: inset(44% 0 0 0); }
+  100% { clip-path: inset(72% 0 0 0); }
+}
+.eq-bar { animation: eq 2.4s steps(1, end) infinite; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.15; }
+  50% { opacity: 1; }
+}
+.pixel-twinkle { animation: twinkle 2.6s steps(2, jump-none) infinite; }
+
 @media (prefers-reduced-motion: reduce) {
-  .pixel-bob, .pixel-blink, .pixel-float, .pixel-wave { animation: none; }
+  .pixel-bob, .pixel-blink, .pixel-float, .pixel-wave, .pixel-twinkle,
+  .pum-frame-b, .pum-mouth-b, .pum-dance, .pum-jump, .pum-shadow, .pum-shadow-dance, .pum-note, .eq-bar {
+    animation: none;
+  }
   .pixel-wave { opacity: 1; }
+  .pum-frame-a, .pum-mouth-a { animation: none; opacity: 1; }
+  .pum-frame-b, .pum-mouth-b { opacity: 0; }
+}
+
+@utility eq-fade {
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, transparent 38%, black 72%), linear-gradient(to top, black 40%, transparent);
+  -webkit-mask-composite: source-in;
+  mask-image: linear-gradient(to right, transparent 0%, transparent 38%, black 72%), linear-gradient(to top, black 40%, transparent);
+  mask-composite: intersect;
 }

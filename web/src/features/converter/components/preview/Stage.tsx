@@ -15,7 +15,7 @@ export function EmptyStage() {
   return (
     <Stage>
       <div className="flex flex-col items-center gap-4 px-8 text-center">
-        <Mascot size={112} />
+        <Mascot size={120} interactive />
         <p className="font-pixel text-xs text-muted-foreground">PUM ESPERA TU CLIP</p>
         <p className="max-w-60 text-[13px] text-muted-foreground">Elige un clip y toca «Crear sticker».</p>
       </div>

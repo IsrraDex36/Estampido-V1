@@ -36,3 +36,28 @@ export const gridSize = (rows: readonly string[]) => ({
   width: Math.max(...rows.map((r) => r.length)),
   height: rows.length,
 });
+
+export interface Placement {
+  rows: readonly string[];
+  x: number;
+  y: number;
+}
+
+/**
+ * Compose small sprites onto a blank width×height canvas (later placements
+ * win; "." never overwrites). Lets complex characters be authored as parts
+ * (body, arms, mouth…) instead of hand-aligned full-width strings. Pure.
+ */
+export function compose(width: number, height: number, placements: readonly Placement[]): string[] {
+  const grid = Array.from({ length: height }, () => Array<string>(width).fill("."));
+  for (const { rows, x, y } of placements) {
+    rows.forEach((row, dy) => {
+      [...row].forEach((ch, dx) => {
+        const gy = y + dy;
+        const gx = x + dx;
+        if (ch !== "." && gy >= 0 && gy < height && gx >= 0 && gx < width) (grid[gy] as string[])[gx] = ch;
+      });
+    });
+  }
+  return grid.map((r) => r.join(""));
+}
