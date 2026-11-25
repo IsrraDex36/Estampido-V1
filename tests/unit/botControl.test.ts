@@ -84,6 +84,26 @@ describe("control app", () => {
     expect(sent[0]?.jid).toBe("525500000001@s.whatsapp.net"); // normalized self, `to` ignored
   });
 
+  it("accepts long sounds up to the pipeline limit (e.g. 180.0065 s), rejects beyond", async () => {
+    const { sock } = fakeSock();
+    const app = createControlApp({ current: () => sock }, TOKEN, results);
+    await writeFile(join(results, "job", "sticker.ogg"), "OggS");
+    const body = (sec: number) =>
+      JSON.stringify({
+        webpPath: join(results, "job", "sticker.webp"),
+        audioPath: join(results, "job", "sticker.ogg"),
+        audioDurationSec: sec,
+        animated: true,
+      });
+    // Passes validation (then fails later at upload on the fake socket → 502, not 400).
+    expect((await app.request("/send-self", { method: "POST", headers: auth, body: body(180.0065) })).status).not.toBe(
+      400,
+    );
+    const tooLong = await app.request("/send-self", { method: "POST", headers: auth, body: body(500) });
+    expect(tooLong.status).toBe(400);
+    expect(JSON.stringify(await tooLong.json())).toMatch(/audioDurationSec/);
+  });
+
   it("403 for files outside results; 503 when disconnected; 400 bad body", async () => {
     const { sock } = fakeSock();
     const app = createControlApp({ current: () => sock }, TOKEN, results);

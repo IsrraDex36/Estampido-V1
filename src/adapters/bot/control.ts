@@ -6,6 +6,7 @@ import { serve } from "@hono/node-server";
 import { jidNormalizedUser, type WASocket } from "baileys";
 import { Hono } from "hono";
 import { z } from "zod";
+import { STICKER_LIMITS } from "../../config/limits.js";
 import { controlFile, RESULTS_ROOT } from "../../config/paths.js";
 import { sendSoundSticker } from "./soundSticker.js";
 
@@ -23,7 +24,12 @@ export interface BotHandle {
 const sendSchema = z.object({
   webpPath: z.string().min(1),
   audioPath: z.string().min(1).optional(),
-  audioDurationSec: z.number().positive().max(60).optional(),
+  // Same ceiling as the pipeline (+1 s: containers report e.g. 180.0065 s).
+  audioDurationSec: z
+    .number()
+    .positive()
+    .max(Math.max(STICKER_LIMITS.maxDurationSec, STICKER_LIMITS.maxImageAudioSec) + 1)
+    .optional(),
   animated: z.boolean(),
 });
 export type SendToSelfRequest = z.infer<typeof sendSchema>;
@@ -60,7 +66,11 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
     const sock = bot.current();
     if (!sock?.user) return c.json({ error: "Bot no conectado." }, 503);
     const parsed = sendSchema.safeParse(await c.req.json().catch(() => null));
-    if (!parsed.success) return c.json({ error: "Petición inválida." }, 400);
+    if (!parsed.success) {
+      const why = parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ");
+      console.error("[control] petición inválida:", why);
+      return c.json({ error: `Petición inválida (${why}).` }, 400);
+    }
 
     let webpPath: string;
     let audioPath: string | undefined;

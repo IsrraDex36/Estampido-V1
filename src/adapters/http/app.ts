@@ -173,7 +173,8 @@ export function createApp(deps: AppDeps = {}): Hono {
     } catch (err) {
       if (err instanceof BotUnavailableError) return c.json(fail("bot_unavailable", err.message), 503);
       console.error("[whatsapp]", err);
-      return c.json(fail("send_failed", "No se pudo enviar a WhatsApp."), 502);
+      const reason = err instanceof Error && err.message ? ` ${err.message}` : "";
+      return c.json(fail("send_failed", `No se pudo enviar a WhatsApp.${reason}`), 502);
     }
   });
 
