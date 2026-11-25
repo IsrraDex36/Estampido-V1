@@ -1,4 +1,4 @@
-import { InfoIcon } from "lucide-react";
+import { InfoIcon } from "@/components/icons";
 
 /** Pipeline warnings, quiet and readable. */
 export function ResultNotes({ warnings }: { warnings: string[] }) {

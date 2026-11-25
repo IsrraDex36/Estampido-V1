@@ -1,4 +1,4 @@
-import { CheckIcon } from "lucide-react";
+import { CheckIcon, Volume2Icon, VolumeXIcon } from "@/components/icons";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import type { CollectionItem } from "../collectionStore";
@@ -36,15 +36,25 @@ export function CollectionTile({
         )}
         aria-hidden
       >
-        {selected && <CheckIcon className="size-3.5" strokeWidth={3} />}
+        {selected && <CheckIcon className="size-3.5" weight="bold" />}
       </span>
       <span
         className={cn(
-          "absolute right-2 bottom-2 rounded-full px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
+          "absolute right-2 bottom-2 flex items-center gap-1 rounded-full px-1.5 py-0.5 font-mono text-[11px] tabular-nums",
           item.soundSec ? "bg-sound text-white" : "bg-card/90 text-muted-foreground",
         )}
       >
-        {item.soundSec ? `🔊 ${formatTime(item.soundSec)}` : "mudo"}
+        {item.soundSec ? (
+          <>
+            <Volume2Icon className="size-3" weight="fill" />
+            {formatTime(item.soundSec)}
+          </>
+        ) : (
+          <>
+            <VolumeXIcon className="size-3" />
+            mudo
+          </>
+        )}
       </span>
     </button>
   );

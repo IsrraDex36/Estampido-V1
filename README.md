@@ -151,7 +151,7 @@ web/src/
 │   ├── collection/  colección de la sesión + envío por lotes
 │   ├── community/   /comunidad (fase 0: apartados sin datos)
 │   └── bot/         estado del bot en vivo
-└── components/  UI (shadcn), pixel art (fondo, mascota Pum), tema
+└── components/  UI (shadcn), íconos (Phosphor, en un solo módulo), pixel art (fondo, mascota Pum), tema
 tests/  unit · integration       e2e/  navegador real
 ```
 

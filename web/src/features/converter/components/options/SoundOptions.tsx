@@ -1,4 +1,4 @@
-import { XIcon } from "lucide-react";
+import { XIcon } from "@/components/icons";
 import { API_LIMITS } from "@contract";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";

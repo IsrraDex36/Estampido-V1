@@ -1,4 +1,4 @@
-import { PauseIcon, PlayIcon } from "lucide-react";
+import { PauseIcon, PlayIcon } from "@/components/icons";
 import { formatTime } from "@/lib/time";
 import type { StickerPlayer } from "../../hooks/useStickerPlayer";
 import { Equalizer } from "../ui/Waveform";
@@ -17,7 +17,7 @@ export function PlayerBar({ player, fallbackDuration }: { player: StickerPlayer;
         aria-label={player.playing ? "Pausar" : "Reproducir"}
         className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-transform active:scale-95"
       >
-        {player.playing ? <PauseIcon className="size-4.5 fill-current" /> : <PlayIcon className="size-4.5 translate-x-px fill-current" />}
+        {player.playing ? <PauseIcon className="size-4.5" weight="fill" /> : <PlayIcon className="size-4.5 translate-x-px" weight="fill" />}
       </button>
       <div className="h-1 flex-1 overflow-hidden rounded-full bg-muted">
         <div

@@ -1,4 +1,4 @@
-import { AudioWaveformIcon } from "lucide-react";
+import { AudioWaveformIcon } from "@/components/icons";
 import { Link } from "wouter";
 import { AppNav } from "./AppNav";
 import { ROUTES } from "./routes";

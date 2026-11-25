@@ -1,3 +1,4 @@
+import { VoteIcon } from "@/components/icons";
 import { GhostBlock, GhostFrame } from "./Ghost";
 
 const PODIUM = [
@@ -29,7 +30,9 @@ export function Ranking() {
             <span className="w-6 font-pixel text-[11px] text-muted-foreground">{n}</span>
             <GhostFrame className="size-9 shrink-0 rounded-lg" />
             <GhostBlock className="h-2.5 flex-1" />
-            <span className="font-mono text-[12px] text-muted-foreground tabular-nums">▲ –</span>
+            <span className="flex items-center gap-1 font-mono text-[12px] text-muted-foreground tabular-nums">
+              <VoteIcon className="size-3.5" /> –
+            </span>
           </li>
         ))}
       </ol>

@@ -1,4 +1,4 @@
-import { ArrowUpIcon, AudioWaveformIcon } from "lucide-react";
+import { ArrowUpIcon, AudioWaveformIcon } from "@/components/icons";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { BotStatus } from "@/features/bot/BotStatus";

@@ -1,4 +1,4 @@
-import { PlayIcon } from "lucide-react";
+import { PlayIcon } from "@/components/icons";
 import { GhostBlock } from "./Ghost";
 
 /** Deterministic pseudo-waveform heights (no randomness during render). */

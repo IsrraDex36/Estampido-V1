@@ -1,4 +1,4 @@
-import { PlusIcon, XIcon } from "lucide-react";
+import { PlusIcon, XIcon } from "@/components/icons";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { type DragEvent, useEffect, useRef, useState } from "react";

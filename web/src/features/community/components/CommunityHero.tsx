@@ -1,4 +1,4 @@
-import { PlusIcon, UploadIcon } from "lucide-react";
+import { PlusIcon, UploadIcon } from "@/components/icons";
 import { Link } from "wouter";
 import { ROUTES } from "@/app/routes";
 import { Button } from "@/components/ui/button";

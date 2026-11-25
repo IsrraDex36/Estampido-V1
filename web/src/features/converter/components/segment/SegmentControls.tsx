@@ -1,4 +1,4 @@
-import { ArrowRightToLineIcon, TimerIcon } from "lucide-react";
+import { ArrowRightToLineIcon, TimerIcon } from "@/components/icons";
 import { TimeInput } from "@/components/time-input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";

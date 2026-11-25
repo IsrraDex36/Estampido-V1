@@ -1,4 +1,4 @@
-import { Volume2Icon, VolumeXIcon } from "lucide-react";
+import { Volume2Icon, VolumeXIcon } from "@/components/icons";
 import * as m from "motion/react-m";
 import { cn } from "@/lib/utils";
 import type { StickerPlayer } from "../../hooks/useStickerPlayer";

@@ -1,4 +1,4 @@
-import { PlayIcon, SendIcon, SparklesIcon, TimerIcon, Volume2Icon } from "lucide-react";
+import { PlayIcon, SendIcon, SparklesIcon, TimerIcon, Volume2Icon } from "@/components/icons";
 import type { ReactNode } from "react";
 
 const STEPS = [
@@ -55,7 +55,7 @@ export function EmptyPreview() {
       <ul className="mt-auto flex flex-wrap gap-x-6 gap-y-2 text-[12px] text-muted-foreground">
         {TIPS.map(({ icon: Icon, text }) => (
           <li key={text} className="flex items-center gap-2">
-            <Icon className="size-3.5 text-sound" />
+            <Icon className="size-4 text-sound" weight="duotone" />
             {text}
           </li>
         ))}

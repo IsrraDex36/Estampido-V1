@@ -1,4 +1,4 @@
-import { Loader2Icon, SendIcon, Trash2Icon } from "lucide-react";
+import { Loader2Icon, SendIcon, Trash2Icon } from "@/components/icons";
 import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";

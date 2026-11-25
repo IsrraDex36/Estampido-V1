@@ -1,4 +1,4 @@
-import { CalendarClockIcon, TrophyIcon } from "lucide-react";
+import { CalendarClockIcon, TrophyIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { GhostBlock, GhostFrame, SoonBadge } from "./Ghost";
 
@@ -16,7 +16,7 @@ export function ChallengeBanner() {
       <div className="relative grid items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)_auto]">
         <div className="flex items-start gap-4">
           <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-retro-a/15 text-retro-a">
-            <TrophyIcon className="size-6" />
+            <TrophyIcon className="size-6" weight="duotone" />
           </span>
           <div className="min-w-0 space-y-2">
             <div className="flex flex-wrap items-center gap-2">

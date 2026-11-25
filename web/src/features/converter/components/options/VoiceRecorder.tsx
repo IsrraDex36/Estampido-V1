@@ -1,4 +1,4 @@
-import { MicIcon, SquareIcon, XIcon } from "lucide-react";
+import { MicIcon, SquareIcon, XIcon } from "@/components/icons";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -53,7 +53,7 @@ export function RecordingPanel({ recorder, maxSec }: { recorder: Recorder; maxSe
         })}
       </div>
       <Button size="sm" className="rounded-full" onClick={recorder.stop}>
-        <SquareIcon data-icon="inline-start" className="fill-current" />
+        <SquareIcon data-icon="inline-start" weight="fill" />
         Listo
       </Button>
       <Button size="icon" variant="ghost" className="size-8 rounded-full" aria-label="Descartar grabación" onClick={recorder.cancel}>
