@@ -52,6 +52,12 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
     "libwebp_anim",
     "-lossless",
     "0",
+    // "picture" tuning (SNS/filter): ~5–10 % smaller at the same PSNR vs the
+    // default, at no extra encode time → the fps optimizer fits more frames.
+    // (compression_level 6 saves similar but encodes ~50× slower; cr_threshold
+    // and pre-denoise measured no gain.)
+    "-preset",
+    "picture",
     "-quality",
     String(quality),
     "-compression_level",
