@@ -11,8 +11,9 @@ import { createServerApp } from "./server.js";
  * API entry.
  * - dev (default): API only on 127.0.0.1:8787 (Vite serves the web and proxies /api)
  * - production (SVA_MODE=production): ONE port serving web/dist + /api, per-IP
- *   limits, security headers, «publish needs a linked WhatsApp». Still bound to
- *   127.0.0.1: the public entry is a tunnel/reverse proxy (SVA_TRUST_PROXY).
+ *   limits, security headers, «publish needs a linked WhatsApp». Bound to
+ *   127.0.0.1 (SVA_HOST=0.0.0.0 in containers): the public entry is a
+ *   tunnel/reverse proxy (SVA_TRUST_PROXY).
  */
 const production = process.env.SVA_MODE === "production";
 const flag = (v: string | undefined, def: boolean) => (v === undefined ? def : /^(1|true|yes|si|sí)$/i.test(v));
@@ -42,10 +43,12 @@ if (production) {
 // Periodic cleanup of expired results.
 setInterval(() => void store.sweep(), 5 * 60 * 1000).unref();
 
-serve({ fetch, port, hostname: "127.0.0.1" }, ({ port }) => {
+// 127.0.0.1 unless told otherwise: in Docker/Railway SVA_HOST=0.0.0.0 (the platform's proxy is the entry).
+const hostname = process.env.SVA_HOST ?? "127.0.0.1";
+serve({ fetch, port, hostname }, ({ port }) => {
   console.log(
     production
-      ? `Estampido (producción) → http://127.0.0.1:${port}  · web + API · límites por IP · publicar requiere WhatsApp`
-      : `sva api → http://127.0.0.1:${port}/api`,
+      ? `Estampido (producción) → http://${hostname}:${port}  · web + API · límites por IP · publicar requiere WhatsApp`
+      : `sva api → http://${hostname}:${port}/api`,
   );
 });

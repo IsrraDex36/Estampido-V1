@@ -92,7 +92,8 @@ describe("production server", () => {
     expect((await app.request("/api/convert", { method: "POST", headers: ip("1.1.1.1") })).status).toBe(200);
     // A different spoofed IP doesn't buy a fresh quota.
     expect((await app.request("/api/convert", { method: "POST", headers: ip("9.9.9.9") })).status).toBe(429);
-    const c = { req: { header: (h: string) => (h === "x-forwarded-for" ? "3.3.3.3, 10.0.0.1" : undefined) } } as never;
+    // X-Forwarded-For: the proxy appends the real IP → rightmost wins; a forged left entry is ignored.
+    const c = { req: { header: (h: string) => (h === "x-forwarded-for" ? "6.6.6.6, 3.3.3.3" : undefined) } } as never;
     expect(clientIp(c, true)).toBe("3.3.3.3");
   });
 });

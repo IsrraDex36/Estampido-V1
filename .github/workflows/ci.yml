@@ -59,3 +59,38 @@ jobs:
         env:
           CHROME_PATH: /usr/bin/google-chrome
         run: npx vitest run --config vitest.e2e.config.ts
+
+  docker:
+    name: Docker image (Railway) · build + smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build image
+        run: docker build -t estampido:ci .
+
+      - name: Run (no bot) and wait for health
+        run: |
+          docker run -d --name est -p 8787:8787 estampido:ci npx tsx scripts/start.ts --skip-build --no-bot
+          for i in $(seq 1 60); do
+            curl -fsS http://127.0.0.1:8787/api/health && break
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8787/api/health
+
+      - name: Smoke test (web, SPA fallback, headers, API JSON, ffmpeg)
+        run: |
+          set -e
+          curl -fsS http://127.0.0.1:8787/ | grep -q '<div id="root">'
+          curl -fsS http://127.0.0.1:8787/comunidad | grep -q '<div id="root">'
+          curl -fsSI http://127.0.0.1:8787/ | grep -qi 'content-security-policy'
+          curl -fsSI http://127.0.0.1:8787/ | grep -qi 'x-frame-options: DENY'
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/api/nope)" = "404"
+          curl -fsS http://127.0.0.1:8787/api/community/stats | grep -q '"stickers"'
+          docker exec est /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q libwebp_anim
+          docker exec est sh -c 'test -d /data && echo volume dir ok'
+
+      - name: Logs
+        if: always()
+        run: docker logs est || true

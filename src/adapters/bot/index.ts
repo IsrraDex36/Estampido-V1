@@ -66,6 +66,7 @@ const linksFor = (sock: WASocket | null): LinkStore | null => {
 await connect({
   authDir: authDir(),
   logLevel: process.env.SVA_LOG ?? "warn",
+  pairingNumber: process.env.SVA_PAIRING_NUMBER,
   onReady: (sock) => {
     current = sock;
     registerHandlers(sock, {

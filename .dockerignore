@@ -1,0 +1,27 @@
+# Never ship secrets or local state into the image
+.env
+.env.*
+!.env.example
+.auth
+.auth.*
+.auth-*
+.data
+captures
+
+# Rebuilt inside the image
+node_modules
+web/node_modules
+dist
+web/dist
+coverage
+
+# Not needed at runtime
+.git
+.github
+samples/input
+samples/output
+tests/fixtures/*.mp4
+tests/fixtures/*.webp
+tests/fixtures/*.ogg
+*.log
+.DS_Store

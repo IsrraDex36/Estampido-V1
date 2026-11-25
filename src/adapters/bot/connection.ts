@@ -9,10 +9,28 @@ export interface ConnectOptions {
   authDir: string;
   onReady: (sock: WASocket) => void;
   logLevel?: string;
+  /**
+   * Link with an 8-character code instead of the QR (servers have no screen):
+   * WhatsApp → Dispositivos vinculados → Vincular con número de teléfono.
+   * Digits only, with country code (e.g. 5215512345678).
+   */
+  pairingNumber?: string;
 }
 
+/** "5215512345678" from "+52 1 55 1234 5678". Pure; null if implausible. */
+export function normalizePairingNumber(raw: string | undefined): string | null {
+  const digits = (raw ?? "").replace(/\D/g, "");
+  return digits.length >= 8 && digits.length <= 15 ? digits : null;
+}
+
+/** "ABCD1234" → "ABCD-1234" (as WhatsApp shows it). Pure. */
+export const formatPairingCode = (code: string): string =>
+  code.length === 8 ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
+
 /** Connect with QR login and auto-reconnect (except on logout). */
-export async function connect({ authDir, onReady, logLevel = "warn" }: ConnectOptions): Promise<void> {
+export async function connect(opts: ConnectOptions): Promise<void> {
+  const { authDir, onReady, logLevel = "warn" } = opts;
+  const pairingNumber = normalizePairingNumber(opts.pairingNumber);
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version, source } = await resolveWaVersion();
   if (!state.creds.me) console.log(`WhatsApp Web ${version?.join(".") ?? "?"} (${source})`);
@@ -53,8 +71,25 @@ export async function connect({ authDir, onReady, logLevel = "warn" }: ConnectOp
     }
   });
 
+  let codeRequested = false;
   sock.ev.on("connection.update", ({ connection, lastDisconnect, qr }) => {
-    if (qr) showQr(qr, "Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:");
+    if (qr && pairingNumber && !state.creds.registered) {
+      // Pairing code instead of QR: request it once per socket (it stays valid while this socket lives).
+      if (!codeRequested) {
+        codeRequested = true;
+        sock
+          .requestPairingCode(pairingNumber)
+          .then((code) =>
+            console.log(
+              `\n🔑 Código de vinculación: ${formatPairingCode(code)}\n   WhatsApp (número …${pairingNumber.slice(-4)}) → Dispositivos vinculados → Vincular un dispositivo → «Vincular con número de teléfono» → escribe el código.\n`,
+            ),
+          )
+          .catch((err) => {
+            console.error("[pairing] no se pudo pedir el código; uso QR", err);
+            showQr(qr, "Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:");
+          });
+      }
+    } else if (qr) showQr(qr, "Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:");
     if (connection === "open") {
       console.log(`✔ Conectado como ${sock.user?.id ?? "?"}`);
       onReady(sock);
@@ -70,11 +105,11 @@ export async function connect({ authDir, onReady, logLevel = "warn" }: ConnectOp
         // client reconnects with the new session. A "failed to ack notification"
         // log just before this is harmless (ack sent on the closing socket).
         console.log("✔ Vinculado. Reiniciando la conexión (normal tras escanear el QR)…");
-        void connect({ authDir, onReady, logLevel });
+        void connect(opts);
         return;
       }
       console.warn(`Conexión cerrada (código ${code ?? "?"}). Reconectando…`);
-      setTimeout(() => void connect({ authDir, onReady, logLevel }), 2_000);
+      setTimeout(() => void connect(opts), 2_000);
     }
   });
 }

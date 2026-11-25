@@ -44,12 +44,22 @@ const RULES: { name: Exclude<LimitName, "api">; method: string; path: RegExp }[]
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });
 
-/** Client IP: proxy headers only when trusted, else the socket's address. */
+/**
+ * Client IP: proxy headers only when trusted, else the socket's address.
+ * Cloudflare sets CF-Connecting-IP. Generic proxies (Railway, Caddy) APPEND
+ * to X-Forwarded-For, so the trustworthy entry is the rightmost one (anything
+ * to its left was sent by the client and can be forged).
+ */
 export function clientIp(c: Context, trustProxy: boolean): string {
   if (trustProxy) {
     const cf = c.req.header("cf-connecting-ip");
     if (cf) return cf.trim();
-    const xff = c.req.header("x-forwarded-for")?.split(",")[0]?.trim();
+    const xff = c.req
+      .header("x-forwarded-for")
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .at(-1);
     if (xff) return xff;
   }
   try {

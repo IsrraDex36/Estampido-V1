@@ -133,6 +133,10 @@ En la consola aparece `🌍 URL pública: https://….trycloudflare.com`: compá
 - Sin túnel: `npm run start` (producción local en <http://127.0.0.1:8787>).
 - ⚠️ Mientras el bot use tu número personal, quien use la web lo verá en el enlace de WhatsApp.
 
+### Desplegar en Railway (24/7, URL fija)
+
+Un solo servicio con Docker (web, API y bot) y un volumen en `/data`. Paso a paso en [docs/DEPLOY-RAILWAY.md](docs/DEPLOY-RAILWAY.md).
+
 ### Configuración del bot (`.env`)
 
 Copia [`.env.example`](.env.example) a `.env`:
