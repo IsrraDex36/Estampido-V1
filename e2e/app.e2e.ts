@@ -13,6 +13,35 @@ afterAll(async () => {
 });
 
 describe("Estampido web (real browser, real API)", () => {
+  it("first visit: the welcome tour walks through both paths and privacy, then stays closed", async () => {
+    const { page, problems } = await openPage(browser, url, { width: 390, height: 844, tour: true });
+    await page.waitForSelector('[role="dialog"]');
+    // Steps slide in (exit animation first): wait for the text instead of reading right away.
+    const dialogHas = (text: string) =>
+      page.waitForFunction(
+        (t) => (document.querySelector('[role="dialog"]') as HTMLElement | null)?.innerText.includes(t),
+        { timeout: 5000 },
+        text,
+      );
+    await dialogHas("Bienvenido a Estampido");
+    await clickButtonWithText(page, "Siguiente", '[role="dialog"] button');
+    await dialogHas("Crearlo tú en WhatsApp");
+    await dialogHas("Enviar a mi WhatsApp");
+    for (const next of ["Guárdalo y compártelo", "Cómo está hoy", "Tus stickers son tuyos"]) {
+      await clickButtonWithText(page, "Siguiente", '[role="dialog"] button');
+      await dialogHas(next);
+    }
+    await dialogHas("los borra a los 30 minutos");
+    await clickButtonWithText(page, "Empezar", '[role="dialog"] button');
+    await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
+    await page.reload({ waitUntil: "networkidle0" });
+    expect(await page.$('[role="dialog"]')).toBeNull();
+    await page.click('button[aria-label="¿Cómo funciona?"]');
+    await page.waitForSelector('[role="dialog"]');
+    expect(problems).toEqual([]);
+    await page.close();
+  });
+
   it("loads cleanly with the mascot and no console problems", async () => {
     const { page, problems } = await openPage(browser, url);
     expect(await page.title()).toMatch(/Estampido/);

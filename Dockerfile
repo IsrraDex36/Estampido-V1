@@ -15,7 +15,8 @@ RUN curl -fsSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ff
   && tar -xJf /tmp/ffmpeg.tar.xz -C /opt/ffmpeg --strip-components=1 \
   && rm /tmp/ffmpeg.tar.xz \
   && /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q libwebp_anim \
-  && /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q libopus
+  && /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q libopus \
+  && /opt/ffmpeg/bin/ffmpeg -hide_banner -encoders | grep -q libx264
 ENV FFMPEG_PATH=/opt/ffmpeg/bin/ffmpeg \
     FFPROBE_PATH=/opt/ffmpeg/bin/ffprobe
 

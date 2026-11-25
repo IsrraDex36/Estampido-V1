@@ -24,6 +24,7 @@ import { notify } from "@/lib/notify";
 import { canShareFiles, shareSticker } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { ActionTile } from "./ActionTile";
+import { CreateInWhatsApp } from "./CreateInWhatsApp";
 import { PublishButton } from "./PublishButton";
 
 /** WhatsApp card (primary, never a dead end) + publish / collection / download tiles. */
@@ -31,6 +32,7 @@ export function ResultActions({ result }: { result: ConvertResponse }) {
   return (
     <div className="space-y-3">
       <SendCard result={result} />
+      <CreateInWhatsApp result={result} />
       <div className="grid grid-cols-3 gap-2">
         <PublishButton result={result} />
         <CollectionAction result={result} />
@@ -72,7 +74,7 @@ function SendCard({ result }: { result: ConvertResponse }) {
           ? "El envío directo está en pausa: compártelo desde aquí a WhatsApp."
           : "El envío directo está en pausa: descárgalo y mándalo desde WhatsApp Web."
         : sent
-          ? `Revisa tu chat${phone ? ` ${phone}` : ""}: llegó con su sonido.`
+          ? "Llegó a tu chat. Mantenlo presionado → Añadir a favoritos ⭐ para usarlo y reenviarlo siempre."
           : direct
             ? `Llega a tu chat${phone ? ` ${phone}` : ""} como sticker con sonido.`
             : "Primero vincula tu número (una sola vez, 10 segundos).";
@@ -187,6 +189,11 @@ function DownloadAction({ stickerUrl, audioUrl }: { stickerUrl: string; audioUrl
         <DropdownMenuItem asChild disabled={!audioUrl}>
           <a href={audioUrl ? downloadUrl(audioUrl) : undefined}>
             <DownloadIcon /> Sonido (.ogg)
+          </a>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <a href={stickerUrl.replace(/sticker\.webp$/, "whatsapp.mp4")}>
+            <DownloadIcon /> Video para WhatsApp (.mp4)
           </a>
         </DropdownMenuItem>
       </DropdownMenuContent>

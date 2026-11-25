@@ -4,6 +4,7 @@ import { AppNav } from "./AppNav";
 import { ROUTES } from "./routes";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { BotStatus } from "@/features/bot/BotStatus";
+import { TourButton } from "@/features/onboarding/TourButton";
 
 export function AppHeader() {
   return (
@@ -18,6 +19,7 @@ export function AppHeader() {
         <AppNav className="ml-2 sm:ml-4" />
         <div className="ml-auto flex items-center gap-1.5">
           <BotStatus />
+          <TourButton />
           <ThemeToggle />
         </div>
       </div>

@@ -34,9 +34,11 @@ export interface OpenedPage {
 export async function openPage(
   browser: Browser,
   url: string,
-  { width = 1440, height = 900, scheme = "light" as "light" | "dark" } = {},
+  { width = 1440, height = 900, scheme = "light" as "light" | "dark", tour = false } = {},
 ): Promise<OpenedPage> {
   const page = await browser.newPage();
+  // The welcome tour opens on a first visit; most tests start as a returning visitor.
+  if (!tour) await page.evaluateOnNewDocument(() => localStorage.setItem("estampido-tour-v1", "1"));
   const problems: string[] = [];
   page.on("pageerror", (e) => problems.push(`pageerror: ${(e as Error).message}`));
   page.on("console", (m) => {

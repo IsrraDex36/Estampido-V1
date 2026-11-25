@@ -7,6 +7,8 @@ import { RESULTS_ROOT } from "../../config/paths.js";
 export const SERVABLE_FILES = {
   "sticker.webp": "image/webp",
   "sticker.ogg": "audio/ogg",
+  /** Built on demand by GET /results/:id/whatsapp.mp4. */
+  "whatsapp.mp4": "video/mp4",
 } as const;
 export type ServableFile = keyof typeof SERVABLE_FILES;
 

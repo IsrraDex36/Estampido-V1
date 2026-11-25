@@ -1,9 +1,10 @@
-import { readFile, rm } from "node:fs/promises";
+import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/adapters/http/app.js";
 import type { ConvertResponse } from "../../src/adapters/http/contract.js";
 import { ResultStore } from "../../src/adapters/http/resultStore.js";
+import { probe } from "../../src/core/probe/probe.js";
 import { makePng, makeTempDir, makeTone, makeVideo } from "../helpers/fixtures.js";
 
 let dir: string;
@@ -39,6 +40,31 @@ describe("HTTP end-to-end (real ffmpeg)", () => {
     expect(webp.toString("ascii", 8, 12)).toBe("WEBP");
     const ogg = Buffer.from(await (await app.request(body.audio?.url ?? "")).arrayBuffer());
     expect(ogg.toString("ascii", 0, 4)).toBe("OggS");
+  });
+
+  it("«Exportar para WhatsApp»: square MP4 (H.264 + AAC) capped at 5 s, built once", async () => {
+    const app = createApp({ store: new ResultStore(join(dir, "results")), bot: noBot });
+    const fd = new FormData();
+    fd.set("video", new File([await readFile(inputPath)], "clip.mp4", { type: "video/mp4" }));
+    fd.set("durationSec", "6");
+    const body = (await (await app.request("/api/convert", { method: "POST", body: fd })).json()) as ConvertResponse;
+
+    const url = `/api/results/${body.id}/whatsapp.mp4`;
+    const [a, b] = await Promise.all([app.request(url), app.request(url)]); // concurrent → one build
+    expect(a.status).toBe(200);
+    expect(b.status).toBe(200);
+    expect(a.headers.get("content-type")).toBe("video/mp4");
+    expect(a.headers.get("content-disposition")).toContain("attachment");
+    const out = join(dir, "wa.mp4");
+    await writeFile(out, Buffer.from(await a.arrayBuffer()));
+    const info = await probe(out);
+    expect(info.width).toBe(512);
+    expect(info.height).toBe(512);
+    expect(info.hasAudio).toBe(true);
+    expect(info.durationSec).toBeGreaterThan(4.5);
+    expect(info.durationSec).toBeLessThanOrEqual(5.1);
+
+    expect((await app.request("/api/results/00000000-0000-0000-0000-000000000000/whatsapp.mp4")).status).toBe(404);
   });
 
   it("422 for corrupt video", async () => {

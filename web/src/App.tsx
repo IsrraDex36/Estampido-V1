@@ -14,6 +14,7 @@ import { PixelBackground } from "@/components/pixel/PixelBackground";
 import { CommunitySkeleton } from "@/features/community/components/CommunitySkeleton";
 import { loadCommunityPage } from "@/features/community/prefetch";
 import { ConverterPage } from "@/features/converter/ConverterPage";
+import { WelcomeTour } from "@/features/onboarding/WelcomeTour";
 
 // Community is a separate chunk: the tool stays as light as before.
 // Same loader the nav prefetch uses → one shared chunk.
@@ -44,6 +45,7 @@ function Shell() {
         </RouteErrorBoundary>
       </main>
       <AppFooter />
+      <WelcomeTour />
     </div>
   );
 }

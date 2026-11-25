@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, stat, writeFile } from "node:fs/promises";
+import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { type Context, Hono } from "hono";
@@ -10,6 +10,7 @@ import QRCode from "qrcode";
 import { communityRoot } from "../../config/paths.js";
 import { CancelledError, UserInputError } from "../../core/errors.js";
 import { probe } from "../../core/probe/probe.js";
+import { buildWhatsAppMp4 } from "../../core/video/whatsappMp4.js";
 import { inspectWebp } from "../../core/webp/inspect.js";
 import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
 import { CommandError } from "../../utils/ffmpeg.js";
@@ -348,6 +349,58 @@ export function createApp(deps: AppDeps = {}): Hono {
     } catch (err) {
       return botFailure(c, err, "send");
     }
+  });
+
+  // «Exportar para WhatsApp»: square MP4 for WhatsApp's own «Crear sticker»,
+  // built once on first request (same queue as conversions) from the finished sticker.
+  const mp4Builds = new Map<string, Promise<void>>();
+  app.get("/results/:id/whatsapp.mp4", async (c) => {
+    const id = c.req.param("id");
+    const webpPath = store.resolve(id, "sticker.webp");
+    const mp4Path = store.resolve(id, "whatsapp.mp4");
+    if (!webpPath || !mp4Path) return c.json(fail("not_found", "Resultado no encontrado."), 404);
+    const webp = await readFile(webpPath).catch(() => null);
+    if (!webp) return c.json(fail("expired", "El resultado expiró o no existe."), 404);
+
+    if (!(await stat(mp4Path).catch(() => null))) {
+      let build = mp4Builds.get(id);
+      if (!build) {
+        const oggPath = store.resolve(id, "sticker.ogg") as string;
+        const hasAudio = Boolean(await stat(oggPath).catch(() => null));
+        const tmp = `${mp4Path}.part.mp4`;
+        build = jobs
+          .run(async () => {
+            await buildWhatsAppMp4({
+              webp: webpPath,
+              animated: inspectWebp(webp).animated,
+              output: tmp,
+              ...(hasAudio ? { audio: oggPath, audioDurationSec: (await probe(oggPath)).durationSec } : {}),
+            });
+            await rename(tmp, mp4Path);
+          })
+          .catch(async (err) => {
+            await rm(tmp, { force: true });
+            throw err;
+          })
+          .finally(() => mp4Builds.delete(id));
+        mp4Builds.set(id, build);
+      }
+      try {
+        await build;
+      } catch (err) {
+        console.error("[whatsapp.mp4]", err instanceof Error ? err.message : err);
+        return c.json(fail("unprocessable", "No se pudo preparar el video para WhatsApp."), 422);
+      }
+    }
+    const info = await stat(mp4Path);
+    return new Response(Readable.toWeb(createReadStream(mp4Path)) as ReadableStream, {
+      headers: {
+        "Content-Type": "video/mp4",
+        "Content-Length": String(info.size),
+        "Cache-Control": "private, max-age=1800",
+        "Content-Disposition": 'attachment; filename="estampido-para-whatsapp.mp4"',
+      },
+    });
   });
 
   app.get("/results/:id/:file", async (c) => {
