@@ -69,3 +69,31 @@ Campos de la captura que no replicamos (opcionales): 11/12 (primer frame), 17 (`
    - `capture.json`: el árbol sin esquema, la vista parcial de Baileys del mensaje interno y la media encontrada
    - `media-*.webp` / `media-*.ogg`: el sticker y el audio descargados y descifrados (si se encontró la clave)
 5. Comparte `capture.json` **sin** `raw.bin` ni los campos `mediaKey`/`url` para analizarlo y escribir el envío nativo.
+
+## Packs de stickers (`stickerPackMessage`, campo 86) — investigación 2026-11-25
+
+**Conclusión clave: un pack nativo no puede llevar sonido.** `StickerPackMessage.Sticker` solo tiene `fileName`, `isAnimated`, `emojis`, `accessibilityLabel`, `isLottie` y `mimetype`; no hay audio. Mandar nuestros stickers como pack haría que perdieran el sonido.
+
+Por eso, en la web, **«Colección» envía varios stickers con sonido uno tras otro** (función disponible hoy). El pack nativo queda como opción futura, **sin sonido**, para «añadir todo el pack de un toque».
+
+Lo que se sabe del formato (fuentes comunitarias, sin verificar con Baileys):
+
+| Punto          | Estado                                                                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Contenido      | Un ZIP cifrado con los `.webp` (nombres por hash) + ícono de bandeja (+ `contents.json`, según algunas fuentes)                               |
+| Cifrado        | `WhatsApp Sticker Pack Keys`. **Todas las fuentes coinciden** al aplicar la plantilla `WhatsApp ${tipo} Keys` de Baileys                      |
+| Ruta de subida | **Discrepancia**: `/mms/sticker-pack` (TomiOka) frente a `/mms/sticker` (Baileys-X). Ninguna fuente lo verifica en vivo                       |
+| Miniatura      | JPEG en cuadrícula 2×2, subida aparte con la **misma** `mediaKey` del pack (whatsapp-web.js), tipo `thumbnail-sticker-pack`. HKDF desconocido |
+| Envío          | `relayMessage` con `stickerPackMessage` (Baileys no tiene función propia para enviarlo)                                                       |
+
+Fuentes: whatsapp-web.js PR #201913 (cerrado; el autor dice haberlo probado en vivo), Baileys-X PR #28 («not live-verified»), TomiOka PR #6 (probado solo con un socket falso), Baileys issue #1548.
+
+### Cómo capturar un pack real
+
+1. `npm run bot:capture`
+2. Desde WhatsApp, comparte un pack de stickers en tu chat contigo mismo (si tu versión lo permite).
+3. Se crea `captures/pack-…/` con:
+   - `report.json`: si se descifró el ZIP (lo que confirma la clave de cifrado), su contenido y qué HKDF descifró la miniatura;
+   - `pack.zip`, `zip-listing.txt`, `contents.json` (si existe), `thumbnail.*` y `stickerPackMessage.json` (contiene claves: es privado).
+
+Con esa captura se implementa el envío del pack con el formato exacto.

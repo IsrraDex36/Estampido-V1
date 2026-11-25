@@ -182,6 +182,13 @@ sticker-video-audio/
 - [x] Pruebas e2e en el repo (`npm run test:e2e`): API real + web compilada + Chrome sin ventana. Cubren carga sin errores de consola, que no haya scroll horizontal en 390/1440/2560 px, flujo completo con conversión real, persistencia del tema y la interacción con Pum
 - [x] GitHub Actions (`.github/workflows/ci.yml`): lint, typecheck, tests, build y e2e con FFmpeg estático reciente. Pendiente de verificar en el primer push
 
+### Fase 5g — Varios stickers a la vez ✅ / pack nativo 🔬
+
+- [x] Web: «Colección» de la sesión. Seleccionas varios y se envían en orden como stickers con sonido, con progreso y opción de cancelar
+- [x] Investigación de `stickerPackMessage`: no admite audio; cifrado confirmado; ruta de subida en duda (ver `docs/PROTOCOLO.md`)
+- [x] Modo captura para packs: descifra el ZIP, lo lista y prueba las claves de la miniatura
+- [ ] Capturar un pack real → implementar el envío nativo del pack (sin sonido) como opción
+
 ### Fase 6 — Pulido
 
 - [ ] Dockerfile con FFmpeg

@@ -3,6 +3,7 @@ import type { FitMode } from "../../config/limits.js";
 import { saveCapture } from "./capture.js";
 import { isCancel } from "./command.js";
 import { HELP_TEXT, isHelp } from "./help.js";
+import { savePackCapture } from "./packCapture.js";
 import { takeRawFor } from "./rawCapture.js";
 import { SentIds, selfIdsOf, shouldHandle, trackOwnSends } from "./routing.js";
 import { createSaudio, type SendMode } from "./saudio.js";
@@ -61,6 +62,15 @@ export function registerHandlers(sock: WASocket, config: BotConfig): void {
         }
       } else if (config.capture) {
         console.log(`· mensaje ${getContentType(msg.message ?? undefined) ?? "vacío"} sin campos desconocidos`);
+      }
+
+      if (config.capture && msg.message?.stickerPackMessage) {
+        try {
+          const { dir, report } = await savePackCapture(config.captureDir, msg);
+          console.log(`📦 Pack capturado (${report.stickers} stickers) → ${dir}`);
+        } catch (err) {
+          console.error("[capture:pack]", err);
+        }
       }
 
       try {
