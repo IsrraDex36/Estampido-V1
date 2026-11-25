@@ -52,6 +52,8 @@ Pasar el bot a un chip prepago o eSIM con `npm run bot:relink`, para que un bloq
 | App nativa con «Añadir a WhatsApp» (paquetes)                | ❌                                                  | Play Store, paquetes de 3–30 stickers, animación ≤ 10 s                                   | No vale la pena                                        |
 | Bot de Telegram                                              | ❓ (stickers de video WEBM; sonido sin confirmar)   | Oficial y gratis, otro público                                                           | Baja prioridad                                         |
 
+**Análisis completo para escalar a muchas personas:** [ESCALAR-ENVIO.md](ESCALAR-ENVIO.md).
+
 **Recomendación:** conservar el bot, pasarlo a número dedicado y mantener «Compartir/Descargar». Cuando el creador de stickers con sonido de WhatsApp llegue a todos, agregar un botón «Exportar para WhatsApp» (MP4 del tramo con su audio) como plan B sin riesgo.
 
 ## 4. Pendientes chicos
