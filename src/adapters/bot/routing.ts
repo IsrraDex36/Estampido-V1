@@ -1,5 +1,6 @@
 import { generateMessageIDV2, type WASocket } from "baileys";
 import { isAllowedSender, type KeyLike } from "./command.js";
+import { sentMessages } from "./sentCache.js";
 
 /** Bounded set of message IDs this bot sent (to never react to its own output). */
 export class SentIds {
@@ -23,10 +24,12 @@ export class SentIds {
  */
 export function trackOwnSends(sock: WASocket, sent: SentIds): void {
   const original = sock.sendMessage.bind(sock);
-  sock.sendMessage = ((jid, content, options = {}) => {
+  sock.sendMessage = (async (jid, content, options = {}) => {
     const messageId = options.messageId ?? generateMessageIDV2(sock.user?.id);
     sent.add(messageId);
-    return original(jid, content, { ...options, messageId });
+    const result = await original(jid, content, { ...options, messageId });
+    sentMessages.set(result?.key.id, result?.message);
+    return result;
   }) as WASocket["sendMessage"];
 }
 

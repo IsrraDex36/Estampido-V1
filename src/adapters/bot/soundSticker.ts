@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { generateMessageIDV2, prepareWAMessageMedia, proto, type WASocket } from "baileys";
 import { encodeBytesField } from "../../utils/protobufRaw.js";
+import { sentMessages } from "./sentCache.js";
 
 /**
  * Native WhatsApp sound sticker (`audioStickerMessage`), reverse-engineered
@@ -112,6 +113,7 @@ export async function sendSoundSticker(sock: WASocket, jid: string, input: Sound
 
   const messageId = generateMessageIDV2(sock.user?.id);
   const message = makeAudioStickerMessage(buildAudioStickerPayload(stickerMessage, audioMessage));
+  sentMessages.set(messageId, message); // for decrypt-failure retries
   await sock.relayMessage(jid, message, { messageId });
   return messageId;
 }

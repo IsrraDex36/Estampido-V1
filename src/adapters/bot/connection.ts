@@ -2,6 +2,7 @@ import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState, type W
 import pino from "pino";
 import qrcode from "qrcode-terminal";
 import { isRotateRequest, newAdvSecret, resolveWaVersion, withAdvSecret } from "./pairing.js";
+import { sentMessages } from "./sentCache.js";
 
 export interface ConnectOptions {
   /** Auth state folder. Contains session keys → never commit. */
@@ -23,6 +24,13 @@ export async function connect({ authDir, onReady, logLevel = "warn" }: ConnectOp
     logger: pino({ level: logLevel }),
     markOnlineOnConnect: false,
     syncFullHistory: false,
+    // The bot never reads chat history. Skipping it lets Baileys go online as
+    // soon as pending notifications are handled, instead of holding new
+    // messages in its event buffer while waiting up to 20 s for a history
+    // sync ("Buffer timeout reached, auto-flushing" + delayed commands).
+    shouldSyncHistoryMessage: () => false,
+    // Re-send support when a device fails to decrypt one of our messages.
+    getMessage: async (key) => sentMessages.get(key.id),
   });
 
   sock.ev.on("creds.update", saveCreds);
