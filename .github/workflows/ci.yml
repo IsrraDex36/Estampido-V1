@@ -27,7 +27,7 @@ jobs:
 
       # Recent static FFmpeg with libwebp/libwebp_anim, libopus, libx264 and the
       # animated-WebP decoder the tests rely on (distro ffmpeg is too old).
-      - name: Install FFmpeg (recent build: animated WebP decoder, libwebp, libopus)
+      - name: "Install FFmpeg (recent build with animated WebP decoder, libwebp, libopus)"
         run: |
           curl -fsSL https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-linux64-gpl.tar.xz -o /tmp/ffmpeg.tar.xz
           sudo mkdir -p /opt/ffmpeg
