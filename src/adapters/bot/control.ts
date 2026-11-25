@@ -3,7 +3,7 @@ import { realpath, rm, writeFile } from "node:fs/promises";
 import { type AddressInfo, createServer, type Server } from "node:net";
 import { sep } from "node:path";
 import { serve } from "@hono/node-server";
-import type { WASocket } from "baileys";
+import { jidNormalizedUser, type WASocket } from "baileys";
 import { Hono } from "hono";
 import { z } from "zod";
 import { STICKER_LIMITS } from "../../config/limits.js";
@@ -32,6 +32,8 @@ export const SENDS_PER_MINUTE = 10;
 
 const sendSchema = z.object({
   client: z.string().refine(isClientHash, "cliente inválido"),
+  /** Owner's local mode: no link for this client → send to the bot's own chat. */
+  fallbackToSelf: z.boolean().optional(),
   webpPath: z.string().min(1),
   audioPath: z.string().min(1).optional(),
   // Same ceiling as the pipeline (+1 s: containers report e.g. 180.0065 s).
@@ -129,7 +131,8 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
       return c.json({ error: "Archivo no permitido o inexistente." }, 403);
     }
 
-    const target = await store.target(parsed.data.client);
+    const target =
+      (await store.target(parsed.data.client)) ?? (parsed.data.fallbackToSelf ? jidNormalizedUser(sock.user.id) : null);
     if (!target) return c.json({ error: "Este navegador no tiene un WhatsApp vinculado.", code: "not_linked" }, 409);
     const wait = perChat.take(target);
     if (wait > 0) {

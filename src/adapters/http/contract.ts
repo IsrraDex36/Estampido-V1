@@ -78,6 +78,8 @@ export interface WhatsAppStatus {
   connected: boolean;
   /** The bot's number (digits) — users send their link code to it via wa.me. */
   botNumber?: string | null;
+  /** Owner's local mode: sending without a link goes to the bot's own chat. */
+  selfSend?: boolean;
 }
 
 /** Header carrying the browser's random id (the API hashes it; never stored raw). */

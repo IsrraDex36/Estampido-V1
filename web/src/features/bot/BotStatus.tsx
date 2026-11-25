@@ -21,7 +21,13 @@ export function BotStatus() {
   const phone = link.data?.state === "linked" ? link.data.phone : null;
   const label = state === "on" && phone ? `WhatsApp ${phone}` : COPY[state].label;
   const hint =
-    state === "on" ? (phone ? "Tus stickers llegan a ese chat. Toca para gestionar." : "Toca para vincular tu WhatsApp.") : COPY[state].hint;
+    state !== "on"
+      ? COPY[state].hint
+      : phone
+        ? "Tus stickers llegan a ese chat. Toca para gestionar."
+        : status.selfSend
+          ? "Modo local: se envía a tu propio chat. Toca para vincular otro WhatsApp."
+          : "Toca para vincular tu WhatsApp.";
   return (
     <>
       <Tooltip>

@@ -9,12 +9,12 @@ import { queryKeys } from "../../web/src/lib/query/keys.js";
 
 afterEach(() => vi.unstubAllGlobals());
 
-function setup(link: unknown) {
+function setup(link: unknown, status: Record<string, unknown> = { available: true, connected: true }) {
   vi.stubGlobal(
     "fetch",
     vi.fn(
       async (u: RequestInfo | URL) =>
-        new Response(JSON.stringify(String(u).includes("/link") ? link : { available: true, connected: true }), {
+        new Response(JSON.stringify(String(u).includes("/link") ? link : status), {
           headers: { "content-type": "application/json" },
         }),
     ),
@@ -60,5 +60,15 @@ describe("useLinkGate", () => {
     act(() => client.setQueryData(queryKeys.bot.link, { state: "linked", phone: "…9999", linkedAt: 3 }));
     await new Promise((r) => setTimeout(r, 20));
     expect(other).not.toHaveBeenCalled();
+  });
+
+  it("owner's local mode (selfSend) → runs immediately without linking", async () => {
+    const { client, wrapper } = setup({ state: "unlinked" }, { available: true, connected: true, selfSend: true });
+    const { result } = renderHook(() => useLinkGate(), { wrapper });
+    await waitFor(() => expect(client.getQueryData(queryKeys.bot.status)).toMatchObject({ selfSend: true }));
+    const action = vi.fn();
+    act(() => result.current.gate(action));
+    expect(action).toHaveBeenCalledTimes(1);
+    expect(result.current.dialog.open).toBe(false);
   });
 });

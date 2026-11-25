@@ -47,6 +47,7 @@ describe("WhatsApp routes", () => {
       available: true,
       connected: true,
       botNumber: "5215500000000",
+      selfSend: false,
     });
   });
 
@@ -160,5 +161,21 @@ describe("createBotClient vs an older bot", () => {
     await expect(client.linkStatus("c".repeat(64))).rejects.toThrow(/reiniciarse/);
     await expect(client.linkStatus("c".repeat(64))).rejects.toBeInstanceOf(BotUnavailableError);
     srv.close();
+  });
+});
+
+describe("owner's local mode", () => {
+  it("ownerSelfSend → status says so and sends ask the bot to fall back to self; off by default", async () => {
+    const bot = fakeBot();
+    const local = createApp({ store: new ResultStore(root), bot, ownerSelfSend: true });
+    expect(await (await local.request("/api/whatsapp/status")).json()).toMatchObject({ selfSend: true });
+    await local.request(`/api/results/${ID}/whatsapp`, { method: "POST", headers: H });
+    expect(bot.send).toHaveBeenLastCalledWith(expect.objectContaining({ fallbackToSelf: true }));
+
+    const pub = fakeBot();
+    const prod = createApp({ store: new ResultStore(root), bot: pub });
+    expect(await (await prod.request("/api/whatsapp/status")).json()).toMatchObject({ selfSend: false });
+    await prod.request(`/api/results/${ID}/whatsapp`, { method: "POST", headers: H });
+    expect(pub.send).toHaveBeenLastCalledWith(expect.not.objectContaining({ fallbackToSelf: true }));
   });
 });

@@ -34,6 +34,11 @@ export interface AppDeps {
   community?: CommunityRepo;
   /** Public server: only browsers with a linked WhatsApp may publish (anti-spam, accountability). */
   publishRequiresLink?: boolean;
+  /**
+   * Owner's local mode (dev default): an unlinked browser sends to the bot's
+   * own chat. NEVER on a public server (anyone could message the owner).
+   */
+  ownerSelfSend?: boolean;
   convert?: (opts: ConvertOptions) => Promise<ConvertResult>;
   maxConcurrent?: number;
   maxQueue?: number;
@@ -199,7 +204,9 @@ export function createApp(deps: AppDeps = {}): Hono {
     },
   );
 
-  app.get("/whatsapp/status", async (c) => c.json((await bot.status()) satisfies WhatsAppStatus));
+  app.get("/whatsapp/status", async (c) =>
+    c.json({ ...(await bot.status()), selfSend: deps.ownerSelfSend === true } satisfies WhatsAppStatus),
+  );
 
   /** Bot failures → uniform JSON (unavailable 503, known 4xx from the bot, else 502). */
   const botFailure = (c: Context, err: unknown, what: string) => {
@@ -265,6 +272,7 @@ export function createApp(deps: AppDeps = {}): Hono {
     try {
       const sent = await bot.send({
         client,
+        ...(deps.ownerSelfSend ? { fallbackToSelf: true } : {}),
         webpPath,
         animated: inspectWebp(webp).animated,
         ...(hasAudio ? { audioPath: oggPath, audioDurationSec: (await probe(oggPath)).durationSec } : {}),

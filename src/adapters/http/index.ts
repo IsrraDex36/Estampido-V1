@@ -25,6 +25,8 @@ const api = createApp({
   store,
   community,
   publishRequiresLink: flag(process.env.SVA_PUBLISH_REQUIRES_LINK, production),
+  // Local dev: send to your own chat without linking. Off in production (public).
+  ownerSelfSend: flag(process.env.SVA_OWNER_SELF_SEND, !production),
 });
 
 let fetch = api.fetch;

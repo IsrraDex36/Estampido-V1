@@ -113,6 +113,15 @@ describe("control app", () => {
     expect(await nope.json()).toMatchObject({ code: "not_linked" });
   });
 
+  it("owner's local mode: unlinked + fallbackToSelf → the bot's own chat (never without the flag)", async () => {
+    const { sock, sent } = fakeSock();
+    const app = createControlApp(handle(sock, new LinkStore(join(base, "empty.json"))), TOKEN, results);
+    expect((await post(app, "/send", { client: OTHER, webpPath: webp(), animated: true })).status).toBe(409);
+    const ok = await post(app, "/send", { client: OTHER, fallbackToSelf: true, webpPath: webp(), animated: true });
+    expect(ok.status).toBe(200);
+    expect(sent.map((s) => s.jid)).toEqual(["525500000001@s.whatsapp.net"]);
+  });
+
   it(`per-chat limit: ${SENDS_PER_MINUTE}/min → 429`, async () => {
     const { sock } = fakeSock();
     const app = createControlApp(handle(sock, await linked()), TOKEN, results);

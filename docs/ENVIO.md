@@ -20,6 +20,8 @@ Web: «Enviar a mi WhatsApp»
 - **Los vínculos dependen del número del bot** (`.data/links/<número>.json`). Si cambias de número, se empieza de cero y la web pide volver a vincular: el usuario escribe primero al número nuevo.
 - El número del bot **no se configura**: el bot lo conoce al conectarse y la API lo usa para el enlace `wa.me`.
 
+**Modo local del dueño** (`SVA_OWNER_SELF_SEND`): en desarrollo (`npm run dev`), un navegador sin vincular envía **al chat propio del bot**, como antes, sin pasar por el código. Viene **apagado en producción**: en un servidor público, cualquiera podría mandarte stickers.
+
 ## Ahora: con el número del dueño (para probar)
 
 | Fase                            | Contenido                                                                                                                                                                                                                                                       | Estado |

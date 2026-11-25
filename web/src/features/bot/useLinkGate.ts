@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useLink } from "./api";
+import { useBotStatus, useLink } from "./api";
 
 /**
  * «Send needs a linked WhatsApp». gate(action): runs it now if linked,
@@ -8,17 +8,19 @@ import { useLink } from "./api";
  */
 export function useLinkGate() {
   const link = useLink();
+  // Owner's local mode: no link needed, the API sends to the bot's own chat.
+  const selfSend = useBotStatus()?.selfSend === true;
   const [open, setOpen] = useState(false);
   const pending = useRef<(() => void) | null>(null);
   const linked = link.data?.state === "linked";
 
   const gate = useCallback(
     (action: () => void) => {
-      if (linked) return action();
+      if (linked || selfSend) return action();
       pending.current = action;
       setOpen(true);
     },
-    [linked],
+    [linked, selfSend],
   );
 
   useEffect(() => {

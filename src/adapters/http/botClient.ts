@@ -4,6 +4,8 @@ import { controlFile } from "../../config/paths.js";
 export interface SendRequest {
   /** SHA-256 of the browser id (see CLIENT_HEADER). */
   client: string;
+  /** No link → bot's own chat (owner's local mode only). */
+  fallbackToSelf?: boolean;
   webpPath: string;
   audioPath?: string;
   audioDurationSec?: number;
