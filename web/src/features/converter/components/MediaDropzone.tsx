@@ -90,7 +90,7 @@ export function MediaDropzone() {
             if (dropped && !busy) choose(dropped);
           }}
           className={cn(
-            "flex aspect-[4/3] w-full flex-col items-center justify-center gap-5 rounded-2xl bg-stage px-6 text-center transition-[box-shadow,background-color] 2xl:aspect-[16/11]",
+            "flex h-[clamp(16rem,42vh,26rem)] w-full flex-col items-center justify-center gap-5 rounded-2xl bg-stage px-6 text-center transition-[box-shadow,background-color]",
             dragging && "bg-sound-soft shadow-[inset_0_0_0_2px_var(--sound)]",
           )}
         >

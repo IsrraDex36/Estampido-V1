@@ -159,6 +159,16 @@ sticker-video-audio/
 - [x] UX: encabezado con estado del bot (se consulta cada 10 s), pasos Archivo → Ajustes → Resultado, opciones en pestañas (Tiempo · Sonido · Estilo · Pack), encuadre visual, vista previa tipo chat con ecualizador, estadísticas en tarjetas, `Ctrl/⌘+Enter` y desplazamiento automático al resultado en móvil
 - [x] QA en navegador real (headless): claro, oscuro, móvil, flujo completo y consola limpia
 
+### Fase 5d — Refactor del front + diseño de producto ✅
+
+- [x] Estado con **zustand**: store del conversor (selectores, sin pasar props de componente en componente), store de reproducción aparte (el *playhead* actualiza ~4 veces/s y ahora solo re-renderiza el botón «Actual») y store del bot con *polling*
+- [x] Hooks separados: `useStickerPlayer`, `useConvertShortcut`, `useRevealOnDone`, `useElapsed`, `useSegment`. Lógica pura en `model/` (tramo, validación y valores por defecto) con tests en la suite raíz
+- [x] react-doctor (sin red de terceros): 29 → 9 hallazgos, 0 errores. Quedan los `cva` de shadcn y un falso positivo de `revokeObjectURL`
+- [x] Diseño neutro de alto contraste (estilo Apple/Nike): titular grande, secciones numeradas, control segmentado, listas agrupadas. El verde se usa solo para el sonido
+- [x] Responsive: 1 → 2 (lg) → 3 columnas (2xl) → más ancho en 3xl (27″, 1920 px+)
+- [x] Loader interactivo (onda de audio, % real de subida, cronómetro real, cancelar) y *skeletons* con la forma del resultado
+- [x] QA en navegador real a 390, 1440 y 2560 px, en claro y oscuro, con la consola limpia
+
 ### Fase 6 — Pulido
 
 - [ ] Dockerfile con FFmpeg
