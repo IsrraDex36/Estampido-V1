@@ -9,7 +9,7 @@ export type MediaKind = "video" | "animated" | "image";
 export interface ConvertRequestFields {
   /** Segment start in the source (videos/GIFs). */
   startSec: number;
-  /** Video: clip ≤ 5 s. GIF: sound ≤ 5 s. Image: sound ≤ 10 s. Omit → server default. */
+  /** Video: clip, GIF: sound (≤ API_LIMITS.maxDurationSec). Image: sound (≤ maxImageAudioSec). Omit → server default. */
   durationSec?: number;
   fit: FitMode;
   includeAudio: boolean;
@@ -87,8 +87,8 @@ export const API_LIMITS = {
   /** Keep in sync with INPUT_LIMITS in src/config/limits.ts (asserted by tests). */
   maxUploadBytes: 50 * 1024 * 1024,
   maxAudioBytes: 20 * 1024 * 1024,
-  /** Video clip / GIF sound. */
-  maxDurationSec: 5,
+  /** Video clip / GIF sound (experimental 10; mirrors STICKER_LIMITS). */
+  maxDurationSec: 10,
   /** Sound length for image stickers. */
   maxImageAudioSec: 10,
   minDurationSec: 0.5,

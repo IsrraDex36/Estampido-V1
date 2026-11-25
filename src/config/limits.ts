@@ -11,8 +11,12 @@ export const STICKER_LIMITS = {
   maxStaticBytes: 100 * 1024,
   /** Default clip length in seconds (matches native video→sticker audio). */
   defaultDurationSec: 5,
-  /** Max clip length accepted by any adapter. */
-  maxDurationSec: 5,
+  /**
+   * Max clip length accepted by any adapter. EXPERIMENTAL: raised 5 → 10 s to
+   * test whether WhatsApp accepts longer sound stickers (native app uses 5 s
+   * from video, up to 10 s for images). Revert this commit to go back.
+   */
+  maxDurationSec: 10,
   /** Max audio length for image-based sound stickers. */
   maxImageAudioSec: 10,
   /** Default and minimum frame rate for animated output. */

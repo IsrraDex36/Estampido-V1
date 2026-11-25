@@ -63,12 +63,14 @@ describe("HTTP end-to-end (real ffmpeg)", () => {
     expect(body.sticker).toMatchObject({ animated: false, maxBytes: 100 * 1024, withinLimit: true });
     expect(body.audio?.durationSec).toBeCloseTo(10, 0);
 
-    // 8 s is fine for an image but not for a video clip.
+    // Video clips now accept up to 10 s (experimental); 6 s source → clamped with a warning.
     const tooLong = new FormData();
     tooLong.set("media", new File([await readFile(inputPath)], "c.mp4", { type: "video/mp4" }));
-    tooLong.set("durationSec", "8");
+    tooLong.set("durationSec", "10");
     const r2 = await app.request("/api/convert", { method: "POST", body: tooLong });
-    expect(r2.status).toBe(422);
-    expect(((await r2.json()) as { error: { message: string } }).error.message).toMatch(/máximo 5 s/);
+    expect(r2.status).toBe(200);
+    const body2 = (await r2.json()) as ConvertResponse;
+    expect(body2.warnings.join(" ")).toMatch(/recortada/);
+    expect(body2.sticker.withinLimit).toBe(true);
   });
 });

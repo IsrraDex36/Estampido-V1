@@ -1,3 +1,4 @@
+import { API_LIMITS } from "@contract";
 import { CircleAlertIcon, SparklesIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -29,7 +30,7 @@ export function ConverterPage() {
         <CardHeader>
           <CardTitle>1. Archivo</CardTitle>
           <CardDescription>
-            Video (clip ≤ 5 s), GIF, o imagen con sonido (≤ 10 s).
+            Video (clip ≤ {API_LIMITS.maxDurationSec} s), GIF, o imagen con sonido (≤ {API_LIMITS.maxImageAudioSec} s).
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

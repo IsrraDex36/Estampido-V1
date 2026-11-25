@@ -17,7 +17,7 @@ export interface ConvertOptions {
   /** Segment start inside the source (video/animated only). */
   startSec?: number;
   /**
-   * Video: clip length (≤ 5 s). Animated: sound length (the animation loops).
+   * Video: clip length (≤ STICKER_LIMITS.maxDurationSec). Animated: sound length (the animation loops).
    * Image: sound length (≤ 10 s). Default: 5 s, or the audio's length for images.
    */
   durationSec?: number;
