@@ -11,7 +11,7 @@ const YEAR = new Date().getFullYear();
 /** Simple, useful footer: brand, live bot status, privacy note, back-to-top, author. */
 export function AppFooter() {
   return (
-    <footer className="mx-auto w-full max-w-[1760px] px-5 pt-12 pb-10 sm:px-8 2xl:px-12">
+    <footer className="mx-auto mt-auto w-full max-w-[1760px] shrink-0 px-5 pt-12 pb-10 sm:px-8 2xl:px-12">
       <div className="surface flex flex-col gap-6 p-5 sm:p-6 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
           <span className="grid size-9 place-items-center rounded-xl bg-primary text-primary-foreground" aria-hidden>

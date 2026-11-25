@@ -21,7 +21,7 @@ class Boundary extends Component<{ children: ReactNode }, { error: Error | null 
     if (!error) return this.props.children;
     const chunk = isChunkError(error);
     return (
-      <div role="alert" className="flex flex-col items-center gap-4 py-24 text-center">
+      <div role="alert" className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center">
         <Mascot size={100} />
         <p className="font-pixel text-xs text-muted-foreground">{chunk ? "SIN CONEXIÓN CON LA PÁGINA" : "ALGO SE ROMPIÓ"}</p>
         <h1 className="display text-3xl sm:text-4xl">

@@ -23,10 +23,11 @@ function Shell() {
   useScrollTopOnNavigate();
   return (
     // isolate: own stacking context so the -z-10 backdrop sits above our bg.
-    <div className="relative isolate min-h-svh overflow-x-clip bg-background text-foreground">
+    // flex column + main flex-1: the footer sits at the bottom of the screen on short pages.
+    <div className="relative isolate flex min-h-svh flex-col overflow-x-clip bg-background text-foreground">
       <PixelBackground />
       <AppHeader />
-      <main className="mx-auto w-full max-w-[1760px] px-5 sm:px-8 2xl:px-12">
+      <main className="mx-auto flex w-full max-w-[1760px] flex-1 flex-col px-5 sm:px-8 2xl:px-12">
         <RouteErrorBoundary>
         <Switch>
           <Route path={ROUTES.create} component={ConverterPage} />

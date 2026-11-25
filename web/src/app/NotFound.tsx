@@ -5,7 +5,7 @@ import { ROUTES } from "./routes";
 
 export function NotFound() {
   return (
-    <div className="flex flex-col items-center gap-4 py-24 text-center">
+    <div className="flex flex-1 flex-col items-center justify-center gap-4 py-16 text-center">
       <Mascot size={110} />
       <p className="font-pixel text-xs text-muted-foreground">ERROR 404 · AQUÍ NO SUENA NADA</p>
       <h1 className="display text-4xl">Página no encontrada</h1>

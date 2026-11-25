@@ -40,7 +40,7 @@ export function Providers({ children }: { children: ReactNode }) {
       </ThemeProvider>
       {QueryDevtools && (
         <Suspense fallback={null}>
-          <QueryDevtools buttonPosition="bottom-left" />
+          <QueryDevtools client={queryClient} buttonPosition="bottom-left" />
         </Suspense>
       )}
     </QueryClientProvider>
