@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 import { parseTags } from "../../model/publish";
 import { useConverterStore } from "../../store/converterStore";
 import { notify } from "@/lib/notify";
+import { ActionTile } from "./ActionTile";
 
 /** «Publicar»: share this result with the community (category, title, tags, audio rights). */
 export function PublishButton({ result }: { result: ConvertResponse }) {
@@ -24,19 +25,19 @@ export function PublishButton({ result }: { result: ConvertResponse }) {
 
   if (done) {
     return (
-      <Button variant="secondary" className="h-12 rounded-full px-5" onClick={() => navigate(ROUTES.community)}>
-        <CheckIcon data-icon="inline-start" />
-        Publicado · Ver
-      </Button>
+      <ActionTile
+        done
+        icon={<CheckIcon weight="bold" />}
+        title="Publicado"
+        hint="Ver"
+        onClick={() => navigate(ROUTES.community)}
+      />
     );
   }
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary" className="h-12 rounded-full px-5">
-          <CommunityIcon data-icon="inline-start" />
-          Publicar
-        </Button>
+        <ActionTile icon={<CommunityIcon weight="duotone" />} title="Publicar" hint="Comunidad" />
       </DialogTrigger>
       <DialogContent>
         {open && (

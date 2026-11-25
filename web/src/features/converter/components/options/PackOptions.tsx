@@ -68,7 +68,7 @@ export function PackOptions() {
                 <p className="truncate text-[13px] text-muted-foreground">
                   {author} · 1 sticker
                 </p>
-                <p className="pt-1 text-[12px] text-sound">{options.includeAudio ? "🔊 Suena al tocarlo" : "Sin sonido"}</p>
+                <p className="pt-1 text-[12px] text-sound">{options.includeAudio ? "Suena al tocarlo" : "Sin sonido"}</p>
               </>
             ) : (
               <p className="text-[13px] text-muted-foreground">Sin datos: WhatsApp no mostrará nombre ni autor.</p>

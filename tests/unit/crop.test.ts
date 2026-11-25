@@ -46,7 +46,9 @@ describe("free crop framing (web model)", () => {
 
 describe("free crop framing (ffmpeg)", () => {
   it("keeps the plain center crop when untouched", () => {
-    expect(buildVideoFilter("crop", 15, 512, undefined, { x: 0.5, y: 0.5, zoom: 1 })).toBe(buildVideoFilter("crop", 15, 512));
+    expect(buildVideoFilter("crop", 15, 512, undefined, { x: 0.5, y: 0.5, zoom: 1 })).toBe(
+      buildVideoFilter("crop", 15, 512),
+    );
   });
   it("scales to size·zoom and crops at the chosen spot", () => {
     const f = buildVideoFilter("crop", 15, 512, undefined, { x: 0.25, y: 0.8, zoom: 1.5 });

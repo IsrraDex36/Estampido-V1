@@ -53,7 +53,7 @@ describe("Community (real browser, real API)", () => {
     expect(await (await submit())?.evaluate((b) => (b as HTMLButtonElement).disabled)).toBe(true);
     await page.click('[role="dialog"] input[type="checkbox"]');
     await (await submit())?.click();
-    await bodyHas(page, "Publicado · Ver");
+    await bodyHas(page, "Publicado");
 
     // Feed shows it; save it.
     await page.goto(community, { waitUntil: "networkidle0" });

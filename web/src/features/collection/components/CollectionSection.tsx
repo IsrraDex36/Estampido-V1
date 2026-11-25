@@ -118,7 +118,7 @@ export function CollectionSection({ className }: { className?: string }) {
                   <span>{sendButton}</span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {bot === undefined ? "Comprobando el bot…" : bot.available ? "El bot no está conectado" : "Arranca el bot con npm run bot"}
+                  {bot === undefined ? "Comprobando el envío…" : "El envío directo está en pausa: descarga cada sticker desde el resultado."}
                 </TooltipContent>
               </Tooltip>
             )}

@@ -1,4 +1,10 @@
-import { DEFAULT_FIT, type FitMode, STICKER_LIMITS, type StickerBackground, type CropFrame } from "../../config/limits.js";
+import {
+  type CropFrame,
+  DEFAULT_FIT,
+  type FitMode,
+  STICKER_LIMITS,
+  type StickerBackground,
+} from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
 import { buildFitFilter } from "../frame/fit.js";
 import type { EncodeAttempt } from "../optimize/fitToSize.js";
