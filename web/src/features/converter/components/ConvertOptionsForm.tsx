@@ -1,12 +1,14 @@
 import { API_LIMITS, type FitMode } from "@contract";
-import { MusicIcon, PackageIcon, TimerIcon, XIcon } from "lucide-react";
+import { MusicIcon, PackageIcon, XIcon } from "lucide-react";
 import { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { TimeInput } from "@/components/time-input";
 import type { ConverterOptions, InputKind } from "../types";
+import { SegmentControls } from "./SegmentControls";
 
 interface ConvertOptionsFormProps {
   options: ConverterOptions;
@@ -33,61 +35,19 @@ export function ConvertOptionsForm({
   onAudioFileChange,
 }: ConvertOptionsFormProps) {
   const audioInputRef = useRef<HTMLInputElement>(null);
-  const maxStart = sourceDuration ? Math.max(0, sourceDuration - API_LIMITS.minDurationSec) : undefined;
   const isImage = inputKind === "image";
   const hasOwnSound = inputKind === "video";
-  const maxDuration = isImage ? API_LIMITS.maxImageAudioSec : API_LIMITS.maxDurationSec;
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {!isImage && (
-      <div className="space-y-2">
-        <Label htmlFor="start">Inicio (s)</Label>
-        <div className="flex gap-2">
-          <Input
-            id="start"
-            type="number"
-            min={0}
-            max={maxStart}
-            step={0.1}
-            value={options.startSec}
-            disabled={disabled}
-            onChange={(e) => onChange({ startSec: Math.max(0, Number(e.target.value) || 0) })}
-          />
-          <Button
-            type="button"
-            variant="outline"
-            disabled={disabled || currentTime === undefined || inputKind !== "video"}
-            title="Usar el tiempo actual del video"
-            onClick={() => currentTime !== undefined && onChange({ startSec: Number(currentTime.toFixed(1)) })}
-          >
-            <TimerIcon data-icon="inline-start" />
-            Actual
-          </Button>
-        </div>
-      </div>
-      )}
-
-      <div className="space-y-2">
-        <Label htmlFor="duration">
-          {isImage ? `Duración del sonido (s, máx. ${maxDuration})` : inputKind === "gif" ? "Duración del sonido (s)" : "Duración (s)"}
-        </Label>
-        <Input
-          id="duration"
-          type="number"
-          min={API_LIMITS.minDurationSec}
-          max={maxDuration}
-          step={0.5}
-          placeholder={isImage ? "auto (lo que dure el audio)" : undefined}
-          value={options.durationSec ?? ""}
-          disabled={disabled}
-          onChange={(e) => {
-            if (e.target.value === "") return onChange({ durationSec: undefined });
-            const v = Number(e.target.value) || API_LIMITS.minDurationSec;
-            onChange({ durationSec: Math.min(maxDuration, Math.max(API_LIMITS.minDurationSec, v)) });
-          }}
-        />
-      </div>
+      <SegmentControls
+        options={options}
+        inputKind={inputKind}
+        disabled={disabled}
+        currentTime={currentTime}
+        sourceDuration={sourceDuration}
+        onChange={onChange}
+      />
 
       <div className="space-y-2">
         <Label>Encuadre</Label>
@@ -172,15 +132,13 @@ export function ConvertOptionsForm({
                 <span className="truncate">{audioFile.name}</span>
               </p>
               <div className="space-y-2">
-                <Label htmlFor="audio-start">Inicio del audio (s)</Label>
-                <Input
+                <Label htmlFor="audio-start">Inicio del audio (m:ss)</Label>
+                <TimeInput
                   id="audio-start"
-                  type="number"
-                  min={0}
-                  step={0.1}
                   value={options.audioStartSec}
+                  min={0}
                   disabled={disabled}
-                  onChange={(e) => onChange({ audioStartSec: Math.max(0, Number(e.target.value) || 0) })}
+                  onValueChange={(v) => onChange({ audioStartSec: v ?? 0 })}
                 />
               </div>
             </div>

@@ -41,6 +41,7 @@ export function ConverterPage() {
             onSelect={handleSelect}
             onTimeUpdate={setCurrentTime}
             onDurationChange={setSourceDuration}
+            seekTo={c.options.startSec}
           />
           {c.file && c.inputKind && (
             <ConvertOptionsForm

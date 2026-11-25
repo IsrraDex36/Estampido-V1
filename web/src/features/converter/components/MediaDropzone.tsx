@@ -1,5 +1,5 @@
 import { FileImageIcon, FileVideoIcon, UploadIcon, XIcon } from "lucide-react";
-import { type DragEvent, useRef, useState } from "react";
+import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -13,6 +13,8 @@ interface MediaDropzoneProps {
   /** Reports current playhead so the user can pick a start time. */
   onTimeUpdate?: (sec: number) => void;
   onDurationChange?: (sec: number) => void;
+  /** Jump the preview here when it changes (segment start). */
+  seekTo?: number;
 }
 
 export function MediaDropzone({
@@ -22,8 +24,15 @@ export function MediaDropzone({
   onSelect,
   onTimeUpdate,
   onDurationChange,
+  seekTo,
 }: MediaDropzoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v && seekTo !== undefined && Math.abs(v.currentTime - seekTo) > 0.25) v.currentTime = seekTo;
+  }, [seekTo]);
   const [dragging, setDragging] = useState(false);
 
   const handleDrop = (e: DragEvent) => {
@@ -42,6 +51,7 @@ export function MediaDropzone({
         {isVideo ? (
           // biome-ignore lint/a11y/useMediaCaption: user-supplied preview
           <video
+          ref={videoRef}
           src={previewUrl}
           controls
           playsInline
