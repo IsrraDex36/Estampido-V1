@@ -7,7 +7,9 @@ import { startControlServer } from "./control.js";
 import { registerHandlers } from "./handlers.js";
 import { installRawCapture } from "./rawCapture.js";
 import type { SendMode } from "./saudio.js";
+import { BOT_TMP_PREFIX } from "./saudio.js";
 import { installRawEncode } from "./soundSticker.js";
+import { cleanupTempDirs } from "./tempCleanup.js";
 
 /**
  * WhatsApp bot (Baileys, unofficial → use a secondary number).
@@ -35,11 +37,17 @@ const sendMode = (modes as string[]).includes(process.env.SVA_SEND_MODE ?? "")
   ? (process.env.SVA_SEND_MODE as SendMode)
   : "native";
 
+const defaultFit: FitMode = process.env.SVA_FIT === "pad" ? "pad" : "crop";
+const ratePerMinute = Number(process.env.SVA_RATE_PER_MIN ?? 6) || 0;
+const selfChatOnly = /^(1|true|yes|si|sí)$/i.test(process.env.SVA_SELF_CHAT_ONLY ?? "");
+
 console.log(
-  `Bot SVA · envío ${sendMode} · encuadre ${process.env.SVA_FIT === "pad" ? "pad" : "crop"} · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
+  `Bot SVA · envío ${sendMode} · encuadre ${defaultFit} · límite ${ratePerMinute || "∞"}/min${selfChatOnly ? " · solo chat propio" : ""} · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
 );
 
-const defaultFit: FitMode = process.env.SVA_FIT === "pad" ? "pad" : "crop";
+// Temp folders left by a previous crash (the bot is the only writer of these).
+const cleaned = await cleanupTempDirs(BOT_TMP_PREFIX);
+if (cleaned) console.log(`Limpieza: ${cleaned} carpeta(s) temporal(es) huérfana(s) borradas.`);
 
 // Current socket (replaced on reconnect) for the local control endpoint.
 let current: WASocket | null = null;
@@ -55,6 +63,8 @@ await connect({
       captureDir: resolve("captures"),
       sendMode,
       defaultFit,
+      ratePerMinute,
+      selfChatOnly,
       metadata: { packName: process.env.SVA_PACK || undefined, publisher: process.env.SVA_AUTHOR || undefined },
     });
   },

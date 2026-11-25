@@ -3,13 +3,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { WAMessage, WASocket } from "baileys";
 import { type FitMode, INPUT_LIMITS, STICKER_LIMITS } from "../../config/limits.js";
-import { UserInputError } from "../../core/errors.js";
-import { convertToSoundSticker, type ReplacementAudio } from "../../pipeline/convert.js";
+import { CancelledError, UserInputError } from "../../core/errors.js";
+import { type ConvertResult, convertToSoundSticker, type ReplacementAudio } from "../../pipeline/convert.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { parseSaudio, SAUDIO_USAGE, type SaudioCommand } from "./command.js";
 import { type Downloader, downloadLimited, mediaOf } from "./media.js";
 import { PendingAudioStore, senderKey } from "./pending.js";
+import { RateLimiter } from "./rateLimit.js";
 import { sendSoundSticker } from "./soundSticker.js";
+import { StatusMessage } from "./status.js";
+import { type Delivery, formatSummary } from "./summary.js";
 
 /**
  * native: one real sound sticker (field 134, from the 2026-11-25 capture).
@@ -17,7 +20,19 @@ import { sendSoundSticker } from "./soundSticker.js";
  */
 export type SendMode = "native" | "fallback" | "both";
 
-const jobs = new Semaphore(1);
+export const BOT_TMP_PREFIX = "sva-bot-";
+
+export interface SaudioOptions {
+  download?: Downloader;
+  metadata?: { packName?: string; publisher?: string };
+  sendMode?: SendMode;
+  /** Default framing when the user doesn't say pad/crop. */
+  defaultFit?: FitMode;
+  /** Max /saudio per sender per minute (0 = unlimited). */
+  ratePerMinute?: number;
+  /** Concurrent conversions (shared queue). */
+  concurrency?: number;
+}
 
 const userMessage = (err: unknown): string =>
   err instanceof UserInputError || (err instanceof Error && err.message.startsWith("Argumento"))
@@ -27,61 +42,81 @@ const userMessage = (err: unknown): string =>
 /**
  * `/saudio` flow. Video → sticker + its own sound. With `voz`, or for sources
  * without sound (image, sticker, WhatsApp GIF), the media is downloaded now
- * and the next voice note/audio from the same sender (within the TTL)
- * becomes the sticker's sound.
+ * and the next voice note/audio from the same sender becomes the sound.
+ * Progress is a single edited status message; /cancelar stops pending,
+ * queued and running jobs.
  */
-export function createSaudio(
-  sock: WASocket,
-  download?: Downloader,
-  metadataDefaults: { packName?: string; publisher?: string } = {},
-  sendMode: SendMode = "native",
-  /** Default framing for /saudio when the user doesn't say pad/crop. */
-  defaultFit: FitMode = "crop",
-) {
+export function createSaudio(sock: WASocket, opts: SaudioOptions = {}) {
+  const { download, metadata = {}, sendMode = "native", defaultFit = "crop" } = opts;
+  const jobs = new Semaphore(opts.concurrency ?? 1);
+  const limiter = opts.ratePerMinute ? new RateLimiter(opts.ratePerMinute) : null;
+  /** Running or queued conversions, per sender. */
+  const active = new Map<string, AbortController>();
+  /** Status message of a job waiting for a voice note, per sender. */
+  const waitingStatus = new Map<string, StatusMessage>();
+
   const pending = new PendingAudioStore(undefined, (key) => {
-    const jid = key.split("|")[0];
-    if (jid)
-      void sock.sendMessage(jid, {
-        text: "⌛ Se acabó el tiempo para enviar el audio. Repite /saudio voz.",
-      });
+    const status = waitingStatus.get(key);
+    waitingStatus.delete(key);
+    void status?.set("⌛ Se acabó el tiempo para enviar el audio. Repite /saudio voz.");
   });
 
   const reply = (to: WAMessage, text: string) => sock.sendMessage(to.key.remoteJid as string, { text }, { quoted: to });
   const react = (to: WAMessage, text: string) =>
-    sock.sendMessage(to.key.remoteJid as string, {
-      react: { text, key: to.key },
-    });
+    sock.sendMessage(to.key.remoteJid as string, { react: { text, key: to.key } });
 
   async function convertAndSend(
     origin: WAMessage,
+    status: StatusMessage,
     dir: string,
     inputPath: string,
     cmd: SaudioCommand,
     audio: "source" | ReplacementAudio,
-    loops = false,
+    loops: boolean,
   ): Promise<void> {
-    const jid = origin.key.remoteJid as string;
-    const { customAudio: _c, hq, ...segment } = cmd;
-    const result = await jobs.run(() =>
-      convertToSoundSticker({
-        input: inputPath,
-        outDir: dir,
-        name: "sticker",
-        ...segment,
-        audio,
-        loops,
-        maxBytes: hq ? STICKER_LIMITS.experimentalMaxBytes : undefined,
-        // No duration typed → whole video / whole voice note (up to the max).
-        fullLength: segment.durationSec === undefined,
-        metadata: {
-          packName: metadataDefaults.packName,
-          // Sender's WhatsApp display name, so "author" shows who made it.
-          publisher: metadataDefaults.publisher ?? origin.pushName ?? undefined,
+    const key = senderKey(origin.key);
+    const controller = new AbortController();
+    active.set(key, controller);
+    try {
+      const { customAudio: _c, hq, ...segment } = cmd;
+      const result = await jobs.run(
+        async () => {
+          await status.set("⚙️ Creando tu sticker…");
+          return convertToSoundSticker({
+            input: inputPath,
+            outDir: dir,
+            name: "sticker",
+            ...segment,
+            audio,
+            loops,
+            signal: controller.signal,
+            maxBytes: hq ? STICKER_LIMITS.experimentalMaxBytes : undefined,
+            // No duration typed → whole video / whole voice note (up to the max).
+            fullLength: segment.durationSec === undefined,
+            metadata: {
+              packName: metadata.packName,
+              // Sender's WhatsApp display name, so "author" shows who made it.
+              publisher: metadata.publisher ?? origin.pushName ?? undefined,
+            },
+          });
         },
-      }),
-    );
+        {
+          signal: controller.signal,
+          onQueued: (position) =>
+            void status.set(`🕒 En cola · ${position === 1 ? "eres el siguiente" : `posición ${position}`}`),
+        },
+      );
+      const delivery = await deliver(origin, result);
+      await status.set(formatSummary(result, delivery));
+      await react(origin, "✅");
+    } finally {
+      if (active.get(key) === controller) active.delete(key);
+    }
+  }
 
-    let delivered = result.audioPath ? "separado" : "solo sticker (sin sonido)";
+  /** Native sound sticker when possible; separate sticker + voice note otherwise. */
+  async function deliver(origin: WAMessage, result: ConvertResult): Promise<Delivery> {
+    const jid = origin.key.remoteJid as string;
     const sendSeparate = async () => {
       await sock.sendMessage(jid, { sticker: { url: result.webpPath } }, { quoted: origin });
       if (result.audioPath) {
@@ -92,34 +127,38 @@ export function createSaudio(
         });
       }
     };
-    if (result.audioPath && result.stats.audio && sendMode !== "fallback") {
-      try {
-        await sendSoundSticker(sock, jid, {
-          webpPath: result.webpPath,
-          audioPath: result.audioPath,
-          audioDurationSec: result.stats.audio.durationSec,
-          animated: result.stats.sticker.animated,
-        });
-        delivered = "nativo 🔊";
-        if (sendMode === "both") await sendSeparate();
-      } catch (err) {
-        console.error("[saudio:native] falló el envío nativo; uso el separado", err);
-        delivered = "separado (falló el nativo)";
-        await sendSeparate();
-      }
-    } else {
+    if (!result.audioPath || !result.stats.audio) {
       await sendSeparate();
+      return "sticker-only";
     }
-    const s = result.stats.sticker;
-    const notes = result.warnings.length ? `\n⚠️ ${result.warnings.join("\n⚠️ ")}` : "";
-    const shape = s.animated ? `${s.fps} fps · ${(s.durationMs / 1000).toFixed(1)} s` : "estático";
-    const a = result.stats.audio;
-    const sound = a ? ` · 🔊 ${a.durationSec.toFixed(1)} s${a.gainDb ? ` (+${a.gainDb} dB)` : ""}` : "";
-    await reply(
-      origin,
-      `✔ ${(s.bytes / 1024).toFixed(0)} KB · ${shape} · q${s.quality}${sound} · ${delivered}${notes}`,
-    );
-    await react(origin, "✅");
+    if (sendMode === "fallback") {
+      await sendSeparate();
+      return "separate";
+    }
+    try {
+      await sendSoundSticker(sock, jid, {
+        webpPath: result.webpPath,
+        audioPath: result.audioPath,
+        audioDurationSec: result.stats.audio.durationSec,
+        animated: result.stats.sticker.animated,
+      });
+      if (sendMode === "both") await sendSeparate();
+      return "native";
+    } catch (err) {
+      console.error("[saudio:native] falló el envío nativo; uso el separado", err);
+      await sendSeparate();
+      return "separate-fallback";
+    }
+  }
+
+  async function fail(origin: WAMessage, status: StatusMessage, err: unknown): Promise<void> {
+    if (err instanceof CancelledError) {
+      await status.set("🛑 Cancelado.");
+      return;
+    }
+    console.error("[saudio]", err);
+    await status.set(`❌ ${userMessage(err)}`);
+    await react(origin, "❌");
   }
 
   /** Handle a `/saudio …` message. */
@@ -135,12 +174,23 @@ export function createSaudio(
 
     const media = mediaOf(msg.message);
     if (!media) {
-      await reply(msg, `Envía un video, GIF, imagen o sticker con /saudio, o responde a uno. ${SAUDIO_USAGE}`);
+      await reply(
+        msg,
+        `Envía un video, GIF, imagen o sticker con /saudio, o responde a uno.\n${SAUDIO_USAGE}\n/ayuda para más.`,
+      );
       return;
     }
 
-    await react(msg, "⏳");
-    const dir = await mkdtemp(join(tmpdir(), "sva-bot-"));
+    const key = senderKey(msg.key);
+    const waitMs = limiter?.take(key) ?? 0;
+    if (waitMs > 0) {
+      await reply(msg, `Vas muy rápido 🙂 Espera ${Math.ceil(waitMs / 1000)} s y vuelve a intentarlo.`);
+      return;
+    }
+
+    const status = new StatusMessage(sock, msg);
+    await status.set(`⏳ Descargando ${media.label.toLowerCase()}…`);
+    const dir = await mkdtemp(join(tmpdir(), BOT_TMP_PREFIX));
     let handedOff = false;
     try {
       const inputPath = join(dir, "input");
@@ -150,20 +200,18 @@ export function createSaudio(
       );
 
       if (cmd.customAudio || media.silent) {
-        await pending.set(senderKey(msg.key), { dir, inputPath, cmd, origin: msg, loops: media.loops });
+        await pending.set(key, { dir, inputPath, cmd, origin: msg, loops: media.loops });
+        waitingStatus.set(key, status);
         handedOff = true;
         const why = cmd.customAudio ? "🎙️" : `🎙️ ${media.label} no tiene sonido.`;
-        await reply(
-          msg,
+        await status.set(
           `${why} Envía ahora una nota de voz o un audio (máx. ${INPUT_LIMITS.maxAudioBytes / 1024 / 1024} MB) en los próximos ${pending.ttlMs / 60000} min. /cancelar para cancelar.`,
         );
         return;
       }
-      await convertAndSend(msg, dir, inputPath, cmd, "source");
+      await convertAndSend(msg, status, dir, inputPath, cmd, "source", false);
     } catch (err) {
-      console.error("[saudio]", err);
-      await reply(msg, userMessage(err));
-      await react(msg, "❌");
+      await fail(msg, status, err);
     } finally {
       if (!handedOff) await rm(dir, { recursive: true, force: true });
     }
@@ -173,32 +221,47 @@ export function createSaudio(
   async function onAudio(msg: WAMessage): Promise<boolean> {
     const audio = msg.message?.audioMessage;
     if (!audio) return false;
-    const job = pending.take(senderKey(msg.key));
+    const key = senderKey(msg.key);
+    const job = pending.take(key);
     if (!job) return false;
+    const status = waitingStatus.get(key) ?? new StatusMessage(sock, job.origin);
+    waitingStatus.delete(key);
 
-    await react(msg, "⏳");
     try {
+      await status.set("⏳ Recibiendo tu audio…");
       const audioPath = join(job.dir, "audio-input");
       await writeFile(
         audioPath,
         await downloadLimited(audio, "audio", INPUT_LIMITS.maxAudioBytes, "El audio", download),
       );
-      await convertAndSend(job.origin, job.dir, job.inputPath, job.cmd, { file: audioPath }, job.loops);
-      await react(msg, "✅");
+      await convertAndSend(
+        job.origin,
+        status,
+        job.dir,
+        job.inputPath,
+        job.cmd,
+        { file: audioPath },
+        job.loops ?? false,
+      );
     } catch (err) {
-      console.error("[saudio:voz]", err);
-      await reply(msg, userMessage(err));
-      await react(msg, "❌");
+      await fail(job.origin, status, err);
     } finally {
       await rm(job.dir, { recursive: true, force: true });
     }
     return true;
   }
 
+  /** Cancels a pending voice-note wait and/or a queued/running conversion. */
   async function onCancel(msg: WAMessage): Promise<void> {
-    const had = await pending.discard(senderKey(msg.key));
-    await reply(msg, had ? "Cancelado." : "No hay nada pendiente.");
+    const key = senderKey(msg.key);
+    const hadPending = await pending.discard(key);
+    const waiting = waitingStatus.get(key);
+    waitingStatus.delete(key);
+    if (hadPending) await waiting?.set("🛑 Cancelado.");
+    const running = active.get(key);
+    running?.abort();
+    await reply(msg, hadPending || running ? "Cancelado." : "No hay nada en curso.");
   }
 
-  return { onCommand, onAudio, onCancel, pending };
+  return { onCommand, onAudio, onCancel, pending, jobs };
 }

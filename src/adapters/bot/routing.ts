@@ -1,5 +1,5 @@
 import { generateMessageIDV2, type WASocket } from "baileys";
-import { isAllowedSender, type KeyLike } from "./command.js";
+import { isAllowedSender, jidDigits, type KeyLike } from "./command.js";
 import { sentMessages } from "./sentCache.js";
 
 /** Bounded set of message IDs this bot sent (to never react to its own output). */
@@ -52,14 +52,36 @@ const toSeconds = (t: Incoming["messageTimestamp"]): number | null =>
  * - "notify" = real-time; "append" = delivered after the bot was offline:
  *   accepted only if recent, so a restart doesn't replay old commands.
  */
+export interface RoutingContext {
+  allowed: ReadonlySet<string>;
+  sent: SentIds;
+  nowSec?: number;
+  /**
+   * When the bot runs on your own number: only react to your messages in your
+   * chat with yourself (not when you type /saudio in someone else's chat).
+   */
+  selfChatOnly?: boolean;
+  /** Digits of the bot account's own ids (PN and LID). */
+  selfIds?: ReadonlySet<string>;
+}
+
 export function shouldHandle(
   m: Incoming,
-  { allowed, sent, nowSec = Date.now() / 1000 }: { allowed: ReadonlySet<string>; sent: SentIds; nowSec?: number },
+  { allowed, sent, nowSec = Date.now() / 1000, selfChatOnly, selfIds }: RoutingContext,
 ): boolean {
   if (sent.has(m.key.id)) return false;
   if (!isAllowedSender(m.key, allowed)) return false;
+  if (selfChatOnly && m.key.fromMe) {
+    const chat = jidDigits(m.key.remoteJid);
+    if (!chat || !selfIds?.has(chat)) return false;
+  }
   if (m.type === "notify") return true;
   if (m.type !== "append") return false;
   const ts = toSeconds(m.messageTimestamp);
   return ts !== null && nowSec - ts <= MAX_OFFLINE_AGE_SEC;
+}
+
+/** Digits of the bot account's own JIDs (PN + LID) for self-chat detection. */
+export function selfIdsOf(user: { id?: string; lid?: string } | undefined): Set<string> {
+  return new Set([user?.id, user?.lid].map((j) => jidDigits(j)).filter((d): d is string => d !== null));
 }

@@ -169,6 +169,14 @@ sticker-video-audio/
 - [x] Loader interactivo (onda de audio, % real de subida, cronómetro real, cancelar) y _skeletons_ con la forma del resultado
 - [x] QA en navegador real a 390, 1440 y 2560 px, en claro y oscuro, con la consola limpia
 
+### Fase 5e — Pulido del comando + cancelación real ✅
+
+- [x] **Cancelar detiene el trabajo en el servidor**: la señal de cancelación llega de la API a la cola, al pipeline y a FFmpeg (que se mata en el acto). Verificado: 1 ffmpeg → 0 al desconectar el cliente
+- [x] Bot: tiempos en `m:ss` (`/saudio 1:20 0:05`)
+- [x] Bot: un solo mensaje de estado que se va editando (⏳ → 🕒 En cola · posición → ⚙️ → ✔ resumen / ❌ / 🛑)
+- [x] Bot: `/cancelar` detiene también los trabajos en cola o en curso; `/ayuda`
+- [x] Bot: límite por usuario (`SVA_RATE_PER_MIN`, 6/min por defecto); `SVA_SELF_CHAT_ONLY`; al arrancar borra las carpetas `sva-bot-*` huérfanas
+
 ### Fase 6 — Pulido
 
 - [ ] Dockerfile con FFmpeg
