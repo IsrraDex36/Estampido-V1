@@ -21,6 +21,11 @@ export const convertFieldsSchema = z.object({
     .optional(),
   includeAudio: boolish.default(true),
   audioStartSec: z.coerce.number().min(0).default(0),
+  audioDurationSec: z.coerce
+    .number()
+    .min(API_LIMITS.minDurationSec, `El sonido debe durar al menos ${API_LIMITS.minDurationSec} s.`)
+    .max(API_LIMITS.maxDurationSec)
+    .optional(),
   hq: boolish.default(false),
   includeMetadata: boolish.default(true),
   packName: z.string().max(128).optional(),

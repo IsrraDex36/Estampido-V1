@@ -18,6 +18,8 @@ export interface ConvertRequestFields {
   includeAudio: boolean;
   /** Start offset inside the replacement audio file (multipart field `audio`). */
   audioStartSec: number;
+  /** Length of the replacement sound; omit → as long as the sticker. */
+  audioDurationSec?: number;
   /** Experimental: lift the 500 KB cap up to API_LIMITS.maxExperimentalKb. */
   hq?: boolean;
   /** WhatsApp pack metadata; empty → server defaults. */

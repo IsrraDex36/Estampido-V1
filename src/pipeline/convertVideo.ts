@@ -104,7 +104,7 @@ export async function convertAnimated(
     const wanted = loops
       ? (opts.durationSec ?? (fullLength ? max : STICKER_LIMITS.defaultDurationSec))
       : segment.durationSec;
-    const duration = Math.min(wanted, availableAfter(replacement, start));
+    const duration = Math.min(wanted, audioMode.durationSec ?? wanted, availableAfter(replacement, start));
     const sound = await extractSound(
       opts.outDir,
       name,

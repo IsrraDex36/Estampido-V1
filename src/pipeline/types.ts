@@ -5,6 +5,8 @@ import type { MediaKind } from "../core/probe/probe.js";
 export interface ReplacementAudio {
   file: string;
   startSec?: number;
+  /** Trim the sound shorter than the sticker (default: as long as the sticker). */
+  durationSec?: number;
 }
 
 export interface ConvertOptions {

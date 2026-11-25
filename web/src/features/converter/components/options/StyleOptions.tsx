@@ -7,7 +7,8 @@ import { cn } from "@/lib/utils";
 import { useClipStill } from "../../hooks/useClipStill";
 import { selectBusy, useConverterStore } from "../../store/converterStore";
 import { GroupedList, SwitchListRow } from "../ui/GroupedList";
-import { StickerLook } from "./StickerLook";
+import { LiveSticker, StickerLook } from "./StickerLook";
+import { useSegment } from "../segment/useSegment";
 
 const FITS: { value: FitMode; title: string; detail: string }[] = [
   { value: "crop", title: "Llenar", detail: "Recorta al centro" },
@@ -26,8 +27,9 @@ const COLORS: { value: `#${string}`; label: string }[] = [
 const isPreset = (bg: StickerBackground) => bg === "transparent" || bg === "blur" || COLORS.some((c) => c.value === bg);
 
 export function StyleOptions() {
-  const { fit, background, hq, kind, disabled, update } = useConverterStore(
+  const { fit, background, hq, kind, previewUrl, disabled, update } = useConverterStore(
     useShallow((s) => ({
+      previewUrl: s.previewUrl,
       fit: s.options.fit,
       background: s.options.background ?? "transparent",
       hq: s.options.hq ?? false,
@@ -37,33 +39,49 @@ export function StyleOptions() {
     })),
   );
   const still = useClipStill();
+  const seg = useSegment();
   const setBackground = (bg: StickerBackground) => update({ background: bg, fit: "pad" });
   const custom = !isPreset(background);
 
   return (
     <div className="space-y-5">
-      <ToggleGroup
-        type="single"
-        value={fit}
-        disabled={disabled}
-        onValueChange={(v) => v && update({ fit: v as FitMode })}
-        className="grid w-full grid-cols-2 gap-3"
-        aria-label="Encuadre"
-      >
-        {FITS.map((f) => (
-          <ToggleGroupItem
-            key={f.value}
-            value={f.value}
-            className="h-auto flex-col items-stretch gap-2.5 rounded-2xl bg-muted/60 p-3 text-left ring-0 data-[state=on]:bg-muted data-[state=on]:shadow-[inset_0_0_0_2px_var(--foreground)] sm:flex-row sm:items-center sm:gap-3"
-          >
-            <StickerLook still={still} fit={f.value} background={background} className="sm:size-20 sm:w-20 sm:shrink-0" />
-            <span className="min-w-0">
-              <span className="block text-[15px] font-medium">{f.title}</span>
-              <span className="block text-[13px] font-normal whitespace-normal text-muted-foreground">{f.detail}</span>
-            </span>
-          </ToggleGroupItem>
-        ))}
-      </ToggleGroup>
+      <div className="grid items-center gap-4 sm:grid-cols-[auto_minmax(0,1fr)]">
+        <figure className="mx-auto space-y-2 text-center sm:mx-0">
+          <LiveSticker
+            src={previewUrl}
+            isVideo={kind === "video"}
+            still={still}
+            start={seg.start}
+            end={seg.end}
+            fit={fit}
+            background={background}
+            className="size-44 sm:size-40 lg:size-44"
+          />
+          <figcaption className="text-[12px] text-muted-foreground">Vista previa</figcaption>
+        </figure>
+        <ToggleGroup
+          type="single"
+          value={fit}
+          disabled={disabled}
+          onValueChange={(v) => v && update({ fit: v as FitMode })}
+          className="grid w-full grid-cols-2 gap-2 sm:grid-cols-1"
+          aria-label="Encuadre"
+        >
+          {FITS.map((f) => (
+            <ToggleGroupItem
+              key={f.value}
+              value={f.value}
+              className="h-auto items-center justify-start gap-3 rounded-2xl bg-muted/60 p-2.5 text-left ring-0 data-[state=on]:bg-muted data-[state=on]:shadow-[inset_0_0_0_2px_var(--foreground)]"
+            >
+              <StickerLook still={still} fit={f.value} background={background} className="size-11 w-11 shrink-0 rounded-lg" />
+              <span className="min-w-0">
+                <span className="block text-[15px] font-medium">{f.title}</span>
+                <span className="block text-[12px] font-normal whitespace-normal text-muted-foreground">{f.detail}</span>
+              </span>
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+      </div>
 
       <fieldset className="space-y-3" disabled={disabled}>
         <legend className="flex w-full items-baseline justify-between gap-3">

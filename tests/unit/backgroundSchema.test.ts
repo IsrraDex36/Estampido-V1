@@ -15,3 +15,11 @@ describe("convert fields: background", () => {
     }
   });
 });
+
+describe("convert fields: audioDurationSec", () => {
+  it("is optional and at least half a second", () => {
+    expect(convertFieldsSchema.parse({}).audioDurationSec).toBeUndefined();
+    expect(convertFieldsSchema.parse({ audioDurationSec: "1.5" }).audioDurationSec).toBe(1.5);
+    expect(convertFieldsSchema.safeParse({ audioDurationSec: "0.2" }).success).toBe(false);
+  });
+});

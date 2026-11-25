@@ -60,7 +60,11 @@ export async function convertImage(opts: ConvertOptions, source: MediaInfo): Pro
   if (replacement && typeof audioMode === "object") {
     const start = audioMode.startSec ?? 0;
     const available = availableAfter(replacement, start);
-    const duration = Math.min(opts.durationSec ?? STICKER_LIMITS.maxImageAudioSec, available);
+    const duration = Math.min(
+      opts.durationSec ?? STICKER_LIMITS.maxImageAudioSec,
+      audioMode.durationSec ?? Number.POSITIVE_INFINITY,
+      available,
+    );
     if (opts.durationSec === undefined && available > STICKER_LIMITS.maxImageAudioSec) {
       warnings.push(`El audio se recortó a ${STICKER_LIMITS.maxImageAudioSec} s (máximo para imágenes).`);
     }

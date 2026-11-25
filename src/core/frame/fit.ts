@@ -22,6 +22,15 @@ export function buildFitFilter(fit: FitMode, size: number, background: StickerBa
       "format=rgba",
     ];
   }
-  const color = background === "transparent" ? "0x00000000" : `0x${background.slice(1)}FF`;
-  return [fitInside, "format=rgba", `pad=${size}:${size}:(ow-iw)/2:(oh-ih)/2:color=${color}`];
+  const pad = `pad=${size}:${size}:(ow-iw)/2:(oh-ih)/2:color=0x00000000`;
+  if (background === "transparent") return [fitInside, "format=rgba", pad];
+  // Solid color behind everything (bars and the source's own transparency):
+  // fill a copy with the color, then overlay the frame on it.
+  return [
+    fitInside,
+    "format=rgba",
+    pad,
+    `split[sva_c][sva_f];[sva_c]drawbox=c=0x${background.slice(1)}@1:t=fill:replace=1[sva_b];[sva_b][sva_f]overlay=format=auto`,
+    "format=rgba",
+  ];
 }

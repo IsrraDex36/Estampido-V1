@@ -20,7 +20,7 @@ import { recordingLimitFor } from "../../model/recording";
 import { selectBusy, useConverterStore } from "../../store/converterStore";
 import { useSegment } from "../segment/useSegment";
 import { GroupedList, SwitchListRow } from "../ui/GroupedList";
-import { AudioWindowEditor } from "./AudioWindowEditor";
+import { type AudioWindowChange, AudioWindowEditor } from "./AudioWindowEditor";
 import { CommunitySoundPicker } from "./CommunitySoundPicker";
 import { RecordingPanel } from "./VoiceRecorder";
 
@@ -35,11 +35,12 @@ const SOURCE_ICON: Record<Source, (p: IconProps) => ReactNode> = {
 
 /** «Sonido»: on/off, then pick where the sound comes from and which stretch plays. */
 export function SoundOptions() {
-  const { includeAudio, audioStartSec, durationSec, kind, audioFile, communitySound, disabled, update, selectAudioFile } =
+  const { includeAudio, audioStartSec, audioDurationSec, durationSec, kind, audioFile, communitySound, disabled, update, selectAudioFile } =
     useConverterStore(
       useShallow((s) => ({
         includeAudio: s.options.includeAudio,
         audioStartSec: s.options.audioStartSec,
+        audioDurationSec: s.options.audioDurationSec,
         durationSec: s.options.durationSec,
         kind: s.inputKind,
         audioFile: s.audioFile,
@@ -72,8 +73,21 @@ export function SoundOptions() {
     }
   }, [recorder]);
 
-  // Auto duration (images) lets the sound run to its end, up to the limit.
-  const wanted = seg.isImage && durationSec === undefined ? undefined : (seg.effective ?? seg.requested);
+  // Images: the sound IS the sticker's length (auto = to its end, up to the limit).
+  // Videos/GIFs: as long as the clip, or trimmed shorter (audioDurationSec).
+  const clipLen = seg.effective ?? seg.requested ?? seg.maxDuration;
+  const wanted = seg.isImage
+    ? durationSec === undefined
+      ? undefined
+      : clipLen
+    : Math.min(audioDurationSec ?? clipLen, clipLen);
+  const maxLen = seg.isImage ? seg.maxDuration : clipLen;
+  const onWindow = ({ start, length }: AudioWindowChange) => {
+    if (length === undefined) return update({ audioStartSec: start });
+    if (seg.isImage) return update({ audioStartSec: start, durationSec: length });
+    // Back to the clip's full length → follow the clip again.
+    update({ audioStartSec: start, audioDurationSec: length >= clipLen - 0.05 ? undefined : length });
+  };
 
   return (
     <div className="space-y-4">
@@ -104,10 +118,9 @@ export function SoundOptions() {
               start={audioStartSec}
               wanted={wanted}
               minSec={seg.minDuration}
-              maxSec={seg.maxDuration}
-              resizable={seg.isImage}
+              maxSec={maxLen}
               disabled={disabled}
-              onChange={update}
+              onChange={onWindow}
             />
           </div>
         ) : recording ? (

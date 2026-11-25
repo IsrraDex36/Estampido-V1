@@ -81,7 +81,7 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
     set((s) => ({
       audioFile,
       communitySound: audioFile && origin ? origin : null,
-      options: { ...s.options, audioStartSec: 0, ...(audioFile ? { includeAudio: true } : {}) },
+      options: { ...s.options, audioStartSec: 0, audioDurationSec: undefined, ...(audioFile ? { includeAudio: true } : {}) },
     }));
     return null;
   },

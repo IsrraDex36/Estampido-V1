@@ -54,6 +54,7 @@ export function convertVideo(
     if (fields.fit === "pad" && fields.background && fields.background !== "transparent") form.set("background", fields.background);
     form.set("includeAudio", String(fields.includeAudio));
     form.set("audioStartSec", String(fields.audioStartSec));
+    if (audio && fields.audioDurationSec !== undefined) form.set("audioDurationSec", String(fields.audioDurationSec));
     form.set("includeMetadata", String(fields.includeMetadata));
     if (fields.hq) form.set("hq", "true");
     for (const key of ["packName", "publisher"] as const) {

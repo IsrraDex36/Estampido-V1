@@ -11,14 +11,15 @@ import { Trimmer, WaveStrip } from "../trim/Trimmer";
 const BARS = 64;
 
 export interface AudioWindowChange {
-  audioStartSec: number;
-  durationSec?: number;
+  start: number;
+  /** New length when a grip moved; undefined when the frame only slid. */
+  length?: number;
 }
 
 /**
  * Same editor as the video: the sound's waveform with a white frame over the
- * stretch that plays. Videos/GIFs fix its length (the frame only slides);
- * images let the grips set it. ▶ listens to it.
+ * stretch that plays. Grips trim it (down to half a second), the frame
+ * slides, ▶ listens to it.
  */
 export function AudioWindowEditor({
   file,
@@ -26,17 +27,16 @@ export function AudioWindowEditor({
   wanted,
   minSec,
   maxSec,
-  resizable,
   disabled,
   onChange,
 }: {
   file: File;
   start: number;
-  /** Seconds the sticker plays; undefined = auto (to the end, up to maxSec). */
+  /** Seconds that sound; undefined = auto (to the end, up to maxSec). */
   wanted: number | undefined;
   minSec: number;
+  /** Longest it may sound (the clip's length for videos). */
   maxSec: number;
-  resizable: boolean;
   disabled?: boolean;
   onChange: (change: AudioWindowChange) => void;
 }) {
@@ -56,11 +56,8 @@ export function AudioWindowEditor({
 
   const change = (next: Span) => {
     if (preview.playing) preview.stop();
-    onChange(
-      resizable
-        ? { audioStartSec: next.start, durationSec: Math.round((next.end - next.start) * 10) / 10 }
-        : { audioStartSec: next.start },
-    );
+    const length = Math.round((next.end - next.start) * 10) / 10;
+    onChange(Math.abs(length - win.length) > 0.05 ? { start: next.start, length } : { start: next.start });
   };
 
   const playButton = (
@@ -87,11 +84,10 @@ export function AudioWindowEditor({
       {peaks.kind === "ready" && win.length > 0 ? (
         <Trimmer
           strip={<WaveStrip peaks={peaks.peaks} />}
-          resizable={resizable}
-          label={resizable ? "Tramo del sonido: arrastra los bordes o el marco" : "Tramo del sonido: arrastra el marco"}
+          label="Tramo del sonido: arrastra los bordes o el marco"
           headerExtra={playButton}
           span={span}
-          limits={{ total, min: Math.min(minSec, total), max: resizable ? Math.min(maxSec, total) : win.length }}
+          limits={{ total, min: Math.min(minSec, total), max: Math.min(maxSec, total) }}
           disabled={disabled}
           playheadRef={playheadRef}
           onChange={change}
@@ -106,7 +102,7 @@ export function AudioWindowEditor({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
-        <span>{resizable ? "Arrastra los bordes para cambiar cuánto suena." : "Arrastra el marco para elegir qué parte suena."}</span>
+        <span>Arrastra los bordes para recortar; el marco, para elegir la parte.</span>
         <label className="flex items-center gap-2" htmlFor="audio-start">
           Empieza en
           <TimeInput
@@ -118,7 +114,7 @@ export function AudioWindowEditor({
             disabled={disabled}
             onValueChange={(v) => {
               if (preview.playing) preview.stop();
-              onChange({ audioStartSec: v ?? 0 });
+              onChange({ start: v ?? 0 });
             }}
           />
         </label>

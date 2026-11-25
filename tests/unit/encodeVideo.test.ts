@@ -11,7 +11,8 @@ describe("buildVideoFilter", () => {
   });
   it("pads with a solid color background", () => {
     const f = buildVideoFilter("pad", 15, 512, "#ff3366");
-    expect(f).toContain("pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0xff3366FF");
+    expect(f).toContain("drawbox=c=0xff3366@1:t=fill:replace=1");
+    expect(f).toContain("overlay=format=auto,format=rgba");
   });
   it("pads with a blurred copy of the frame (single in/out chain)", () => {
     const f = buildVideoFilter("pad", 15, 512, "blur");

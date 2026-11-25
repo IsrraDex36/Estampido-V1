@@ -171,7 +171,7 @@ export function createApp(deps: AppDeps = {}): Hono {
               audio: !opts.includeAudio
                 ? "none"
                 : audioPath
-                  ? { file: audioPath, startSec: opts.audioStartSec }
+                  ? { file: audioPath, startSec: opts.audioStartSec, durationSec: opts.audioDurationSec }
                   : "source",
               metadata: opts.includeMetadata
                 ? {
