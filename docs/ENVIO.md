@@ -36,6 +36,8 @@ Web: «Enviar a mi WhatsApp»
 
 ## Después: servidor y número dedicado
 
+> Pendientes actuales (hosting, número dedicado, otros medios de envío): [PENDIENTES.md](PENDIENTES.md)
+
 | Fase                           | Contenido                                                                                                                                                                               |
 | ------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **S1. Número dedicado**        | Chip prepago o eSIM; `npm run bot:relink` (respalda `.auth`, pide el QR y verifica). Los vínculos se reinician solos                                                                    |
