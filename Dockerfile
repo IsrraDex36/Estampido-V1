@@ -38,7 +38,9 @@ ENV SVA_MODE=production \
     SVA_COMMUNITY_DIR=/data/community \
     PORT=8787
 EXPOSE 8787
-VOLUME ["/data"]
+# State dir. Railway mounts its volume here (Railway rejects the VOLUME instruction,
+# volumes are configured in its dashboard); plain Docker: use -v <vol>:/data.
+RUN mkdir -p /data
 
 ENTRYPOINT ["/usr/bin/tini", "--"]
 # API (production) + bot, supervised with restart backoff. No tunnel: the platform's proxy is the entry.
