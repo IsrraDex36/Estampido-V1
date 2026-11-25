@@ -180,7 +180,7 @@ function TourBody({ onDone }: { onDone: () => void }) {
 
   return (
     <div
-      className="flex max-h-[85svh] flex-col"
+      className="flex min-h-0 flex-1 flex-col"
       onKeyDown={(e) => {
         if (e.key === "ArrowRight") go(i + 1);
         if (e.key === "ArrowLeft") go(i - 1);

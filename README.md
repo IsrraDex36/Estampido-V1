@@ -1,215 +1,280 @@
-# 🔊 Estampido
+<div align="center">
 
-> **Haz ruido en el chat.** Convierte cualquier video, GIF o foto en un sticker de WhatsApp que suena al tocarlo.
+<img src="web/public/icon-512.png" alt="Logo de Estampido" width="96" height="96" />
 
-_Estampa + estampido._ Estampido genera **stickers con sonido nativos** de WhatsApp (el formato de _sound stickers_ en despliegue desde nov 2026) y los envía a tu chat. Puedes usarlo desde una **web**, un **bot de WhatsApp**, una **CLI** o su **API**.
+# Estampido
+
+**Haz ruido en el chat.** Convierte cualquier video, GIF o imagen en un **sticker de WhatsApp que suena al tocarlo**.
 
 [![CI](https://github.com/IsrraDex36/Estampido-V1/actions/workflows/ci.yml/badge.svg)](https://github.com/IsrraDex36/Estampido-V1/actions/workflows/ci.yml)
+![Node.js](https://img.shields.io/badge/Node.js-%E2%89%A524-339933?logo=nodedotjs&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-strict-3178C6?logo=typescript&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
+![FFmpeg](https://img.shields.io/badge/FFmpeg-8-007808?logo=ffmpeg&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+[![Estrellas](https://img.shields.io/github/stars/IsrraDex36/Estampido-V1?style=social)](https://github.com/IsrraDex36/Estampido-V1)
 
-![Inicio de Estampido: clip y ajustes](docs/img/inicio.webp)
+[Características](#-características) · [Cómo llega a WhatsApp](#-cómo-llega-a-whatsapp) · [Inicio rápido](#-inicio-rápido) · [Despliegue](#-despliegue) · [Arquitectura](#-arquitectura) · [Documentación](#-documentación)
 
-![Resultado: sticker, reproductor, envío a WhatsApp y ficha técnica](docs/img/resultado.webp)
+<img src="docs/img/hero.webp" alt="Pantalla de inicio de Estampido" width="900" />
 
-## Qué hace
+</div>
 
-- **Video → sticker animado con su propio sonido.** Eliges el tramo, hasta **3 min**.
-- **Imagen, GIF o sticker + tu audio**, por ejemplo una nota de voz. Con imagen, hasta 10 s de sonido.
-- **Graba tu voz desde la web** (micrófono) y úsala como sonido del sticker, con medidor de nivel en vivo.
-- **Sticker con sonido nativo** (`audioStickerMessage`, campo 134), validado en teléfono real. Si falla, envía el sticker y una nota de voz por separado.
-- **Siempre dentro del límite de WhatsApp**: WebP 512×512 de ≤ 500 KB (estáticos ≤ 100 KB), con frames uniformes. El modo **«Calidad alta»** (`hq`) sube hasta 5 MB, pero es experimental.
-- **Sonido robusto**: elige la pista correcta, recorta los silencios, nivela el audio bajito (hasta +20 dB) y alinea el audio con la imagen.
-- **Metadatos de pack y autor** (EXIF de WhatsApp) y emojis.
+---
 
-## Web
+## ✨ Qué es
 
-`npm run dev` → <http://localhost:5173>
+_Estampa + estampido._ Estampido genera **stickers con sonido nativos** de WhatsApp, el formato que WhatsApp empezó a desplegar en noviembre de 2026, y te los entrega en tu chat. Es una **web** completa (editor, comunidad y colección), con un **bot de WhatsApp**, una **CLI** y una **API HTTP** sobre el mismo núcleo de conversión.
 
-1. **Clip**: arrastra un video, GIF o imagen. Marca el tramo con el control de rango o escribiendo los tiempos en `m:ss`.
-2. **Ajustes**: pestañas Tiempo, Sonido (el del video, un audio propio o **🎙️ grabar tu voz**: hasta 30 s; con imagen, 10 s), Estilo (encuadre `crop`/`pad`, Calidad alta) y Pack (nombre, autor, emojis).
-3. **Resultado**: lo escuchas ahí mismo, lo descargas, lo compartes o lo **envías a tu WhatsApp** con sonido.
-   - La primera vez se **vincula tu WhatsApp con un código**: un botón abre WhatsApp con el código ya escrito, solo tocas Enviar, y la web lo detecta y envía el sticker sola.
-   - Cualquier persona puede vincular el suyo; cada navegador envía solo a su chat. Detalles en [docs/ENVIO.md](docs/ENVIO.md).
-4. **Colección**: cada sticker que creas se guarda en la sesión. Selecciona varios y **envíalos todos a la vez**: llegan en orden y con sonido, con barra de progreso y opción de cancelar.
+|                    Editor: recorte, cuadros de inicio y fin, fluidez                     |                    Estilo: encuadre libre, fondos y vista previa en vivo                     |
+| :--------------------------------------------------------------------------------------: | :------------------------------------------------------------------------------------------: |
+| <img src="docs/img/editor.webp" alt="Editor con recortador de video y pestaña Tiempo" /> | <img src="docs/img/estilo.webp" alt="Pestaña Estilo con fondo desenfocado y vista previa" /> |
 
-Otros detalles: tema claro/oscuro (negro puro), atajo `⌘/Ctrl + Enter` para crear el sticker, carga real y cancelación (que también detiene FFmpeg en el servidor). Es responsive desde el móvil hasta monitores de 27″, con fondo pixel-art y Pum, la mascota.
+|                                          Resultado: dos caminos a WhatsApp                                          |                             Tour de bienvenida con Pum                              |
+| :-----------------------------------------------------------------------------------------------------------------: | :---------------------------------------------------------------------------------: |
+| <img src="docs/img/resultado.webp" alt="Panel de resultado con envío a WhatsApp, publicar, colección y descarga" /> | <img src="docs/img/tour.webp" alt="Tour de bienvenida en el celular" width="260" /> |
 
-> **¿Y los packs de stickers nativos?** El formato de pack de WhatsApp (`stickerPackMessage`) **no admite audio**: los stickers llegarían mudos. Por eso la Colección envía varios stickers con sonido uno tras otro. La investigación y el modo de captura de packs están en [docs/PROTOCOLO.md](docs/PROTOCOLO.md).
+## 🚀 Características
 
-## Comunidad
+### Editor
 
-En `/comunidad` (pestaña **Comunidad** del encabezado) los stickers que publicas forman una biblioteca de **sonidos reutilizables**:
+- **Recortador estilo WhatsApp/Instagram**: tira de fotogramas, marco con bordes arrastrables y reproducción en bucle del tramo elegido. Videos de hasta **3 min**.
+- **Tiempo preciso**: tarjetas de inicio y fin con el cuadro real, ajuste fino de ±0.1 s, duraciones rápidas y un **medidor de fluidez** que explica el equilibrio con el límite de 500 KB.
+- **Sonido a tu gusto**: el del video, **tu voz grabada** desde el navegador, un archivo propio o un **sonido de la comunidad**. Se recorta sobre la forma de onda (hasta 0.5 s) y se escucha antes de crear.
+- **Estilo**: «Llenar» con **encuadre libre** (arrastrar y zoom de 1× a 4×) o «Completo» con **fondo** transparente, desenfocado o de cualquier color, todo con **vista previa en vivo**.
+- **Pack**: nombre y autor del pack, con la vista de «información del sticker» como en WhatsApp.
 
-- **Publicar**: en el Resultado, el botón «Publicar» pide categoría, título, etiquetas y que confirmes que el audio es tuyo o que tienes permiso.
-- **Combinar sonidos con tus clips**:
-  - En la comunidad, el botón **«Usar»** te lleva a Crear con ese sonido ya cargado (`/?sonido=<id>`). Solo te falta elegir tu video, GIF, imagen o sticker.
-  - Desde Crear, en la pestaña Sonido, el botón **«Comunidad»** abre un selector con búsqueda, escucha previa y paginación.
-  - Cada uso cuenta para «Sonidos virales» y para el ranking. Si publicas lo que hiciste con un sonido de la comunidad, queda enlazado a su origen.
-- **Feed paginado de verdad**: Tendencias, Nuevos y Top (Hoy, Semana, Siempre), con 17 categorías y búsqueda (no distingue acentos).
-  - Paginación por cursor estable, sin duplicados ni huecos aunque se publique mientras navegas.
-  - Scroll infinito, con un botón «Cargar más» de respaldo.
-  - Skeletons mientras carga.
-  - Los filtros viven en la URL (`?orden=top&cat=memes&q=gato`), así que puedes compartir o recargar una vista filtrada.
-  - Al pasar el mouse por «Comunidad» se precargan el código y los datos: al hacer clic aparece al instante.
-- **URLs a prueba de todo**:
-  - Mayúsculas, barras de más y alias (`/crear`, `/community`) llevan a la URL correcta.
-  - Los parámetros desconocidos o inválidos se descartan sin romper nada.
-  - Las rutas que no existen muestran un 404.
-  - Si una página falla, aparece un aviso con «Reintentar» en lugar de una pantalla en blanco.
-- **Top de la semana** (podio) y **Sonidos virales**. Toca cualquier sticker o sonido para escucharlo: nunca se reproduce solo y suena uno a la vez.
-- **Favoritos**: guarda stickers y sonidos con el marcador. Los ves en «Tu espacio» (Guardados, Sonidos, Publicados); se guardan en este dispositivo.
-- Los datos se guardan en `.data/community` (persistente y fuera de git; otra ruta con `SVA_COMMUNITY_DIR`). Todavía no hay cuentas ni votos. El reto semanal, los packs y los creadores siguen como «Pronto».
+### Calidad
 
-El análisis completo (perfiles, flujos, ranking, modelo de datos, API, moderación y fases) está en [docs/COMUNIDAD.md](docs/COMUNIDAD.md).
+- **Siempre dentro del límite de WhatsApp**: WebP de 512×512 y ≤ 500 KB (estáticos ≤ 100 KB), con frames uniformes. Hay un modo **Calidad alta** experimental de hasta 5 MB.
+- **Optimizador que prioriza los fps**: busca la máxima fluidez que cabe en el presupuesto (≈ 15 fps en 5 s y 8–11 fps en 10 s).
+- **Audio robusto**: elige la pista correcta, recorta silencios, nivela el audio bajo (hasta +20 dB) y lo sincroniza con la imagen.
 
-## Bot de WhatsApp
+### Entrega y comunidad
 
-Funciona con [Baileys](https://github.com/WhiskeySockets/Baileys) (no oficial; ver [Riesgos](#riesgos)). Envía o responde un video, GIF, imagen o sticker con:
+- **Dos caminos a WhatsApp** (ver abajo), más compartir y descargar como respaldo.
+- **Colección** de la sesión: selecciona varios stickers y envíalos todos en orden, con sonido.
+- **Comunidad**: publica sonidos reutilizables, con feed paginado (Tendencias, Nuevos, Top), 17 categorías, búsqueda, favoritos y ranking de sonidos virales.
+
+### Experiencia
+
+- **Tour de bienvenida** con Pum, la mascota en pixel art, y **sonidos sintetizados** en el navegador (sin archivos de audio, libres de derechos).
+- Tema claro y oscuro, responsive desde el celular hasta monitores de 27″, atajo `⌘/Ctrl + Enter` y cancelación real (detiene FFmpeg en el servidor).
+- **SEO y PWA**: metadatos por ruta, Open Graph para la vista previa en WhatsApp, `sitemap.xml`, `robots.txt`, datos estructurados y app instalable.
+
+## 📲 Cómo llega a WhatsApp
+
+```mermaid
+flowchart LR
+    A[Clip + ajustes] --> B[Estampido<br/>WebP 512² + Opus]
+    B --> C{¿Cómo lo llevas?}
+    C -->|Recomendado hoy| D[Enviar a mi WhatsApp<br/>bot · sticker con sonido nativo]
+    C -->|Beta de WhatsApp| E[Crearlo tú en WhatsApp<br/>MP4 ≤ 5 s → Stickers › Crear]
+    C -->|Respaldo| F[Compartir / Descargar]
+    D --> G[⭐ Favoritos → reenviar a grupos]
+    E --> G
+```
+
+| Camino                     | Cómo funciona                                                                                                                                                                                                  | Disponibilidad                               |
+| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| **Enviar a mi WhatsApp**   | Vinculas tu número una vez con un código (10 s). El bot te envía un **sticker con sonido nativo** (`audioStickerMessage`, campo 134, validado en teléfono real). Si falla, envía el sticker y una nota de voz. | Todos los que ya reciben stickers con sonido |
+| **Crearlo tú en WhatsApp** | Descargas un MP4 cuadrado (H.264 + AAC, ≤ 5 s si es video y ≤ 10 s si es imagen) y WhatsApp lo convierte con su creador oficial. Sin vincular nada.                                                            | Android con WhatsApp Beta, por cuenta        |
+| **Compartir / Descargar**  | El menú de compartir del celular o los archivos `.webp` / `.ogg` / `.mp4`.                                                                                                                                     | Siempre                                      |
+
+> El análisis completo (riesgos, escalado a muchos usuarios, API oficial, canales) está en [docs/ESCALAR-ENVIO.md](docs/ESCALAR-ENVIO.md).
+
+## ⚡ Inicio rápido
+
+**Requisitos**
+
+- **Node.js ≥ 24**
+- **FFmpeg ≥ 8** con `libwebp_anim`, `libopus`, `libx264` y decodificador de WebP animado. En macOS: `brew install ffmpeg-full`; para otra ruta, `FFMPEG_PATH` y `FFPROBE_PATH`.
+
+```bash
+git clone https://github.com/IsrraDex36/Estampido-V1.git && cd Estampido-V1
+npm install && npm --prefix web install
+npm run check-deps     # verifica ffmpeg/ffprobe y sus encoders
+npm run dev            # API :8787 + web http://localhost:5173
+```
+
+Para el envío a WhatsApp también hace falta el bot: `npm run bot`, que la primera vez muestra un QR o un código para vincular. Configúralo copiando [`.env.example`](.env.example) a `.env`.
+
+> ⚠️ **Nunca corras el bot en dos lugares con el mismo número** (por ejemplo, en local y en producción): las sesiones se pelean y el bot deja de recibir mensajes.
+
+<details>
+<summary><b>Bot de WhatsApp: comandos</b></summary>
+
+<br />
+
+Envía o responde un video, GIF, imagen o sticker con:
 
 | Comando                | Qué hace                                 |
 | ---------------------- | ---------------------------------------- |
 | `/saudio`              | Video completo, hasta 3 min              |
 | `/saudio 0:12 5`       | Desde 0:12, durante 5 s                  |
-| `/saudio pad` / `crop` | Encuadre: con bordes o recortado         |
+| `/saudio pad` / `crop` | Encuadre con bordes o recortado          |
 | `/saudio voz`          | Usa la siguiente nota de voz como sonido |
 | `/saudio hq`           | Calidad alta, hasta 5 MB (experimental)  |
-| `/cancelar`            | Detiene lo que esté en curso             |
-| `/ayuda`               | Muestra la ayuda                         |
+| `/cancelar` · `/ayuda` | Detiene lo que esté en curso · ayuda     |
 
-Muestra el progreso en un solo mensaje que se va editando y te dice tu posición en la cola. Tiene límite de usos por persona y, si el bot corre en tu propio número, puede responder solo en tu chat contigo mismo.
+Muestra el progreso en un solo mensaje que se va editando, dice tu posición en la cola y limita los usos por persona.
 
-## Calidad y fluidez
+</details>
 
-El optimizador busca primero la mayor cantidad de **fps** posible:
+<details>
+<summary><b>CLI</b></summary>
 
-1. Codifica una muestra de ≤ 4 s y estima cuánto pesará el clip completo.
-2. Si cabe, usa la mejor calidad a fps completos (máx. 15, sin duplicar frames de la fuente).
-3. Si no cabe, calcula cuántos fps entran en el presupuesto y luego verifica con el clip completo.
-
-libwebp usa el preset `picture`: a la misma calidad pesa ~5–10 % menos, lo que da ~1 fps más sin tardar más. El audio va en un archivo Opus aparte (48 kbps; 32 kbps para clips de más de 30 s), así que no ocupa espacio del sticker.
-
-| Clip | fps típicos        |
-| ---- | ------------------ |
-| 5 s  | 15                 |
-| 10 s | 8–11               |
-| 30 s | 3–4 (más con `hq`) |
-
-## Requisitos
-
-- **Node.js ≥ 24**
-- **FFmpeg** con `libwebp_anim` y `libopus`, y decodificador de WebP animado (FFmpeg ≥ 8)
-  - macOS: `brew install ffmpeg-full`
-  - Otra ruta: `FFMPEG_PATH` / `FFPROBE_PATH`
-
-## Uso rápido
+<br />
 
 ```bash
-npm install && npm --prefix web install
-npm run check-deps        # verifica ffmpeg/ffprobe y encoders
-
-npm run dev               # API :8787 + web :5173
-npm run bot               # bot (lee .env); la primera vez muestra un QR o código para vincular
-
-# CLI
 npm run cli -- convert video.mp4 -s 2 -d 4 -o out/      # tramo 0:02–0:06 con su audio
-npm run cli -- convert video.mp4 -a voz.ogg --crop      # audio propio
+npm run cli -- convert video.mp4 -a voz.ogg --crop      # audio propio, recortado
 npm run cli -- convert foto.png -a voz.ogg              # imagen + sonido (≤ 10 s)
-npm run cli -- convert anim.gif -a voz.ogg              # GIF + sonido
-npm run cli -- convert video.mp4 --pack "Mis memes" --author Yo --emoji 😂,🔊
-npm run cli -- doctor
+npm run cli -- convert video.mp4 --pack "Mis memes" --author Yo
+npm run cli -- doctor                                   # diagnóstico del entorno
 ```
 
-### Publicarlo en internet (prueba)
+</details>
 
-```bash
-brew install cloudflared      # una vez
-npm run start:public          # compila la web, arranca la API en producción + el bot + un túnel de Cloudflare
+<details>
+<summary><b>API HTTP</b></summary>
+
+<br />
+
+| Método                | Ruta                                             | Descripción                                                                    |
+| --------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
+| `POST`                | `/api/convert`                                   | Multipart (`media` + `audio` opcional + opciones) → sticker WebP + sonido Opus |
+| `GET`                 | `/api/results/:id/sticker.webp` · `sticker.ogg`  | Archivos del resultado (se borran a los 30 min)                                |
+| `GET`                 | `/api/results/:id/whatsapp.mp4`                  | MP4 para el creador oficial de WhatsApp (se genera bajo demanda)               |
+| `POST`                | `/api/results/:id/whatsapp`                      | Envía el sticker al chat vinculado                                             |
+| `GET` `POST` `DELETE` | `/api/whatsapp/link`                             | Vincular o desvincular este navegador con un código                            |
+| `GET`                 | `/api/whatsapp/status`                           | Estado del bot                                                                 |
+| `GET` `POST`          | `/api/community/stickers` · `/sounds` · `/stats` | Comunidad: feed, sonidos, publicar, cifras                                     |
+| `GET`                 | `/health` · `/robots.txt` · `/sitemap.xml`       | Salud y SEO                                                                    |
+
+Los tipos compartidos entre la API y la web están en [`src/adapters/http/contract.ts`](src/adapters/http/contract.ts).
+
+</details>
+
+## 🌍 Despliegue
+
+Un **solo contenedor Docker** sirve la web, la API y el bot, con un volumen persistente en `/data` (sesión de WhatsApp, vínculos y comunidad). Se despliega igual en Railway, Hetzner + Coolify o cualquier host de Docker.
+
+- Guía paso a paso: [docs/DEPLOY-RAILWAY.md](docs/DEPLOY-RAILWAY.md)
+- Pendientes, incluida la mudanza a Hetzner: [docs/PENDIENTES.md](docs/PENDIENTES.md)
+
+<details>
+<summary><b>Variables de entorno principales</b></summary>
+
+<br />
+
+| Variable                                                | Para qué                                                                            |
+| ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `SVA_ADMIN_TOKEN`                                       | Contraseña de `/admin` (vincular el bot por QR o código, ver su salud)              |
+| `SVA_PAIRING_NUMBER`                                    | Número del bot; vincula con código en lugar de QR                                   |
+| `SVA_PUBLIC_URL`                                        | Dominio canónico para SEO (canonical, Open Graph, sitemap)                          |
+| `SVA_GOOGLE_SITE_VERIFICATION`                          | Token de Google Search Console                                                      |
+| `SVA_ALERT_WEBHOOK`                                     | Alertas del vigilante (ntfy o Discord); `SVA_ALERT_WHATSAPP=0` las apaga en el chat |
+| `SVA_LIMITS`                                            | Límites por IP, p. ej. `convert=100/5m,send=200/10m`                                |
+| `SVA_ALLOWED` · `SVA_RATE_PER_MIN`                      | Quién puede usar `/saudio` y cuántas veces por minuto                               |
+| `SVA_PACK` · `SVA_AUTHOR` · `SVA_FIT` · `SVA_SEND_MODE` | Valores por defecto del bot (`native`, `fallback` o `both`)                         |
+| `FFMPEG_PATH` · `FFPROBE_PATH`                          | Rutas de FFmpeg si no están en el `PATH`                                            |
+
+En la imagen Docker ya vienen fijadas `SVA_MODE=production`, `SVA_HOST=0.0.0.0`, `SVA_TRUST_PROXY=1` y las rutas en `/data`.
+
+</details>
+
+**Producción incluye**: límites por IP, CSP con hash (sin scripts inline), HSTS, publicar solo con WhatsApp vinculado, tope de espacio para la comunidad, y un **vigilante** que detecta desconexiones, se reconecta solo y te avisa al celular.
+
+## 🏗️ Arquitectura
+
+Arquitectura **hexagonal**: un núcleo puro de conversión, un pipeline que lo orquesta y adaptadores delgados para cada forma de uso.
+
+```mermaid
+flowchart TB
+    subgraph Adaptadores
+      WEB[Web React] -->|HTTP| API[API Hono]
+      BOT[Bot Baileys]
+      CLI[CLI sva]
+    end
+    API --> PIPE[Pipeline<br/>convertToSoundSticker]
+    BOT --> PIPE
+    CLI --> PIPE
+    PIPE --> CORE[Núcleo<br/>probe · video · audio · imagen · encuadre · optimizador fps · EXIF]
+    CORE --> FF[(FFmpeg)]
+    API -.control local.-> BOT
 ```
-
-En la consola aparece `🌍 URL pública: https://….trycloudflare.com`: compártela. Esa URL **cambia cada vez que reinicias**.
-
-- En producción, la API sirve la web y la API desde un solo puerto. Aplica límites por IP, cabeceras de seguridad (CSP con hash, sin scripts inline), **exige WhatsApp vinculado para publicar** y pone un tope de espacio a la comunidad.
-- La API solo escucha en `127.0.0.1`: la única entrada pública es el túnel.
-- La Mac se mantiene despierta mientras corre (`caffeinate`) y cada proceso se reinicia solo si se cae.
-- Sin túnel: `npm run start` (producción local en <http://127.0.0.1:8787>).
-- ⚠️ Mientras el bot use tu número personal, quien use la web lo verá en el enlace de WhatsApp.
-
-### Desplegar en Railway (24/7, URL fija)
-
-Un solo servicio con Docker (web, API y bot) y un volumen en `/data`. Paso a paso en [docs/DEPLOY-RAILWAY.md](docs/DEPLOY-RAILWAY.md).
-
-### Configuración del bot (`.env`)
-
-Copia [`.env.example`](.env.example) a `.env`:
-
-| Variable                  | Para qué                                                        |
-| ------------------------- | --------------------------------------------------------------- |
-| `SVA_ALLOWED`             | Números que pueden usar `/saudio` (con código de país, sin `+`) |
-| `SVA_PACK` / `SVA_AUTHOR` | Pack y autor por defecto (autor = tu nombre de WhatsApp)        |
-| `SVA_FIT`                 | Encuadre por defecto: `crop` o `pad`                            |
-| `SVA_SEND_MODE`           | `native`, `fallback` o `both`                                   |
-| `SVA_RATE_PER_MIN`        | Máx. `/saudio` por persona y minuto (`0` = sin límite)          |
-| `SVA_SELF_CHAT_ONLY`      | `1`: solo responde en tu chat contigo mismo                     |
-
-## Scripts
-
-| Script                        |                                                                                                  |
-| ----------------------------- | ------------------------------------------------------------------------------------------------ |
-| `npm run dev`                 | API + web en modo desarrollo                                                                     |
-| `npm run bot` / `bot:capture` | Bot; `capture` también guarda los mensajes desconocidos (sound stickers, packs) para analizarlos |
-| `npm run cli`                 | CLI `sva`                                                                                        |
-| `npm test`                    | Pruebas unitarias y de integración (Vitest, FFmpeg real)                                         |
-| `npm run test:e2e`            | Pruebas en navegador real (Chrome/Brave/Chromium; `CHROME_PATH` para otro)                       |
-| `npm run lint` / `typecheck`  | Biome + oxlint (web) / TypeScript                                                                |
-| `npm run build` / `build:web` | Compila la API, la CLI y el bot / compila la web                                                 |
-
-La **CI** (GitHub Actions) corre lint, tipos, tests, el build de la web y las pruebas en navegador en cada push.
-
-## Arquitectura
-
-Arquitectura hexagonal: un **núcleo** puro de conversión, un **pipeline** que lo orquesta y **adaptadores** delgados para cada forma de uso.
 
 ```
 src/
-├── core/        probe · video · audio · image · frame · optimize (fps-first) · metadata (EXIF) · webp
-├── pipeline/    convertToSoundSticker: valida, extrae el sonido, optimiza, agrega metadatos y cancela
+├── core/        probe · video · audio · image · frame (encuadre/fondos) · optimize · metadata · webp
+├── pipeline/    valida, extrae el sonido, optimiza, agrega metadatos y cancela
 ├── adapters/
-│   ├── http/    API Hono: /api/convert, resultados, envío a WhatsApp
-│   ├── bot/     Baileys: /saudio, sticker con sonido nativo (campo 134), cola, captura
+│   ├── http/    API Hono, servidor de producción, SEO, comunidad
+│   ├── bot/     Baileys: sticker con sonido nativo, cola, vigilante, captura
 │   └── cli/     sva convert · sva doctor
-├── config/      límites y rutas
-└── utils/       ffmpeg, semáforo cancelable, protobuf crudo, tiempos
+└── utils/       ffmpeg, semáforo cancelable, protobuf crudo, límites
 web/src/
-├── app/         header, footer, rutas, providers (QueryClient, tema, <Toaster /> global)
-├── lib/
-│   ├── api.ts       transporte (readJson + ApiError)
-│   ├── notify.ts    única puerta a los avisos (Sonner)
-│   └── query/       createQueryClient (errores globales) · query keys jerárquicas
-├── features/
-│   ├── converter/   flujo de conversión (zustand), grabar voz, sonidos de la comunidad, publicar
-│   ├── collection/  colección de la sesión + envío por lotes
-│   ├── community/   api/ (endpoints · queries · mutations) + stores (filtros↔URL, favoritos, reproductor)
-│   └── bot/         api.ts: estado del bot (useQuery con sondeo) y envío (useMutation)
-└── components/  UI (shadcn), íconos (Phosphor, en un solo módulo), pixel art (fondo, mascota Pum), tema
-tests/  unit · integration · web (hooks con renderHook)       e2e/  navegador real
+├── app/         shell, rutas, metadatos por página
+├── features/    converter · collection · community · bot · onboarding
+├── components/  UI (shadcn/Radix), íconos (Phosphor), pixel art (Pum)
+└── lib/         api · notify · query · sfx (sonidos sintetizados) · share
 ```
 
-**Estado en la web**: **TanStack Query** se encarga del estado del servidor (lecturas en caché, paginación infinita, mutaciones con invalidación) y **Zustand** del estado del cliente (filtros, favoritos, reproductor, flujo de conversión). Todos los avisos pasan por `notify` (Sonner). Las decisiones y el plan por fases están en [docs/ESTADO.md](docs/ESTADO.md).
+**Stack**: TypeScript estricto · Node.js 24 · Hono · Baileys · FFmpeg 8 · React 19 · Vite 8 · Tailwind CSS 4 · shadcn/Radix · TanStack Query · Zustand · Motion · Vitest · Biome · oxlint · Docker.
 
-Más detalle en [docs/PLAN.md](docs/PLAN.md) (fases), [docs/PROTOCOLO.md](docs/PROTOCOLO.md) (formato del sticker con sonido y de los packs) e [INVESTIGACION.md](INVESTIGACION.md).
+## 🧪 Calidad del código
 
-## Privacidad y seguridad
+| Comando                                      | Qué corre                                                       |
+| -------------------------------------------- | --------------------------------------------------------------- |
+| `npm run lint` · `npm --prefix web run lint` | Biome (API/core) · oxlint (web)                                 |
+| `npm run typecheck`                          | TypeScript estricto                                             |
+| `npm test`                                   | Pruebas unitarias y de integración con **FFmpeg real** (~430)   |
+| `npm run test:e2e`                           | Pruebas en **navegador real** (Chrome/Brave) contra la API real |
 
-- Los archivos se borran a los **30 min**. La API solo escucha en `127.0.0.1`.
-- El servidor de control del bot usa un token local (`.auth/control.json`, permisos `0600`) y solo envía a tu propio chat.
-- **Nunca subas** `.env`, `.auth/` ni `captures/`: contienen claves de sesión y claves de medios. Ya están en `.gitignore`.
+La **CI** de GitHub Actions corre todo lo anterior en cada push, construye la imagen Docker y hace una prueba de humo del contenedor: web, cabeceras de seguridad, SEO, API y FFmpeg.
 
-## Riesgos
+## 📚 Documentación
 
-- El formato de los sound stickers **no está documentado por Meta** y puede cambiar sin aviso.
-- Baileys es una librería no oficial: **existe riesgo de que baneen el número**. Usa un número secundario.
-- El despliegue es parcial: algunos receptores pueden ver el sticker sin sonido.
+| Documento                                                      | Contenido                                                 |
+| -------------------------------------------------------------- | --------------------------------------------------------- |
+| [PENDIENTES.md](docs/PENDIENTES.md)                            | Estado actual y siguientes pasos                          |
+| [ESCALAR-ENVIO.md](docs/ESCALAR-ENVIO.md)                      | Cómo llevar stickers con sonido a muchas personas         |
+| [ENVIO.md](docs/ENVIO.md)                                      | Vinculación por código y envío al chat                    |
+| [PROTOCOLO.md](docs/PROTOCOLO.md)                              | Formato del sticker con sonido (campo 134) y de los packs |
+| [DEPLOY-RAILWAY.md](docs/DEPLOY-RAILWAY.md)                    | Despliegue, vigilante, límites y SEO                      |
+| [COMUNIDAD.md](docs/COMUNIDAD.md)                              | Diseño de la comunidad: feed, ranking, moderación         |
+| [ESTADO.md](docs/ESTADO.md)                                    | Estado en la web: TanStack Query + Zustand                |
+| [PLAN.md](docs/PLAN.md) · [INVESTIGACION.md](INVESTIGACION.md) | Plan por fases e investigación inicial                    |
+
+## 🔒 Privacidad y seguridad
+
+- Los archivos subidos y los resultados **se borran a los 30 minutos**.
+- Los stickers se envían **solo a tu número** y solo aparecen en la comunidad **si tú decides publicarlos**.
+- El bot no lee tus chats: solo reacciona a tu código de vinculación y a los comandos que le escribes.
+- **Nunca subas** `.env`, `.auth/` ni `captures/`: contienen claves de sesión. Ya están en `.gitignore`.
+
+## ⚠️ Limitaciones y riesgos
+
+- El formato de los stickers con sonido **no está documentado por Meta** y puede cambiar sin aviso.
+- Baileys es una librería **no oficial**: hay riesgo de que bloqueen el número del bot. Usa un **número dedicado**.
+- El despliegue de WhatsApp es gradual: algunos receptores pueden ver el sticker sin sonido hasta que se les active.
 - Respeta los derechos del audio de terceros.
+
+## 🤝 Contribuir
+
+Los issues y pull requests son bienvenidos. Antes de abrir un PR, corre `npm run lint`, `npm run typecheck`, `npm test` y `npm run test:e2e`.
+
+Si Estampido te sirvió, **[déjale una ⭐](https://github.com/IsrraDex36/Estampido-V1)**: ayuda a que más gente lo encuentre.
+
+## 📄 Licencia
+
+Este repositorio todavía no tiene un archivo de licencia, así que por defecto todos los derechos están reservados por su autor.
 
 ---
 
-Desarrollado por [@IsrraDex36](https://github.com/IsrraDex36).
+<div align="center">
+
+Hecho con 🔊 por [@IsrraDex36](https://github.com/IsrraDex36)
+
+</div>
