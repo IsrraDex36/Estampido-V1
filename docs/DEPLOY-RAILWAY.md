@@ -88,6 +88,26 @@ La salud se ve en **`/admin` → Vigilante**.
 
 También acepta webhooks de Discord. Las alertas además llegan a tu chat de WhatsApp contigo mismo, cuando el bot puede enviar (`SVA_ALERT_WHATSAPP=0` para apagarlas). Cada tipo de alerta se repite como máximo cada 30 min, y avisa cuando el bot se recupera.
 
+## Límites por IP (ajustables)
+
+Por defecto, cada IP puede hacer en 10 minutos (publicar: por hora):
+
+| Nombre      | Acción                              | Límite       |
+| ----------- | ----------------------------------- | ------------ |
+| `convert`   | crear stickers                      | 15 / 10 min  |
+| `linkCode`  | pedir códigos de vinculación        | 10 / 10 min  |
+| `send`      | enviar a WhatsApp                   | 40 / 10 min  |
+| `publish`   | publicar                            | 10 / 1 h     |
+| `soundUse`  | usar sonidos                        | 60 / 10 min  |
+| `adminFail` | contraseñas incorrectas en `/admin` | 10 / 10 min  |
+| `api`       | todo lo demás                       | 600 / 10 min |
+
+Para pruebas, súbelos con una variable (formato `nombre=N/periodo`, en `s`, `m` o `h`):
+
+```
+SVA_LIMITS=convert=100/5m,send=200/10m,api=3000/10m
+```
+
 ## R6. Mantenimiento
 
 | Tarea             | Cómo                                                                                                                                                                       |

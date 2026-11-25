@@ -30,7 +30,8 @@ export function AdminPage() {
     queryFn: ({ signal }) => fetchPairing(token, signal),
     enabled: token !== "",
     retry: false,
-    refetchInterval: (q) => (q.state.status === "error" ? false : 2_500),
+    // Fast while linking (QR rotates), slow once connected.
+    refetchInterval: (q) => (q.state.status === "error" ? false : q.state.data?.state === "connected" ? 30_000 : 2_500),
     meta: { errorMessage: false },
   });
   const unauthorized = pairing.error instanceof ApiError && pairing.error.status === 401;

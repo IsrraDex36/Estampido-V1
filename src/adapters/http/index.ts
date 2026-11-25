@@ -5,7 +5,7 @@ import { communityRoot } from "../../config/paths.js";
 import { createApp } from "./app.js";
 import { CommunityRepo } from "./community/repo.js";
 import { ResultStore } from "./resultStore.js";
-import { createServerApp } from "./server.js";
+import { createServerApp, parseLimits } from "./server.js";
 
 /**
  * API entry.
@@ -39,7 +39,10 @@ if (production) {
     console.error(`Falta la web compilada en ${webDist}. Ejecuta: npm run build:web`);
     process.exit(1);
   }
-  fetch = createServerApp({ api, webDist, trustProxy: flag(process.env.SVA_TRUST_PROXY, true) }).fetch;
+  const { limits, ignored } = parseLimits(process.env.SVA_LIMITS);
+  if (ignored.length) console.warn(`SVA_LIMITS: ignoro ${ignored.join(", ")} (formato: nombre=N/10m)`);
+  if (limits && Object.keys(limits).length) console.log(`Límites personalizados: ${Object.keys(limits).join(", ")}`);
+  fetch = createServerApp({ api, webDist, trustProxy: flag(process.env.SVA_TRUST_PROXY, true), limits }).fetch;
 }
 
 // Periodic cleanup of expired results.

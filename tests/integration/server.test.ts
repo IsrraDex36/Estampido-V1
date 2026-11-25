@@ -3,7 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Hono } from "hono";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { clientIp, createServerApp, inlineScriptHashes, resolveStatic } from "../../src/adapters/http/server.js";
+import {
+  clientIp,
+  createServerApp,
+  inlineScriptHashes,
+  parseLimits,
+  resolveStatic,
+} from "../../src/adapters/http/server.js";
 
 let dist = "";
 const THEME = "\n      var t = 1;\n    ";
@@ -95,5 +101,33 @@ describe("production server", () => {
     // X-Forwarded-For: the proxy appends the real IP → rightmost wins; a forged left entry is ignored.
     const c = { req: { header: (h: string) => (h === "x-forwarded-for" ? "6.6.6.6, 3.3.3.3" : undefined) } } as never;
     expect(clientIp(c, true)).toBe("3.3.3.3");
+  });
+});
+
+describe("rate-limit tuning", () => {
+  it("/admin: polling with the right password is never limited; only wrong passwords count", async () => {
+    const a = new Hono().basePath("/api");
+    a.get("/admin/x", (c) => (c.req.header("authorization") === "Bearer ok" ? c.json({ ok: true }) : c.json({}, 401)));
+    const app = createServerApp({ api: a, trustProxy: true, limits: { adminFail: { max: 2, windowMs: 60_000 } } });
+    const hit = (auth: string) =>
+      app.request("/api/admin/x", { headers: { ...ip("5.5.5.5"), authorization: `Bearer ${auth}` } });
+    for (let i = 0; i < 50; i++) expect((await hit("ok")).status).toBe(200);
+    expect((await hit("bad")).status).toBe(401);
+    expect((await hit("bad")).status).toBe(401);
+    expect((await hit("bad")).status).toBe(429); // 2 wrong → locked
+    expect((await hit("ok")).status).toBe(429); // even the right one waits (brute-force lockout)
+  });
+
+  it("SVA_LIMITS parser", () => {
+    const { limits, ignored } = parseLimits(
+      "convert=100/5m, send=200/1h,api=5000/10m,nope=1/1m,convert=bad,publish=0/1m",
+    );
+    expect(limits).toEqual({
+      convert: { max: 100, windowMs: 5 * 60_000 },
+      send: { max: 200, windowMs: 60 * 60_000 },
+      api: { max: 5000, windowMs: 10 * 60_000 },
+    });
+    expect(ignored).toEqual(["nope=1/1m", "convert=bad", "publish=0/1m"]);
+    expect(parseLimits(undefined)).toEqual({ limits: {}, ignored: [] });
   });
 });

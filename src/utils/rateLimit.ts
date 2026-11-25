@@ -20,6 +20,12 @@ export class RateLimiter {
     return 0;
   }
 
+  /** Would a hit be allowed now? (ms to wait, 0 = yes) — without recording one. */
+  peek(key: string, now = Date.now()): number {
+    const recent = (this.hits.get(key) ?? []).filter((t) => now - t < this.windowMs);
+    return recent.length >= this.max ? this.windowMs - (now - (recent[0] as number)) : 0;
+  }
+
   /** Drop keys with no hit inside the window. */
   prune(now = Date.now()): void {
     for (const [key, times] of this.hits) {

@@ -30,18 +30,17 @@ export const DEFAULT_LIMITS = {
   send: { max: 40, windowMs: 10 * MIN },
   publish: { max: 10, windowMs: 60 * MIN },
   soundUse: { max: 60, windowMs: 10 * MIN },
-  admin: { max: 30, windowMs: 10 * MIN }, // password guessing
+  adminFail: { max: 10, windowMs: 10 * MIN }, // wrong /admin passwords only (polling is free)
   api: { max: 600, windowMs: 10 * MIN }, // everything else under /api
 } as const;
 export type LimitName = keyof typeof DEFAULT_LIMITS;
 
-const RULES: { name: Exclude<LimitName, "api">; method: string; path: RegExp }[] = [
+const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; path: RegExp }[] = [
   { name: "convert", method: "POST", path: /^\/api\/convert$/ },
   { name: "linkCode", method: "POST", path: /^\/api\/whatsapp\/link$/ },
   { name: "send", method: "POST", path: /^\/api\/results\/[^/]+\/whatsapp$/ },
   { name: "publish", method: "POST", path: /^\/api\/community\/stickers$/ },
   { name: "soundUse", method: "POST", path: /^\/api\/community\/sounds\/[^/]+\/use$/ },
-  { name: "admin", method: "GET", path: /^\/api\/admin\// },
 ];
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });
@@ -80,6 +79,17 @@ function rateLimits(opts: ServerOptions): MiddlewareHandler {
     const path = c.req.path;
     if (!path.startsWith("/api/")) return next();
     const ip = clientIp(c, opts.trustProxy ?? false);
+    if (path.startsWith("/api/admin/")) {
+      // Brute-force guard: only WRONG passwords count, so the owner's live polling never trips it.
+      const wait = limiters.adminFail.peek(ip);
+      if (wait > 0) {
+        c.header("Retry-After", String(Math.ceil(wait / 1000)));
+        return c.json(fail("rate_limited", `Demasiados intentos. Espera ${Math.ceil(wait / 1000)} s.`), 429);
+      }
+      await next();
+      if (c.res.status === 401) limiters.adminFail.take(ip);
+      return;
+    }
     const rule = RULES.find((r) => r.method === c.req.method && r.path.test(path));
     const name: LimitName = rule?.name ?? "api";
     const wait = limiters[name].take(ip);
@@ -203,4 +213,33 @@ export function createServerApp(opts: ServerOptions): Hono {
     });
   }
   return app;
+}
+
+/**
+ * SVA_LIMITS="convert=100/5m,send=200/10m,api=2000/10m" → overrides. Pure.
+ * Units: s, m, h. Unknown names or malformed entries are ignored (logged by the caller).
+ */
+export function parseLimits(raw: string | undefined): { limits: ServerOptions["limits"]; ignored: string[] } {
+  const limits: NonNullable<ServerOptions["limits"]> = {};
+  const ignored: string[] = [];
+  for (const entry of (raw ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
+    const m = entry.match(/^([a-zA-Z]+)=(\d+)\/(\d+)(s|m|h)$/);
+    const name = m?.[1] as LimitName | undefined;
+    if (!m || !name || !(name in DEFAULT_LIMITS)) {
+      ignored.push(entry);
+      continue;
+    }
+    const unit = { s: 1_000, m: MIN, h: 60 * MIN }[m[4] as "s" | "m" | "h"];
+    const max = Number(m[2]);
+    const windowMs = Number(m[3]) * unit;
+    if (max < 1 || windowMs < 1_000) {
+      ignored.push(entry);
+      continue;
+    }
+    limits[name] = { max, windowMs };
+  }
+  return { limits, ignored };
 }
