@@ -4,6 +4,7 @@
   "description": "Video → WhatsApp animated WebP sticker with audio (sound sticker)",
   "type": "module",
   "private": true,
+  "license": "UNLICENSED",
   "engines": {
     "node": ">=24"
   },

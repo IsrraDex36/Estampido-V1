@@ -12,6 +12,7 @@
 ![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)
 ![FFmpeg](https://img.shields.io/badge/FFmpeg-8-007808?logo=ffmpeg&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+![Licencia](https://img.shields.io/badge/licencia-todos%20los%20derechos%20reservados-lightgrey)
 [![Estrellas](https://img.shields.io/github/stars/IsrraDex36/Estampido-V1?style=social)](https://github.com/IsrraDex36/Estampido-V1)
 
 [Características](#-características) · [Cómo llega a WhatsApp](#-cómo-llega-a-whatsapp) · [Inicio rápido](#-inicio-rápido) · [Despliegue](#-despliegue) · [Arquitectura](#-arquitectura) · [Documentación](#-documentación)
@@ -263,13 +264,13 @@ La **CI** de GitHub Actions corre todo lo anterior en cada push, construye la im
 
 ## 🤝 Contribuir
 
-Los issues y pull requests son bienvenidos. Antes de abrir un PR, corre `npm run lint`, `npm run typecheck`, `npm test` y `npm run test:e2e`.
+Los reportes de errores y sugerencias son bienvenidos en _Issues_. Como el código es de derechos reservados, al enviar un pull request aceptas ceder esa contribución al proyecto. Antes de abrirlo, corre `npm run lint`, `npm run typecheck`, `npm test` y `npm run test:e2e`.
 
 Si Estampido te sirvió, **[déjale una ⭐](https://github.com/IsrraDex36/Estampido-V1)**: ayuda a que más gente lo encuentre.
 
 ## 📄 Licencia
 
-Este repositorio todavía no tiene un archivo de licencia, así que por defecto todos los derechos están reservados por su autor.
+**Todos los derechos reservados.** Puedes ver el código, darle estrella y enlazarlo, pero **no** usarlo, copiarlo, modificarlo, redistribuirlo ni desplegarlo sin permiso escrito del autor. Detalles en [LICENSE](LICENSE).
 
 ---
 
