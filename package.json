@@ -41,6 +41,7 @@
     "@types/node": "^24.19.2",
     "@types/qrcode-terminal": "^0.12.2",
     "concurrently": "^10.0.7",
+    "happy-dom": "^21.0.4",
     "puppeteer-core": "^24.43.1",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",

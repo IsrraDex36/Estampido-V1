@@ -1,7 +1,7 @@
 import type { CommunitySticker } from "@contract";
 import { VoteIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { useRanking } from "../data/queries";
+import { useRanking } from "../api/queries";
 import { usePreview } from "../store/previewStore";
 
 const PODIUM = [

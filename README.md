@@ -152,15 +152,21 @@ src/
 ├── config/      límites y rutas
 └── utils/       ffmpeg, semáforo cancelable, protobuf crudo, tiempos
 web/src/
-├── app/         header, footer, providers
+├── app/         header, footer, rutas, providers (QueryClient, tema, <Toaster /> global)
+├── lib/
+│   ├── api.ts       transporte (readJson + ApiError)
+│   ├── notify.ts    única puerta a los avisos (Sonner)
+│   └── query/       createQueryClient (errores globales) · query keys jerárquicas
 ├── features/
-│   ├── converter/   store (zustand), hooks, secciones Clip · Ajustes · Resultado
+│   ├── converter/   flujo de conversión (zustand), grabar voz, sonidos de la comunidad, publicar
 │   ├── collection/  colección de la sesión + envío por lotes
-│   ├── community/   /comunidad (fase 0: apartados sin datos)
-│   └── bot/         estado del bot en vivo
+│   ├── community/   api/ (endpoints · queries · mutations) + stores (filtros↔URL, favoritos, reproductor)
+│   └── bot/         api.ts: estado del bot (useQuery con sondeo) y envío (useMutation)
 └── components/  UI (shadcn), íconos (Phosphor, en un solo módulo), pixel art (fondo, mascota Pum), tema
-tests/  unit · integration       e2e/  navegador real
+tests/  unit · integration · web (hooks con renderHook)       e2e/  navegador real
 ```
+
+**Estado en la web**: **TanStack Query** se encarga del estado del servidor (lecturas en caché, paginación infinita, mutaciones con invalidación) y **Zustand** del estado del cliente (filtros, favoritos, reproductor, flujo de conversión). Todos los avisos pasan por `notify` (Sonner). Las decisiones y el plan por fases están en [docs/ESTADO.md](docs/ESTADO.md).
 
 Más detalle en [docs/PLAN.md](docs/PLAN.md) (fases), [docs/PROTOCOLO.md](docs/PROTOCOLO.md) (formato del sticker con sonido y de los packs) e [INVESTIGACION.md](INVESTIGACION.md).
 

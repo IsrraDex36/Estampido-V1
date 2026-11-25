@@ -1,16 +1,16 @@
 import { COMMUNITY_CATEGORIES, COMMUNITY_LIMITS, type CommunityCategory, type ConvertResponse } from "@contract";
 import { useId, useState } from "react";
-import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { ROUTES } from "@/app/routes";
 import { CheckIcon, CommunityIcon, Loader2Icon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { usePublish } from "@/features/community/data/queries";
+import { usePublish } from "@/features/community/api/mutations";
 import { useFavorites } from "@/features/community/store/favoritesStore";
 import { cn } from "@/lib/utils";
 import { parseTags } from "../../model/publish";
 import { useConverterStore } from "../../store/converterStore";
+import { notify } from "@/lib/notify";
 
 /** «Publicar»: share this result with the community (category, title, tags, audio rights). */
 export function PublishButton({ result }: { result: ConvertResponse }) {
@@ -78,11 +78,11 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
       });
       addPublished(sticker);
       onDone(sticker.id);
-      toast.success("¡Publicado en la comunidad!", {
+      notify.success("¡Publicado en la comunidad!", {
         action: { label: "Ver", onClick: () => navigate(ROUTES.community) },
       });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "No se pudo publicar.");
+    } catch {
+      // Error toast comes from the global MutationCache (API message); the form stays open to retry.
     }
   };
 

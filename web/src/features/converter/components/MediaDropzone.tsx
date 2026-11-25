@@ -2,12 +2,12 @@ import { PlusIcon, XIcon } from "@/components/icons";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { type DragEvent, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { selectBusy, useConverterStore } from "../store/converterStore";
 import { usePlaybackStore } from "../store/playbackStore";
+import { notify } from "@/lib/notify";
 
 const KIND_LABEL = { video: "Video", gif: "GIF", image: "Imagen" } as const;
 
@@ -25,7 +25,7 @@ export function MediaDropzone() {
   const choose = (next: File | null) => {
     resetPlayback();
     const error = selectFile(next);
-    if (error) toast.error(error);
+    if (error) notify.error(error);
   };
 
   const picker = (

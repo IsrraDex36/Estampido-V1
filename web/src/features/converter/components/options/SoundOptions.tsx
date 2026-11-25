@@ -1,7 +1,6 @@
 import { UploadIcon, XIcon } from "@/components/icons";
 import { API_LIMITS } from "@contract";
 import { useEffect, useRef } from "react";
-import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { TimeInput } from "@/components/time-input";
 import { Button } from "@/components/ui/button";
@@ -12,6 +11,7 @@ import { selectBusy, useConverterStore } from "../../store/converterStore";
 import { CommunitySoundPicker } from "./CommunitySoundPicker";
 import { RecordButton, RecordingPanel } from "./VoiceRecorder";
 import { GroupedList, Row, RowText, SwitchListRow } from "../ui/GroupedList";
+import { notify } from "@/lib/notify";
 
 export function SoundOptions() {
   const { includeAudio, audioStartSec, kind, audioFile, communitySound, disabled, update, selectAudioFile } = useConverterStore(
@@ -31,7 +31,7 @@ export function SoundOptions() {
 
   const chooseAudio = (file: File | null) => {
     const error = selectAudioFile(file);
-    if (error) toast.error(error);
+    if (error) notify.error(error);
   };
 
   const maxRecordSec = recordingLimitFor(kind, API_LIMITS.maxImageAudioSec);
@@ -39,13 +39,13 @@ export function SoundOptions() {
     maxSec: maxRecordSec,
     onDone: (file) => {
       chooseAudio(file);
-      toast.success("Grabación lista: será el sonido del sticker.");
+      notify.success("Grabación lista: será el sonido del sticker.");
     },
   });
   const recording = recorder.state.kind === "recording";
   useEffect(() => {
     if (recorder.state.kind === "error") {
-      toast.error(recorder.state.message);
+      notify.error(recorder.state.message);
       recorder.reset();
     }
   }, [recorder]);

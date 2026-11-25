@@ -7,7 +7,6 @@ import { Providers } from "@/app/providers";
 import { ROUTES } from "@/app/routes";
 import { useScrollTopOnNavigate } from "@/app/useScrollTopOnNavigate";
 import { PixelBackground } from "@/components/pixel/PixelBackground";
-import { useBotPolling } from "@/features/bot/botStore";
 import { CommunitySkeleton } from "@/features/community/components/CommunitySkeleton";
 import { ConverterPage } from "@/features/converter/ConverterPage";
 
@@ -15,7 +14,6 @@ import { ConverterPage } from "@/features/converter/ConverterPage";
 const CommunityPage = lazy(() => import("@/features/community/CommunityPage"));
 
 function Shell() {
-  useBotPolling();
   useScrollTopOnNavigate();
   return (
     // isolate: own stacking context so the -z-10 backdrop sits above our bg.

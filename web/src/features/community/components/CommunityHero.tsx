@@ -2,7 +2,7 @@ import { PlusIcon } from "@/components/icons";
 import { Link } from "wouter";
 import { ROUTES } from "@/app/routes";
 import { Button } from "@/components/ui/button";
-import { useCommunityStats } from "../data/queries";
+import { useCommunityStats } from "../api/queries";
 
 const STATS = [
   { key: "stickers", label: "Stickers", tone: "text-foreground" },

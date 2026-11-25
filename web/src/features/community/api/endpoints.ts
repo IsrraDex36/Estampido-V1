@@ -62,7 +62,7 @@ export async function publishSticker(req: PublishRequest): Promise<CommunityStic
 }
 
 export async function recordSoundUse(id: string): Promise<void> {
-  await fetch(`${BASE}/sounds/${encodeURIComponent(id)}/use`, { method: "POST" }).catch(() => {});
+  await readJson(await fetch(`${BASE}/sounds/${encodeURIComponent(id)}/use`, { method: "POST" }));
 }
 
 /** Download a community sound as a File the converter can use like any own audio. */

@@ -1,6 +1,5 @@
 import type { ConvertResponse } from "@contract";
 import { CheckIcon, DownloadIcon, Loader2Icon, SendIcon } from "@/components/icons";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,9 +8,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useBotStore } from "@/features/bot/botStore";
+import { useBotStatus, useSendToWhatsApp } from "@/features/bot/api";
 import { downloadUrl } from "@/lib/api";
-import { useSendToWhatsApp } from "../../hooks/useSendToWhatsApp";
+import { notify } from "@/lib/notify";
 import { PublishButton } from "./PublishButton";
 
 /** Send to WhatsApp (primary) + publish + download menu (secondary). */
@@ -26,30 +25,31 @@ export function ResultActions({ result }: { result: ConvertResponse }) {
 }
 
 function SendButton({ resultId }: { resultId: string }) {
-  const bot = useBotStore((s) => s.status);
-  const refreshBot = useBotStore((s) => s.refresh);
-  const { phase, send } = useSendToWhatsApp(resultId);
+  const bot = useBotStatus();
+  const send = useSendToWhatsApp();
   const ready = bot?.connected === true;
+  // The mutation is shared per component; only reflect it for this result.
+  const mine = send.variables === resultId;
+  const sending = mine && send.isPending;
+  const sent = mine && send.isSuccess;
 
-  const onClick = async () => {
-    const r = await send();
-    if (r.kind === "sent") toast.success(r.delivered === "native" ? "Enviado a tu chat con sonido" : "Enviado a tu chat");
-    if (r.kind === "error") {
-      toast.error(r.message);
-      void refreshBot();
-    }
-  };
+  // Errors: global MutationCache toast (ApiError message) + bot re-check in the hook.
+  const onClick = () =>
+    send.mutate(resultId, {
+      onSuccess: ({ delivered }) =>
+        notify.success(delivered === "native" ? "Enviado a tu chat con sonido" : "Enviado a tu chat"),
+    });
 
   const button = (
-    <Button className="h-12 min-w-48 flex-1 rounded-full text-[15px] font-semibold" disabled={!ready || phase.kind === "sending"} onClick={onClick}>
-      {phase.kind === "sending" ? (
+    <Button className="h-12 min-w-48 flex-1 rounded-full text-[15px] font-semibold" disabled={!ready || sending} onClick={onClick}>
+      {sending ? (
         <Loader2Icon data-icon="inline-start" className="animate-spin" />
-      ) : phase.kind === "sent" ? (
+      ) : sent ? (
         <CheckIcon data-icon="inline-start" />
       ) : (
         <SendIcon data-icon="inline-start" />
       )}
-      {phase.kind === "sending" ? "Enviando…" : phase.kind === "sent" ? "Enviado" : "Enviar a WhatsApp"}
+      {sending ? "Enviando…" : sent ? "Enviado" : "Enviar a WhatsApp"}
     </Button>
   );
 
@@ -60,7 +60,7 @@ function SendButton({ resultId }: { resultId: string }) {
         <span className="flex flex-1">{button}</span>
       </TooltipTrigger>
       <TooltipContent>
-        {bot === null ? "Comprobando el bot…" : bot.available ? "El bot no está conectado a WhatsApp" : "Arranca el bot con npm run bot"}
+        {bot === undefined ? "Comprobando el bot…" : bot.available ? "El bot no está conectado a WhatsApp" : "Arranca el bot con npm run bot"}
       </TooltipContent>
     </Tooltip>
   );

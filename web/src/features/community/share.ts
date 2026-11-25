@@ -1,4 +1,4 @@
-import { toast } from "sonner";
+import { notify } from "@/lib/notify";
 
 /** Native share sheet on phones; copy the link elsewhere. */
 export async function shareLink(title: string, path: string): Promise<void> {
@@ -9,9 +9,9 @@ export async function shareLink(title: string, path: string): Promise<void> {
       return;
     }
     await navigator.clipboard.writeText(url);
-    toast.success("Enlace copiado");
+    notify.success("Enlace copiado");
   } catch (err) {
     if (err instanceof DOMException && err.name === "AbortError") return; // user closed the sheet
-    toast.error("No se pudo compartir.");
+    notify.error("No se pudo compartir.");
   }
 }

@@ -90,10 +90,11 @@ export async function readJson<T>(res: Response): Promise<T> {
 }
 
 /** Is the WhatsApp bot running and connected? */
-export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
+export async function getWhatsAppStatus(signal?: AbortSignal): Promise<WhatsAppStatus> {
   try {
-    return await readJson<WhatsAppStatus>(await fetch("/api/whatsapp/status"));
-  } catch {
+    return await readJson<WhatsAppStatus>(await fetch("/api/whatsapp/status", { signal }));
+  } catch (err) {
+    if (signal?.aborted) throw err;
     return { available: false, connected: false };
   }
 }

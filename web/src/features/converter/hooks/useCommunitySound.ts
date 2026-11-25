@@ -1,9 +1,12 @@
 import type { CommunitySound } from "@contract";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import { useSearch } from "wouter";
 import { SOUND_PARAM } from "@/app/routes";
-import { fetchSound, recordSoundUse, soundAsFile } from "@/features/community/data/api";
+import { useQueryClient } from "@tanstack/react-query";
+import { soundAsFile } from "@/features/community/api/endpoints";
+import { useRecordSoundUse } from "@/features/community/api/mutations";
+import { communityQueries } from "@/features/community/api/queries";
+import { notify } from "@/lib/notify";
 import { useConverterStore } from "../store/converterStore";
 
 
@@ -13,6 +16,7 @@ import { useConverterStore } from "../store/converterStore";
  */
 export function useApplyCommunitySound() {
   const selectAudioFile = useConverterStore((s) => s.selectAudioFile);
+  const { mutate: recordUse } = useRecordSoundUse();
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
   const apply = useCallback(
@@ -22,21 +26,21 @@ export function useApplyCommunitySound() {
         const file = await soundAsFile(sound, signal);
         const error = selectAudioFile(file, { id: sound.id, title: sound.title });
         if (error) throw new Error(error);
-        void recordSoundUse(sound.id);
+        recordUse(sound.id);
         const hasClip = useConverterStore.getState().file !== null;
-        toast.success(`Sonido «${sound.title}» listo`, {
+        notify.success(`Sonido «${sound.title}» listo`, {
           description: hasClip ? "Toca «Crear sticker»." : "Ahora elige tu video, GIF, imagen o sticker.",
         });
         return true;
       } catch (err) {
         if (signal?.aborted) return false;
-        toast.error(err instanceof Error ? err.message : "No se pudo usar ese sonido.");
+        notify.error(err, { fallback: "No se pudo usar ese sonido." });
         return false;
       } finally {
         setLoadingId(null);
       }
     },
-    [selectAudioFile],
+    [selectAudioFile, recordUse],
   );
 
   return { apply, loadingId };
@@ -45,6 +49,7 @@ export function useApplyCommunitySound() {
 /** Mount once (ConverterPage): consumes /?sonido=<id> once, then removes it from the URL. */
 export function useCommunitySoundLink(): void {
   const { apply } = useApplyCommunitySound();
+  const qc = useQueryClient();
   const search = useSearch();
   // The download must outlive the URL change it triggers: abort only on unmount.
   const inflight = useRef<AbortController | null>(null);
@@ -62,10 +67,11 @@ export function useCommunitySoundLink(): void {
     inflight.current?.abort();
     const controller = new AbortController();
     inflight.current = controller;
-    fetchSound(id, controller.signal)
+    // fetchQuery: served from cache when the sound was just seen in the community.
+    qc.fetchQuery(communityQueries.sound(id))
       .then((sound) => apply(sound, controller.signal))
       .catch(() => {
-        if (!controller.signal.aborted) toast.error("Ese sonido ya no existe en la comunidad.");
+        if (!controller.signal.aborted) notify.error("Ese sonido ya no existe en la comunidad.");
       });
-  }, [search, apply]);
+  }, [search, apply, qc]);
 }

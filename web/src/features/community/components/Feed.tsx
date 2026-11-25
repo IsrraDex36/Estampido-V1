@@ -6,7 +6,7 @@ import { Mascot } from "@/components/pixel/Mascot";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { useStickerFeed } from "../data/queries";
+import { useStickerFeed } from "../api/queries";
 import { categoryById, FEED_SORTS, TOP_PERIODS } from "../model";
 import { selectFilters, selectHasFilters, useCommunityStore } from "../store/communityStore";
 import { InfiniteFooter } from "./InfiniteFooter";

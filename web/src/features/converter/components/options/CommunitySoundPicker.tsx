@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { InfiniteFooter } from "@/features/community/components/InfiniteFooter";
 import { SoundRow, SoundRowSkeleton } from "@/features/community/components/SoundRow";
-import { useSoundFeed } from "@/features/community/data/queries";
+import { useSoundFeed } from "@/features/community/api/queries";
 import { usePreview } from "@/features/community/store/previewStore";
 import { cn } from "@/lib/utils";
 import { useApplyCommunitySound } from "../../hooks/useCommunitySound";

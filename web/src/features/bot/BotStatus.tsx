@@ -1,7 +1,7 @@
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { useBotStore } from "./botStore";
+import { useBotStatus } from "./api";
 
 const COPY = {
   on: { label: "Bot conectado", hint: "Puedes enviar stickers directo a tu chat." },
@@ -11,8 +11,8 @@ const COPY = {
 
 /** Header status: skeleton while the first check runs. */
 export function BotStatus() {
-  const status = useBotStore((s) => s.status);
-  if (status === null) return <Skeleton className="h-8 w-32 rounded-full" />;
+  const status = useBotStatus();
+  if (status === undefined) return <Skeleton className="h-8 w-32 rounded-full" />;
   const state = status.connected ? "on" : status.available ? "linking" : "off";
   return (
     <Tooltip>

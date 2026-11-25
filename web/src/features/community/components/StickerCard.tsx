@@ -15,7 +15,7 @@ import { remixHref } from "@/app/routes";
 import { downloadUrl } from "@/lib/api";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { shareLink } from "../data/share";
+import { shareLink } from "../share";
 import { categoryById } from "../model";
 import { useFavorites } from "../store/favoritesStore";
 import { usePreview } from "../store/previewStore";

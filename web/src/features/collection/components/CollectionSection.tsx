@@ -1,13 +1,13 @@
 import { Loader2Icon, SendIcon, Trash2Icon } from "@/components/icons";
-import { toast } from "sonner";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useBotStore } from "@/features/bot/botStore";
+import { useBotStatus, useRefreshBot } from "@/features/bot/api";
 import { Section } from "@/components/section";
 import { selectSelectedItems, useCollectionStore } from "../collectionStore";
 import { useBatchSend } from "../useBatchSend";
 import { CollectionTile } from "./CollectionTile";
+import { notify } from "@/lib/notify";
 
 /** Session collection: pick several stickers and send them all at once. */
 export function CollectionSection({ className }: { className?: string }) {
@@ -22,8 +22,8 @@ export function CollectionSection({ className }: { className?: string }) {
     })),
   );
   const selectedItems = useCollectionStore(useShallow(selectSelectedItems));
-  const bot = useBotStore((s) => s.status);
-  const refreshBot = useBotStore((s) => s.refresh);
+  const bot = useBotStatus();
+  const refreshBot = useRefreshBot();
   const { phase, send, cancel, reset } = useBatchSend();
 
   if (items.length === 0) return null;
@@ -34,10 +34,10 @@ export function CollectionSection({ className }: { className?: string }) {
   const onSend = async () => {
     const result = await send(selectedItems.map((i) => i.id));
     if (result.kind !== "finished") return;
-    if (result.stoppedReason && result.sent === 0) toast.error(result.stoppedReason);
+    if (result.stoppedReason && result.sent === 0) notify.error(result.stoppedReason);
     else if (result.failed || result.stoppedReason) {
-      toast.warning(`Enviados ${result.sent} de ${result.total}.${result.stoppedReason ? ` ${result.stoppedReason}` : ""}`);
-    } else toast.success(result.sent === 1 ? "Sticker enviado a tu chat" : `${result.sent} stickers enviados a tu chat`);
+      notify.warning(`Enviados ${result.sent} de ${result.total}.${result.stoppedReason ? ` ${result.stoppedReason}` : ""}`);
+    } else notify.success(result.sent === 1 ? "Sticker enviado a tu chat" : `${result.sent} stickers enviados a tu chat`);
     if (result.stoppedReason) void refreshBot();
     reset();
   };
@@ -115,7 +115,7 @@ export function CollectionSection({ className }: { className?: string }) {
                   <span>{sendButton}</span>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {bot === null ? "Comprobando el bot…" : bot.available ? "El bot no está conectado" : "Arranca el bot con npm run bot"}
+                  {bot === undefined ? "Comprobando el bot…" : bot.available ? "El bot no está conectado" : "Arranca el bot con npm run bot"}
                 </TooltipContent>
               </Tooltip>
             )}

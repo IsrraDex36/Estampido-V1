@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { useSoundFeed } from "../data/queries";
+import { useSoundFeed } from "../api/queries";
 import { SoundRow, SoundRowSkeleton } from "./SoundRow";
 
 const PARAMS = { sort: "top", q: "", limit: 5 } as const;
