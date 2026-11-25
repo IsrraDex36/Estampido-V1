@@ -201,3 +201,11 @@ export interface CommunityStats {
   sounds: number;
   uses: number;
 }
+
+/** /api/admin/pairing — bot linking for the owner (token-protected). */
+export type AdminPairing =
+  | { state: "offline" }
+  | { state: "waiting" }
+  | { state: "qr"; qrSvg: string }
+  | { state: "code"; code: string }
+  | { state: "connected"; phone: string };

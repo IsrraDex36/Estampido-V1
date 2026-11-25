@@ -28,6 +28,8 @@ const api = createApp({
   publishRequiresLink: flag(process.env.SVA_PUBLISH_REQUIRES_LINK, production),
   // Local dev: send to your own chat without linking. Off in production (public).
   ownerSelfSend: flag(process.env.SVA_OWNER_SELF_SEND, !production),
+  // /admin: link the bot from the browser (QR / code). Off unless a long secret is set.
+  adminToken: process.env.SVA_ADMIN_TOKEN,
 });
 
 let fetch = api.fetch;

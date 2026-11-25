@@ -35,12 +35,14 @@
     "commander": "^15.1.0",
     "hono": "^4.13.21",
     "pino": "^9.14.0",
+    "qrcode": "^1.5.4",
     "qrcode-terminal": "^0.12.0",
     "zod": "^4.6.7"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.6.9",
     "@types/node": "^24.19.2",
+    "@types/qrcode": "^1.5.6",
     "@types/qrcode-terminal": "^0.12.2",
     "concurrently": "^10.0.7",
     "happy-dom": "^21.0.4",

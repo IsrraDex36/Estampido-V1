@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -6,6 +6,7 @@ import { Readable } from "node:stream";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
+import QRCode from "qrcode";
 import { communityRoot } from "../../config/paths.js";
 import { CancelledError, UserInputError } from "../../core/errors.js";
 import { probe } from "../../core/probe/probe.js";
@@ -13,10 +14,11 @@ import { inspectWebp } from "../../core/webp/inspect.js";
 import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
 import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
-import { type BotClient, BotRequestError, BotUnavailableError, createBotClient } from "./botClient.js";
+import { type BotClient, type BotPairing, BotRequestError, BotUnavailableError, createBotClient } from "./botClient.js";
 import { CommunityRepo } from "./community/repo.js";
 import { communityRoutes, type PublishGuard } from "./community/routes.js";
 import {
+  type AdminPairing,
   API_LIMITS,
   type ApiErrorBody,
   CLIENT_HEADER,
@@ -39,6 +41,11 @@ export interface AppDeps {
    * own chat. NEVER on a public server (anyone could message the owner).
    */
   ownerSelfSend?: boolean;
+  /**
+   * Enables GET /api/admin/pairing (bot QR / code for the owner). Must be a long
+   * random secret; unset or short → the endpoint doesn't exist (404).
+   */
+  adminToken?: string;
   convert?: (opts: ConvertOptions) => Promise<ConvertResult>;
   maxConcurrent?: number;
   maxQueue?: number;
@@ -49,6 +56,9 @@ export function clientHash(raw: string | undefined): string | null {
   if (!raw || !/^[0-9a-f-]{36}$/i.test(raw)) return null;
   return createHash("sha256").update(`estampido:${raw.toLowerCase()}`).digest("hex");
 }
+
+/** "…6863" from a JID — never the full number in responses. */
+const maskPhone = (jid: string): string => `…${(jid.split(/[:@]/)[0] ?? "").slice(-4)}`;
 
 /** wa.me link that opens WhatsApp with the code pre-typed. */
 export const waLink = (botNumber: string | null | undefined, code: string): string | null =>
@@ -217,6 +227,31 @@ export function createApp(deps: AppDeps = {}): Hono {
     console.error(`[whatsapp:${what}]`, err);
     return c.json(fail("send_failed", "No se pudo completar con WhatsApp."), 502);
   };
+
+  // ── Owner: link the BOT itself (QR shown big in /admin, token-protected) ──
+  const adminToken = deps.adminToken && deps.adminToken.length >= 16 ? deps.adminToken : null;
+  app.get("/admin/pairing", async (c) => {
+    if (!adminToken) return c.json(fail("not_found", "Ruta de la API no encontrada."), 404);
+    const given = Buffer.from(c.req.header("authorization")?.replace(/^Bearer /, "") ?? "");
+    const want = Buffer.from(adminToken);
+    if (given.length !== want.length || !timingSafeEqual(given, want)) {
+      return c.json(fail("unauthorized", "Contraseña incorrecta."), 401);
+    }
+    c.header("Cache-Control", "no-store");
+    let p: BotPairing;
+    try {
+      p = await bot.pairing();
+    } catch {
+      return c.json({ state: "offline" } satisfies AdminPairing);
+    }
+    if (p.kind === "qr") {
+      const qrSvg = await QRCode.toString(p.qr, { type: "svg", margin: 2, errorCorrectionLevel: "L" });
+      return c.json({ state: "qr", qrSvg } satisfies AdminPairing);
+    }
+    if (p.kind === "code") return c.json({ state: "code", code: p.code } satisfies AdminPairing);
+    if (p.kind === "connected") return c.json({ state: "connected", phone: maskPhone(p.id) } satisfies AdminPairing);
+    return c.json({ state: "waiting" } satisfies AdminPairing);
+  });
 
   // ── "This browser ↔ my WhatsApp" link (code sent from the user's WhatsApp) ──
   app.get("/whatsapp/link", async (c) => {

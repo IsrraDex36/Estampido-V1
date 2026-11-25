@@ -3,7 +3,7 @@ import type { WASocket } from "baileys";
 import type { FitMode } from "../../config/limits.js";
 import { authDir, linksFile } from "../../config/paths.js";
 import { jidDigits } from "./command.js";
-import { connect } from "./connection.js";
+import { connect, type PairingState } from "./connection.js";
 import { startControlServer } from "./control.js";
 import { registerHandlers } from "./handlers.js";
 import { LinkStore } from "./links.js";
@@ -54,6 +54,8 @@ if (cleaned) console.log(`Limpieza: ${cleaned} carpeta(s) temporal(es) huérfana
 
 // Current socket (replaced on reconnect) for the local control endpoint.
 let current: WASocket | null = null;
+// Linking progress, served (token-protected) to the web's /admin page.
+let pairing: PairingState = { kind: "waiting" };
 // One link store per bot number (kept across reconnects; a new number starts empty).
 const stores = new Map<string, LinkStore>();
 const linksFor = (sock: WASocket | null): LinkStore | null => {
@@ -67,6 +69,9 @@ await connect({
   authDir: authDir(),
   logLevel: process.env.SVA_LOG ?? "warn",
   pairingNumber: process.env.SVA_PAIRING_NUMBER,
+  onPairing: (s) => {
+    pairing = s;
+  },
   onReady: (sock) => {
     current = sock;
     registerHandlers(sock, {
@@ -86,5 +91,5 @@ await connect({
 
 // "Enviar a mi WhatsApp" from the web goes through this localhost-only endpoint.
 const live = () => (current && (current.ws as { isOpen?: boolean }).isOpen !== false ? current : null);
-const control = await startControlServer({ current: live, links: () => linksFor(live()) });
+const control = await startControlServer({ current: live, links: () => linksFor(live()), pairing: () => pairing });
 console.log(`Control local en 127.0.0.1:${control.port} (para el botón de la web)`);

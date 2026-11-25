@@ -30,6 +30,7 @@ export const DEFAULT_LIMITS = {
   send: { max: 40, windowMs: 10 * MIN },
   publish: { max: 10, windowMs: 60 * MIN },
   soundUse: { max: 60, windowMs: 10 * MIN },
+  admin: { max: 30, windowMs: 10 * MIN }, // password guessing
   api: { max: 600, windowMs: 10 * MIN }, // everything else under /api
 } as const;
 export type LimitName = keyof typeof DEFAULT_LIMITS;
@@ -40,6 +41,7 @@ const RULES: { name: Exclude<LimitName, "api">; method: string; path: RegExp }[]
   { name: "send", method: "POST", path: /^\/api\/results\/[^/]+\/whatsapp$/ },
   { name: "publish", method: "POST", path: /^\/api\/community\/stickers$/ },
   { name: "soundUse", method: "POST", path: /^\/api\/community\/sounds\/[^/]+\/use$/ },
+  { name: "admin", method: "GET", path: /^\/api\/admin\// },
 ];
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });

@@ -3,6 +3,8 @@ export const ROUTES = {
   create: "/",
   community: "/comunidad",
   privacy: "/privacidad",
+  /** Owner-only (password); not linked from the UI. */
+  admin: "/admin",
 } as const;
 
 /** Query param that opens «Crear» with a community sound loaded (remix). */

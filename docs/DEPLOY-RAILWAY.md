@@ -49,16 +49,16 @@ Ya vienen fijadas en la imagen (no hace falta tocarlas): `SVA_MODE=production`, 
 
 ## R4. Vincular el bot
 
-1. **Apaga el bot de tu Mac** (`Ctrl+C`).
-2. En Railway → _Deployments → View logs_, busca:
+**Opción fácil: QR grande en el navegador (`/admin`)**
 
-   ```
-   🔑 Código de vinculación: ABCD-1234
-   ```
-3. En el celular del número del bot: WhatsApp → **Dispositivos vinculados → Vincular un dispositivo → «Vincular con número de teléfono»** → escribe el código.
-4. En los logs: `✔ Vinculado…` y luego `✔ Conectado como …`.
+1. En _Variables_ agrega `SVA_ADMIN_TOKEN` con una contraseña larga (16+ caracteres). **Quita** `SVA_PAIRING_NUMBER` si quieres QR en lugar de código.
+2. **Apaga el bot de tu Mac.**
+3. Abre `https://<tu-dominio>/admin`, escribe la contraseña y escanea el QR desde WhatsApp → Dispositivos vinculados → Vincular un dispositivo. El QR se renueva solo.
+4. La página muestra «Bot conectado …1234».
 
-La sesión queda guardada en el volumen (`/data/auth`), así que los siguientes despliegues **no** piden volver a vincular.
+**Opción con código (sin cámara)**: deja `SVA_PAIRING_NUMBER` y verás el código en `/admin` y en los logs (`🔑 Código de vinculación: ABCD-1234`). Escríbelo en WhatsApp → Vincular con número de teléfono. Tienes ~1 minuto: si caduca, el bot genera uno nuevo solo.
+
+La sesión queda en el volumen (`/data/auth`): los siguientes despliegues no piden volver a vincular.
 
 ## R5. Probar
 

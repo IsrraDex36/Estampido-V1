@@ -1,3 +1,4 @@
+import { rm } from "node:fs/promises";
 import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState, type WASocket } from "baileys";
 import pino from "pino";
 import qrcode from "qrcode-terminal";
@@ -15,7 +16,15 @@ export interface ConnectOptions {
    * Digits only, with country code (e.g. 5215512345678).
    */
   pairingNumber?: string;
+  /** Linking progress, for the protected /admin page (QR as data, code, connected). */
+  onPairing?: (state: PairingState) => void;
 }
+
+export type PairingState =
+  | { kind: "waiting" }
+  | { kind: "qr"; qr: string }
+  | { kind: "code"; code: string }
+  | { kind: "connected"; id: string };
 
 /** "5215512345678" from "+52 1 55 1234 5678". Pure; null if implausible. */
 export function normalizePairingNumber(raw: string | undefined): string | null {
@@ -55,6 +64,7 @@ export async function connect(opts: ConnectOptions): Promise<void> {
   let lastQr: string | undefined;
   const showQr = (qr: string, note: string) => {
     lastQr = withAdvSecret(qr, state.creds.advSecretKey);
+    opts.onPairing?.({ kind: "qr", qr: lastQr });
     console.log(`\n${note}\n`);
     qrcode.generate(lastQr, { small: true });
   };
@@ -79,11 +89,12 @@ export async function connect(opts: ConnectOptions): Promise<void> {
         codeRequested = true;
         sock
           .requestPairingCode(pairingNumber)
-          .then((code) =>
+          .then((code) => {
+            opts.onPairing?.({ kind: "code", code: formatPairingCode(code) });
             console.log(
               `\n🔑 Código de vinculación: ${formatPairingCode(code)}\n   WhatsApp (número …${pairingNumber.slice(-4)}) → Dispositivos vinculados → Vincular un dispositivo → «Vincular con número de teléfono» → escribe el código.\n`,
-            ),
-          )
+            );
+          })
           .catch((err) => {
             console.error("[pairing] no se pudo pedir el código; uso QR", err);
             showQr(qr, "Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:");
@@ -102,12 +113,21 @@ export async function connect(opts: ConnectOptions): Promise<void> {
     }
     if (connection === "open") {
       console.log(`✔ Conectado como ${sock.user?.id ?? "?"}`);
+      opts.onPairing?.({ kind: "connected", id: sock.user?.id ?? "?" });
       onReady(sock);
     }
     if (connection === "close") {
       const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
+      if (code === DisconnectReason.loggedOut && !state.creds.registered) {
+        // Linking never finished (code/QR expired, or a half-done pairing): there is no real
+        // session to protect → wipe the attempt and start a fresh one instead of looping.
+        console.warn("↺ La vinculación no se completó o caducó. Empiezo de nuevo con un código/QR nuevo…");
+        opts.onPairing?.({ kind: "waiting" });
+        void rm(authDir, { recursive: true, force: true }).then(() => setTimeout(() => void connect(opts), 1_000));
+        return;
+      }
       if (code === DisconnectReason.loggedOut) {
-        console.error(`✘ Sesión cerrada. Borra ${authDir} y vuelve a vincular.`);
+        console.error(`✘ Sesión cerrada desde el teléfono. Borra ${authDir} y vuelve a vincular.`);
         process.exit(1);
       }
       if (code === DisconnectReason.restartRequired) {

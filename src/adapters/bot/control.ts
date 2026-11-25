@@ -10,6 +10,7 @@ import { STICKER_LIMITS } from "../../config/limits.js";
 import { controlFile, RESULTS_ROOT } from "../../config/paths.js";
 import { RateLimiter } from "../../utils/rateLimit.js";
 import { jidDigits } from "./command.js";
+import type { PairingState } from "./connection.js";
 import { isClientHash, type LinkStore, maskJid } from "./links.js";
 import { sendSoundSticker } from "./soundSticker.js";
 
@@ -26,6 +27,8 @@ export interface BotHandle {
   current(): WASocket | null;
   /** Link store for the connected bot number (null while disconnected). */
   links(): LinkStore | null;
+  /** Bot linking progress (QR / code / connected) for the admin page. */
+  pairing?(): PairingState;
 }
 
 export const SENDS_PER_MINUTE = 10;
@@ -76,6 +79,8 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
     // The bot's own number: the web builds wa.me/<number> links with it.
     return c.json({ connected: Boolean(sock?.user), botNumber: jidDigits(sock?.user?.id) });
   });
+
+  app.get("/pairing", (c) => c.json(bot.pairing?.() ?? ({ kind: "waiting" } satisfies PairingState)));
 
   // ── Links ────────────────────────────────────────────────────────────────
   const storeOr503 = () => bot.links();

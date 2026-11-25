@@ -3,6 +3,7 @@ import { Route, Switch } from "wouter";
 import { AppFooter } from "@/app/AppFooter";
 import { AppHeader } from "@/app/AppHeader";
 import { NotFound } from "@/app/NotFound";
+import { AdminPage } from "@/features/admin/AdminPage";
 import { PrivacyPage } from "@/app/PrivacyPage";
 import { Providers } from "@/app/providers";
 import { RouteErrorBoundary } from "@/app/RouteErrorBoundary";
@@ -37,6 +38,7 @@ function Shell() {
             </Suspense>
           </Route>
           <Route path={ROUTES.privacy} component={PrivacyPage} />
+          <Route path={ROUTES.admin} component={AdminPage} />
           <Route component={NotFound} />
         </Switch>
         </RouteErrorBoundary>

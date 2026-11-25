@@ -23,7 +23,15 @@ export interface BotClient {
   linkStatus(client: string): Promise<BotLinkStatus>;
   unlink(client: string): Promise<void>;
   send(req: SendRequest): Promise<{ delivered: "native" | "sticker" }>;
+  /** Bot linking progress (raw QR data / code / connected). */
+  pairing(): Promise<BotPairing>;
 }
+
+export type BotPairing =
+  | { kind: "waiting" }
+  | { kind: "qr"; qr: string }
+  | { kind: "code"; code: string }
+  | { kind: "connected"; id: string };
 
 /** The bot answered with a known, user-facing failure (not linked, too fast…). */
 export class BotRequestError extends Error {
@@ -98,6 +106,9 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
     },
     async unlink(client) {
       await json(await call(`/links/${client}`, { method: "DELETE" }));
+    },
+    async pairing() {
+      return json<BotPairing>(await call("/pairing", { signal: AbortSignal.timeout(3_000) }));
     },
     async send(req) {
       const body = await json<{ delivered?: "native" | "sticker" }>(

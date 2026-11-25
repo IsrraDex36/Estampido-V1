@@ -179,3 +179,57 @@ describe("owner's local mode", () => {
     expect(pub.send).toHaveBeenLastCalledWith(expect.not.objectContaining({ fallbackToSelf: true }));
   });
 });
+
+describe("admin pairing (owner links the bot from /admin)", () => {
+  const TOKEN = "s3cret-token-0123456789";
+  const auth = { authorization: `Bearer ${TOKEN}` };
+  const withPairing = (p: unknown) => fakeBot({ pairing: vi.fn(async () => p) } as Partial<BotClient>);
+
+  it("disabled unless a long token is configured (404)", async () => {
+    for (const adminToken of [undefined, "short"]) {
+      const app = createApp({ store: new ResultStore(root), bot: withPairing({ kind: "waiting" }), adminToken });
+      expect((await app.request("/api/admin/pairing", { headers: auth })).status).toBe(404);
+    }
+  });
+
+  it("wrong or missing password → 401", async () => {
+    const app = createApp({ store: new ResultStore(root), bot: withPairing({ kind: "waiting" }), adminToken: TOKEN });
+    expect((await app.request("/api/admin/pairing")).status).toBe(401);
+    expect((await app.request("/api/admin/pairing", { headers: { authorization: "Bearer nope" } })).status).toBe(401);
+  });
+
+  it("QR → SVG; code; connected with a masked number; bot down → offline; never cached", async () => {
+    const qr = await createApp({
+      store: new ResultStore(root),
+      bot: withPairing({ kind: "qr", qr: "2@abc,def,ghi,jkl" }),
+      adminToken: TOKEN,
+    }).request("/api/admin/pairing", { headers: auth });
+    const body = (await qr.json()) as { state: string; qrSvg: string };
+    expect(body.state).toBe("qr");
+    expect(body.qrSvg).toMatch(/^<svg/);
+    expect(qr.headers.get("cache-control")).toBe("no-store");
+
+    const code = await createApp({
+      store: new ResultStore(root),
+      bot: withPairing({ kind: "code", code: "RMHT-YAL9" }),
+      adminToken: TOKEN,
+    }).request("/api/admin/pairing", { headers: auth });
+    expect(await code.json()).toEqual({ state: "code", code: "RMHT-YAL9" });
+
+    const on = await createApp({
+      store: new ResultStore(root),
+      bot: withPairing({ kind: "connected", id: "5215586356863:9@s.whatsapp.net" }),
+      adminToken: TOKEN,
+    }).request("/api/admin/pairing", { headers: auth });
+    const onBody = await on.json();
+    expect(onBody).toEqual({ state: "connected", phone: "…6863" });
+    expect(JSON.stringify(onBody)).not.toContain("5215586356863");
+
+    const down = createApp({
+      store: new ResultStore(root),
+      bot: fakeBot({ pairing: () => Promise.reject(new BotUnavailableError()) } as Partial<BotClient>),
+      adminToken: TOKEN,
+    });
+    expect(await (await down.request("/api/admin/pairing", { headers: auth })).json()).toEqual({ state: "offline" });
+  });
+});
