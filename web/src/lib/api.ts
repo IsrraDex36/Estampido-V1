@@ -81,7 +81,7 @@ export function convertVideo(
 
 export const downloadUrl = (url: string): string => `${url}?download`;
 
-async function json<T>(res: Response): Promise<T> {
+export async function readJson<T>(res: Response): Promise<T> {
   const body = (await res.json().catch(() => null)) as (T & Partial<ApiErrorBody>) | null;
   if (!res.ok || !body) {
     throw new ApiError(body?.error?.message ?? `Error HTTP ${res.status}`, body?.error?.code ?? "http", res.status);
@@ -92,7 +92,7 @@ async function json<T>(res: Response): Promise<T> {
 /** Is the WhatsApp bot running and connected? */
 export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
   try {
-    return await json<WhatsAppStatus>(await fetch("/api/whatsapp/status"));
+    return await readJson<WhatsAppStatus>(await fetch("/api/whatsapp/status"));
   } catch {
     return { available: false, connected: false };
   }
@@ -100,7 +100,7 @@ export async function getWhatsAppStatus(): Promise<WhatsAppStatus> {
 
 /** Send a result to the bot owner's own WhatsApp chat (native sound sticker). */
 export async function sendToWhatsApp(resultId: string): Promise<SendToWhatsAppResponse> {
-  return json<SendToWhatsAppResponse>(
+  return readJson<SendToWhatsAppResponse>(
     await fetch(`/api/results/${encodeURIComponent(resultId)}/whatsapp`, { method: "POST" }),
   );
 }

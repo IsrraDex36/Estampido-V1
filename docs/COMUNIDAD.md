@@ -1,6 +1,44 @@
 # Comunidad de Estampido: análisis y UX por fases
 
-> Estado: **Fase 0 hecha**. La ruta `/comunidad` existe y tiene todos sus apartados, pero sin datos. El resto está diseñado y pendiente.
+> Estado: **Fase 0 hecha** y **fase 1.5 (local) hecha**: ya se puede publicar, explorar con paginación real, usar sonidos de la comunidad en tus propios clips y guardar favoritos. Todavía no hay cuentas ni votos: los datos viven en tu servidor local y los favoritos en tu dispositivo.
+
+## 0. Fase 1.5 local: combinar sonidos, paginación y favoritos
+
+### Combinación: sonidos de la comunidad + tus clips
+
+Cada sticker publicado con audio aporta un **sonido** reutilizable. Hay dos caminos, que terminan en el mismo lugar:
+
+```
+Comunidad ─ «Usar sonido» ─▶ /?sonido=<id> ─▶ Crear: el sonido ya está cargado, eliges tu video/GIF/imagen/sticker
+Crear ─ Sonido ─ «De la comunidad» ─▶ selector (búsqueda + paginación + escuchar) ─▶ «Usar»
+```
+
+- El sonido entra como un **audio propio** normal, así que reutiliza todo el pipeline: tramo, «empieza en», nivelación y límites (10 s para imágenes).
+- Se cuenta un **uso** cada vez que alguien elige ese sonido. Ese contador alimenta «Sonidos virales» y el ranking.
+- Si publicas un sticker hecho con un sonido de la comunidad, queda enlazado a su origen (`soundId`), así que no hace falta volver a declarar que el audio es tuyo.
+
+### Paginación (por cursor)
+
+- `GET /api/community/stickers?sort=hot|new|top&period=day|week|all&category=&q=&cursor=&limit=` responde `{ items, nextCursor }`.
+- El cursor es opaco y lleva `asOf` (el momento de la primera página) más la última clave `(puntuación, id)`.
+  - Con `asOf` fijo, la puntuación «hot», que cambia con el tiempo, no reordena las páginas siguientes.
+  - Lo publicado después de `asOf` no se cuela a mitad de la lista: aparece al recargar.
+  - Resultado: **ni duplicados ni huecos** entre páginas.
+- En el cliente se usa `useInfiniteQuery` (TanStack Query): caché por filtros y cancelación al cambiar de filtro. Hay scroll infinito con un `IntersectionObserver` y, como alternativa accesible, el botón «Cargar más». Mientras carga se ven skeletons, cuando no hay más se avisa «No hay más», y si falla aparece «Reintentar».
+
+### Favoritos (en tu dispositivo)
+
+- Guarda **stickers** y **sonidos** con el ícono de marcador (relleno = guardado). Se ven en «Tu espacio» → Guardados / Sonidos, y «Publicados» muestra lo que publicaste desde este dispositivo.
+- Se guardan en un store de zustand persistido en `localStorage`, con una copia mínima de cada elemento para que se vean al instante. Cuando existan las cuentas (fase 1), se sincronizan con el servidor.
+
+### Publicar
+
+- En el Resultado, el botón «Publicar» abre una hoja con:
+  - categoría (obligatoria);
+  - título opcional (máx. 60);
+  - hasta 3 etiquetas;
+  - la casilla «El audio es mío o tengo permiso», obligatoria si el sonido no viene de la comunidad.
+- Se copian el `.webp` y el `.ogg` del resultado (que dura 30 min) al almacenamiento de la comunidad (`.data/community`, persistente y fuera de git).
 
 ## 1. Para qué
 

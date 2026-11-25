@@ -12,12 +12,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { useBotStore } from "@/features/bot/botStore";
 import { downloadUrl } from "@/lib/api";
 import { useSendToWhatsApp } from "../../hooks/useSendToWhatsApp";
+import { PublishButton } from "./PublishButton";
 
-/** Send to WhatsApp (primary) + download menu (secondary). */
+/** Send to WhatsApp (primary) + publish + download menu (secondary). */
 export function ResultActions({ result }: { result: ConvertResponse }) {
   return (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       <SendButton resultId={result.id} />
+      <PublishButton result={result} />
       <DownloadMenu stickerUrl={result.sticker.url} audioUrl={result.audio?.url} />
     </div>
   );
@@ -39,7 +41,7 @@ function SendButton({ resultId }: { resultId: string }) {
   };
 
   const button = (
-    <Button className="h-12 flex-1 rounded-full text-[15px] font-semibold" disabled={!ready || phase.kind === "sending"} onClick={onClick}>
+    <Button className="h-12 min-w-48 flex-1 rounded-full text-[15px] font-semibold" disabled={!ready || phase.kind === "sending"} onClick={onClick}>
       {phase.kind === "sending" ? (
         <Loader2Icon data-icon="inline-start" className="animate-spin" />
       ) : phase.kind === "sent" ? (

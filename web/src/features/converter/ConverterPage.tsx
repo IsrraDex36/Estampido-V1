@@ -1,5 +1,6 @@
 import { CollectionSection } from "@/features/collection/components/CollectionSection";
 import { useCollectResults } from "@/features/collection/useCollectResults";
+import { useCommunitySoundLink } from "./hooks/useCommunitySound";
 import { useConvertShortcut } from "./hooks/useConvertShortcut";
 import { ClipSection } from "./sections/ClipSection";
 import { Hero } from "./sections/Hero";
@@ -13,6 +14,7 @@ import { SettingsSection } from "./sections/SettingsSection";
 export function ConverterPage() {
   useConvertShortcut();
   useCollectResults();
+  useCommunitySoundLink();
   return (
     <>
       <Hero />

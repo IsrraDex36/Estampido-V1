@@ -77,7 +77,15 @@ describe("Estampido web (real browser, real API)", () => {
     await page.waitForFunction(() => document.body.innerText.includes("Lo que suena en el chat."));
     expect(await page.evaluate(() => location.pathname)).toBe("/comunidad");
     const titles = await page.$$eval("section h2", (hs) => hs.map((h) => h.textContent ?? ""));
-    for (const t of ["Tendencias", "Ranking", "Reto semanal", "Packs de la comunidad", "Tu espacio", "Creadores"]) {
+    for (const t of [
+      "Tendencias",
+      "Top de la semana",
+      "Sonidos virales",
+      "Reto semanal",
+      "Packs de la comunidad",
+      "Tu espacio",
+      "Creadores",
+    ]) {
       expect(titles.some((x) => x.includes(t))).toBe(true);
     }
     expect(await page.$eval('nav a[href="/comunidad"]', (a) => a.getAttribute("aria-current"))).toBe("page");

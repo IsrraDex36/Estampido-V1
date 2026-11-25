@@ -1,4 +1,4 @@
-import { XIcon } from "@/components/icons";
+import { UploadIcon, XIcon } from "@/components/icons";
 import { API_LIMITS } from "@contract";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
@@ -9,16 +9,18 @@ import { formatBytes } from "@/lib/format";
 import { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
 import { recordingLimitFor } from "../../model/recording";
 import { selectBusy, useConverterStore } from "../../store/converterStore";
+import { CommunitySoundPicker } from "./CommunitySoundPicker";
 import { RecordButton, RecordingPanel } from "./VoiceRecorder";
 import { GroupedList, Row, RowText, SwitchListRow } from "../ui/GroupedList";
 
 export function SoundOptions() {
-  const { includeAudio, audioStartSec, kind, audioFile, disabled, update, selectAudioFile } = useConverterStore(
+  const { includeAudio, audioStartSec, kind, audioFile, communitySound, disabled, update, selectAudioFile } = useConverterStore(
     useShallow((s) => ({
       includeAudio: s.options.includeAudio,
       audioStartSec: s.options.audioStartSec,
       kind: s.inputKind,
       audioFile: s.audioFile,
+      communitySound: s.communitySound,
       disabled: selectBusy(s),
       update: s.updateOptions,
       selectAudioFile: s.selectAudioFile,
@@ -63,33 +65,22 @@ export function SoundOptions() {
           <RowText
             title="Sonido"
             detail={
-              audioFile
-                ? audioFile.name.startsWith("Grabación")
-                  ? "Tu grabación"
-                  : "Archivo propio"
-                : hasOwnSound
-                  ? "El del video, mismo tramo · o graba tu voz"
-                  : "Graba tu voz o elige un audio"
+              communitySound && audioFile
+                ? `De la comunidad · «${communitySound.title}»`
+                : audioFile
+                  ? audioFile.name.startsWith("Grabación")
+                    ? "Tu grabación"
+                    : "Archivo propio"
+                  : hasOwnSound
+                    ? "El del video, mismo tramo. O cámbialo:"
+                    : "Elige de dónde sale el sonido:"
             }
           />
-          {audioFile ? (
+          {audioFile && (
             <Button variant="ghost" size="sm" className="rounded-full" disabled={disabled} onClick={() => chooseAudio(null)}>
               <XIcon data-icon="inline-start" />
               {hasOwnSound ? "Usar el del video" : "Quitar"}
             </Button>
-          ) : (
-            <div className="flex shrink-0 gap-2">
-              <RecordButton recorder={recorder} disabled={disabled || recording} />
-              <Button
-                variant={hasOwnSound ? "secondary" : "default"}
-                size="sm"
-                className="rounded-full"
-                disabled={disabled || recording}
-                onClick={() => pickerRef.current?.click()}
-              >
-                {hasOwnSound ? "Usar otro…" : "Elegir audio…"}
-              </Button>
-            </div>
           )}
           <input
             ref={pickerRef}
@@ -103,6 +94,22 @@ export function SoundOptions() {
             }}
           />
         </Row>
+      )}
+      {includeAudio && !audioFile && !recording && (
+        <div className="grid grid-cols-3 gap-2 px-4 pb-4">
+          <RecordButton recorder={recorder} disabled={disabled} className="w-full" />
+          <CommunitySoundPicker disabled={disabled} />
+          <Button
+            variant="secondary"
+            size="sm"
+            className="w-full rounded-full"
+            disabled={disabled}
+            onClick={() => pickerRef.current?.click()}
+          >
+            <UploadIcon data-icon="inline-start" />
+            Archivo
+          </Button>
+        </div>
       )}
       {includeAudio && recording && (
         <div className="px-4 pb-4">

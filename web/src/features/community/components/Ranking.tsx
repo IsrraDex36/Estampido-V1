@@ -1,41 +1,91 @@
+import type { CommunitySticker } from "@contract";
 import { VoteIcon } from "@/components/icons";
-import { GhostBlock, GhostFrame } from "./Ghost";
+import { cn } from "@/lib/utils";
+import { useRanking } from "../data/queries";
+import { usePreview } from "../store/previewStore";
 
 const PODIUM = [
-  { place: 2, height: "h-20", tint: "bg-foreground/10" },
-  { place: 1, height: "h-28", tint: "bg-sound/25" },
-  { place: 3, height: "h-14", tint: "bg-retro-a/20" },
+  { place: 2, height: "h-16", tint: "bg-foreground/10" },
+  { place: 1, height: "h-24", tint: "bg-sound/25" },
+  { place: 3, height: "h-11", tint: "bg-retro-a/20" },
 ] as const;
 
-/** Top 3 podium + places 4–10 for the selected period. */
+/** Top of the week by uses: podium (1–3) + list (4–10). Tap to listen. */
 export function Ranking() {
-  return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-3 items-end gap-2" aria-hidden>
-        {PODIUM.map(({ place, height, tint }) => (
-          <div key={place} className="flex flex-col items-center gap-2">
-            <div className="grid aspect-square w-full max-w-24 place-items-center rounded-2xl border border-dashed border-foreground/15 bg-stage">
-              <span className="font-pixel text-[10px] text-muted-foreground">?</span>
-            </div>
-            <GhostBlock className="h-2 w-12" />
-            <div className={`grid w-full place-items-center rounded-t-xl ${height} ${tint}`}>
-              <span className="font-pixel text-sm text-foreground/70">{place}</span>
-            </div>
-          </div>
+  const ranking = useRanking();
+  const items = ranking.data ?? [];
+
+  if (ranking.isPending) {
+    return (
+      <div className="space-y-4" aria-busy="true">
+        <div className="shimmer h-40 rounded-2xl bg-muted" />
+        {["a", "b", "c", "d"].map((k) => (
+          <div key={k} className="shimmer h-9 rounded-xl bg-muted" />
         ))}
       </div>
-      <ol className="space-y-1" aria-label="Puestos 4 a 10">
-        {[4, 5, 6, 7, 8, 9, 10].map((n) => (
-          <li key={n} className="flex items-center gap-3 rounded-xl px-2 py-2">
-            <span className="w-6 font-pixel text-[11px] text-muted-foreground">{n}</span>
-            <GhostFrame className="size-9 shrink-0 rounded-lg" />
-            <GhostBlock className="h-2.5 flex-1" />
-            <span className="flex items-center gap-1 font-mono text-[12px] text-muted-foreground tabular-nums">
-              <VoteIcon className="size-3.5" /> –
-            </span>
-          </li>
-        ))}
-      </ol>
+    );
+  }
+  if (items.length === 0) {
+    return <p className="rounded-2xl bg-stage px-4 py-8 text-center text-[13px] text-muted-foreground">Aún no hay ranking esta semana.</p>;
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-3 items-end gap-2">
+        {PODIUM.map(({ place, height, tint }) => {
+          const s = items[place - 1];
+          return (
+            <div key={place} className="flex min-w-0 flex-col items-center gap-2">
+              {s ? <Thumb sticker={s} className="w-full max-w-24" /> : <div className="aspect-square w-full max-w-24 rounded-2xl border border-dashed border-foreground/15" />}
+              <p className="w-full truncate text-center text-[11px] text-muted-foreground">{s?.title ?? "—"}</p>
+              <div className={`grid w-full place-items-center rounded-t-xl ${height} ${tint}`}>
+                <span className="font-pixel text-sm text-foreground/70">{place}</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {items.length > 3 && (
+        <ol className="space-y-1" start={4}>
+          {items.slice(3).map((s, i) => (
+            <li key={s.id} className="flex items-center gap-3 rounded-xl px-2 py-1.5">
+              <span className="w-6 font-pixel text-[11px] text-muted-foreground">{i + 4}</span>
+              <Thumb sticker={s} className="size-9 shrink-0 rounded-lg" />
+              <span className="min-w-0 flex-1 truncate text-[13px]">{s.title}</span>
+              <Uses n={s.uses} />
+            </li>
+          ))}
+        </ol>
+      )}
     </div>
+  );
+}
+
+function Uses({ n }: { n: number }) {
+  return (
+    <span className="flex items-center gap-1 font-mono text-[12px] text-muted-foreground tabular-nums" title="Usos de su sonido">
+      <VoteIcon className="size-3.5" /> {n}
+    </span>
+  );
+}
+
+function Thumb({ sticker, className }: { sticker: CommunitySticker; className?: string }) {
+  const playing = usePreview((s) => sticker.sound !== null && s.playing === sticker.sound.url);
+  const toggle = usePreview((s) => s.toggle);
+  return (
+    <button
+      type="button"
+      disabled={!sticker.sound}
+      onClick={() => sticker.sound && toggle(sticker.sound.url)}
+      aria-label={`Escuchar «${sticker.title}»`}
+      aria-pressed={playing}
+      className={cn(
+        "grid aspect-square place-items-center overflow-hidden rounded-2xl bg-stage transition-shadow disabled:cursor-default",
+        playing && "ring-2 ring-sound",
+        className,
+      )}
+    >
+      <img src={sticker.stickerUrl} alt="" loading="lazy" className="size-full object-contain p-1.5" />
+    </button>
   );
 }

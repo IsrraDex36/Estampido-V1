@@ -33,18 +33,25 @@ Otros detalles: tema claro/oscuro (negro puro), atajo `⌘/Ctrl + Enter` para cr
 
 > **¿Y los packs de stickers nativos?** El formato de pack de WhatsApp (`stickerPackMessage`) **no admite audio**: los stickers llegarían mudos. Por eso la Colección envía varios stickers con sonido uno tras otro. La investigación y el modo de captura de packs están en [docs/PROTOCOLO.md](docs/PROTOCOLO.md).
 
-## Comunidad (en construcción)
+## Comunidad
 
-En `/comunidad` (pestaña **Comunidad** del encabezado) ya están todos los apartados, pero todavía sin datos:
+En `/comunidad` (pestaña **Comunidad** del encabezado) los stickers que publicas forman una biblioteca de **sonidos reutilizables**:
 
-- **Barra de filtros fija**: Tendencias, Nuevos y Top (Hoy, Semana, Siempre), búsqueda y 17 categorías. Los filtros viven en la URL (`?orden=top&cat=memes&q=gato`), así que una vista filtrada se puede compartir o recargar.
-- **Feed** y, a su lado, **Ranking** con podio y **Sonidos virales**.
-- **Reto semanal**, como banner destacado.
-- **Packs de la comunidad**.
-- **Tu espacio** (Publicados, Guardados, Votados) y **Creadores** destacados.
-- Mientras la sección carga, se ve un skeleton con la misma forma que la página real.
+- **Publicar**: en el Resultado, el botón «Publicar» pide categoría, título, etiquetas y que confirmes que el audio es tuyo o que tienes permiso.
+- **Combinar sonidos con tus clips**:
+  - En la comunidad, el botón **«Usar»** te lleva a Crear con ese sonido ya cargado (`/?sonido=<id>`). Solo te falta elegir tu video, GIF, imagen o sticker.
+  - Desde Crear, en la pestaña Sonido, el botón **«Comunidad»** abre un selector con búsqueda, escucha previa y paginación.
+  - Cada uso cuenta para «Sonidos virales» y para el ranking. Si publicas lo que hiciste con un sonido de la comunidad, queda enlazado a su origen.
+- **Feed paginado de verdad**: Tendencias, Nuevos y Top (Hoy, Semana, Siempre), con 17 categorías y búsqueda (no distingue acentos).
+  - Paginación por cursor estable, sin duplicados ni huecos aunque se publique mientras navegas.
+  - Scroll infinito, con un botón «Cargar más» de respaldo.
+  - Skeletons mientras carga.
+  - Los filtros viven en la URL (`?orden=top&cat=memes&q=gato`), así que puedes compartir o recargar una vista filtrada.
+- **Top de la semana** (podio) y **Sonidos virales**. Toca cualquier sticker o sonido para escucharlo: nunca se reproduce solo y suena uno a la vez.
+- **Favoritos**: guarda stickers y sonidos con el marcador. Los ves en «Tu espacio» (Guardados, Sonidos, Publicados); se guardan en este dispositivo.
+- Los datos se guardan en `.data/community` (persistente y fuera de git; otra ruta con `SVA_COMMUNITY_DIR`). Todavía no hay cuentas ni votos. El reto semanal, los packs y los creadores siguen como «Pronto».
 
-Cada tarjeta ya tiene su forma final: duración del sonido, votar, guardar, compartir y enviar a WhatsApp. Por ahora esos botones están desactivados y avisan «Pronto». El análisis (perfiles, flujos, ranking con Wilson y «hot», modelo de datos, API, moderación) y el plan por fases están en [docs/COMUNIDAD.md](docs/COMUNIDAD.md).
+El análisis completo (perfiles, flujos, ranking, modelo de datos, API, moderación y fases) está en [docs/COMUNIDAD.md](docs/COMUNIDAD.md).
 
 ## Bot de WhatsApp
 

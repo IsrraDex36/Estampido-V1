@@ -3,3 +3,7 @@ export const ROUTES = {
   create: "/",
   community: "/comunidad",
 } as const;
+
+/** Query param that opens «Crear» with a community sound loaded (remix). */
+export const SOUND_PARAM = "sonido";
+export const remixHref = (soundId: string): string => `${ROUTES.create}?${SOUND_PARAM}=${encodeURIComponent(soundId)}`;

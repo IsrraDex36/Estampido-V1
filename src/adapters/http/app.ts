@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { Readable } from "node:stream";
 import { Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import { communityRoot } from "../../config/paths.js";
 import { CancelledError, UserInputError } from "../../core/errors.js";
 import { probe } from "../../core/probe/probe.js";
 import { inspectWebp } from "../../core/webp/inspect.js";
@@ -11,6 +12,8 @@ import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "
 import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { type BotClient, BotUnavailableError, createBotClient } from "./botClient.js";
+import { CommunityRepo } from "./community/repo.js";
+import { communityRoutes } from "./community/routes.js";
 import {
   API_LIMITS,
   type ApiErrorBody,
@@ -24,6 +27,7 @@ import { convertFieldsSchema } from "./schema.js";
 export interface AppDeps {
   bot?: BotClient;
   store?: ResultStore;
+  community?: CommunityRepo;
   convert?: (opts: ConvertOptions) => Promise<ConvertResult>;
   maxConcurrent?: number;
   maxQueue?: number;
@@ -43,6 +47,8 @@ export function createApp(deps: AppDeps = {}): Hono {
   const app = new Hono().basePath("/api");
 
   app.get("/health", (c) => c.json({ ok: true }));
+
+  app.route("/community", communityRoutes(deps.community ?? new CommunityRepo(communityRoot()), store));
 
   app.post(
     "/convert",

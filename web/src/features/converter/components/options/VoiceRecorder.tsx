@@ -7,13 +7,13 @@ import type { useVoiceRecorder } from "../../hooks/useVoiceRecorder";
 type Recorder = ReturnType<typeof useVoiceRecorder>;
 
 /** Mic button (idle) — used next to «Elegir audio…». */
-export function RecordButton({ recorder, disabled }: { recorder: Recorder; disabled?: boolean }) {
+export function RecordButton({ recorder, disabled, className }: { recorder: Recorder; disabled?: boolean; className?: string }) {
   const requesting = recorder.state.kind === "requesting";
   return (
     <Button
       variant="secondary"
       size="sm"
-      className="rounded-full"
+      className={cn("rounded-full", className)}
       disabled={disabled || requesting}
       onClick={() => void recorder.start()}
     >

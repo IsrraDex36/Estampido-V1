@@ -60,7 +60,13 @@ export async function setup({ provide }: { provide: (key: string, value: unknown
   ]);
 
   // Isolated auth dir → no control.json → bot reported as off (deterministic).
-  const env = { PORT: String(API_PORT), SVA_API_PORT: String(API_PORT), SVA_AUTH_DIR: join(workDir, "auth") };
+  const env = {
+    PORT: String(API_PORT),
+    SVA_API_PORT: String(API_PORT),
+    SVA_AUTH_DIR: join(workDir, "auth"),
+    // isolated community data: never touches the developer's .data/
+    SVA_COMMUNITY_DIR: join(workDir, "community"),
+  };
   start("npx", ["tsx", "src/adapters/http/index.ts"], env);
   start("npx", ["vite", "preview", "--host", "127.0.0.1", "--port", String(WEB_PORT), "--strictPort"], env, "web");
   await waitFor(`http://127.0.0.1:${API_PORT}/api/health`);

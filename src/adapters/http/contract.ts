@@ -99,3 +99,92 @@ export const API_LIMITS = {
   maxImageAudioSec: 10,
   minDurationSec: 0.5,
 } as const;
+
+// ── Community (phase 1.5, local) ─────────────────────────────────────────────
+
+/** Single source for category ids (server validates, web shows label/emoji). */
+export const COMMUNITY_CATEGORIES = [
+  { id: "reacciones", label: "Reacciones", emoji: "😮" },
+  { id: "memes", label: "Memes", emoji: "😂" },
+  { id: "musica", label: "Música", emoji: "🎵" },
+  { id: "frases", label: "Frases", emoji: "💬" },
+  { id: "doblajes", label: "Voces y doblajes", emoji: "🎙️" },
+  { id: "efectos", label: "Efectos de sonido", emoji: "💥" },
+  { id: "saludos", label: "Saludos", emoji: "👋" },
+  { id: "amor", label: "Amor", emoji: "❤️" },
+  { id: "cumple", label: "Cumpleaños", emoji: "🎂" },
+  { id: "fiesta", label: "Fiesta", emoji: "🎉" },
+  { id: "animales", label: "Animales", emoji: "🐶" },
+  { id: "gaming", label: "Gaming", emoji: "🎮" },
+  { id: "anime", label: "Anime", emoji: "🌸" },
+  { id: "series", label: "Series y TV", emoji: "📺" },
+  { id: "deportes", label: "Deportes", emoji: "⚽" },
+  { id: "virales", label: "Virales", emoji: "🔥" },
+  { id: "otros", label: "Otros", emoji: "✨" },
+] as const;
+export type CommunityCategory = (typeof COMMUNITY_CATEGORIES)[number]["id"];
+
+export type CommunitySort = "hot" | "new" | "top";
+export type CommunityPeriod = "day" | "week" | "all";
+
+export const COMMUNITY_LIMITS = {
+  pageSize: 24,
+  maxPageSize: 48,
+  maxTitle: 60,
+  maxTags: 3,
+  maxTagLength: 20,
+  maxQuery: 80,
+} as const;
+
+export interface CommunitySticker {
+  id: string;
+  title: string;
+  category: CommunityCategory;
+  tags: string[];
+  /** ISO timestamp. */
+  createdAt: string;
+  animated: boolean;
+  stickerUrl: string;
+  /** null = silent sticker (no reusable sound). */
+  sound: { url: string; durationSec: number } | null;
+  /** Times its sound was picked to make another sticker. */
+  uses: number;
+  /** Community sound it was made with, if any. */
+  soundOrigin: string | null;
+}
+
+/** A reusable sound = a published sticker's audio. */
+export interface CommunitySound {
+  id: string;
+  title: string;
+  category: CommunityCategory;
+  url: string;
+  durationSec: number;
+  uses: number;
+  /** Sticker it comes from (for the cover). */
+  stickerUrl: string;
+  createdAt: string;
+}
+
+export interface CommunityPage<T> {
+  items: T[];
+  /** Opaque; null = no more pages. */
+  nextCursor: string | null;
+}
+
+export interface PublishRequest {
+  resultId: string;
+  category: CommunityCategory;
+  title?: string;
+  tags?: string[];
+  /** Required (true) when the sound is the user's own, not a community sound. */
+  ownsAudio?: boolean;
+  /** Community sound used to make it. */
+  soundOrigin?: string | null;
+}
+
+export interface CommunityStats {
+  stickers: number;
+  sounds: number;
+  uses: number;
+}

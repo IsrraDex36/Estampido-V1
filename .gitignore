@@ -14,3 +14,6 @@ tests/fixtures/*.ogg
 # WhatsApp session keys and captured messages (contain media keys) — never commit
 .auth/
 captures/
+
+# Local community data (published stickers/sounds)
+.data/

@@ -9,3 +9,6 @@ export const authDir = (): string => resolve(process.env.SVA_AUTH_DIR ?? ".auth"
 
 /** `{ port, token }` written by the bot, read by the API. Inside authDir (0600). */
 export const controlFile = (): string => join(authDir(), "control.json");
+
+/** Published community stickers/sounds (persistent, git-ignored). */
+export const communityRoot = (): string => resolve(process.env.SVA_COMMUNITY_DIR ?? ".data/community");

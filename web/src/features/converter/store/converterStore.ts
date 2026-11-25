@@ -14,15 +14,24 @@ export interface ConverterState {
   previewUrl: string | null;
   inputKind: InputKind | null;
   audioFile: File | null;
+  /** The audio is a community sound (remix): shown in the UI and linked when publishing. */
+  communitySound: CommunitySoundRef | null;
+  /** communitySound at the moment the current result was made. */
+  resultSoundOrigin: string | null;
   options: ConverterOptions;
   status: ConverterStatus;
 
   /** Returns a user-facing error, or null. */
   selectFile: (file: File | null) => string | null;
-  selectAudioFile: (file: File | null) => string | null;
+  selectAudioFile: (file: File | null, origin?: CommunitySoundRef) => string | null;
   updateOptions: (patch: Partial<ConverterOptions>) => void;
   convert: () => Promise<void>;
   cancel: () => void;
+}
+
+export interface CommunitySoundRef {
+  id: string;
+  title: string;
 }
 
 // Not state: an imperative handle for the in-flight request.
@@ -33,6 +42,8 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
   previewUrl: null,
   inputKind: null,
   audioFile: null,
+  communitySound: null,
+  resultSoundOrigin: null,
   options: DEFAULT_OPTIONS,
   status: { kind: "idle" },
 
@@ -62,19 +73,23 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
     return null;
   },
 
-  selectAudioFile: (audioFile) => {
+  selectAudioFile: (audioFile, origin) => {
     if (audioFile) {
       const error = validateAudioFile(audioFile);
       if (error) return error;
     }
-    set((s) => ({ audioFile, options: { ...s.options, audioStartSec: 0 } }));
+    set((s) => ({
+      audioFile,
+      communitySound: audioFile && origin ? origin : null,
+      options: { ...s.options, audioStartSec: 0, ...(audioFile ? { includeAudio: true } : {}) },
+    }));
     return null;
   },
 
   updateOptions: (patch) => set((s) => ({ options: { ...s.options, ...patch } })),
 
   convert: async () => {
-    const { file, audioFile, options } = get();
+    const { file, audioFile, options, communitySound } = get();
     if (!file) return;
     inflight?.abort();
     const controller = new AbortController();
@@ -87,7 +102,7 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
         onProcessing: () => set({ status: { kind: "processing" } }),
       });
       if (controller.signal.aborted) return; // cancelled meanwhile: ignore late results
-      set({ status: { kind: "done", result } });
+      set({ status: { kind: "done", result }, resultSoundOrigin: audioFile ? (communitySound?.id ?? null) : null });
     } catch (err) {
       // Cancelled (or superseded): never let a late failure overwrite the state.
       if (controller.signal.aborted || (err instanceof ApiError && err.code === "aborted")) return;
