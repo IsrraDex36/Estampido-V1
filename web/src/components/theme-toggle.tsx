@@ -1,5 +1,5 @@
 import { LaptopIcon, MoonIcon, SunIcon } from "lucide-react";
-import { useTheme } from "@/components/theme-provider";
+import { useTheme } from "@/components/theme-context";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,

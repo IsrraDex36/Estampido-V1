@@ -140,54 +140,108 @@
   background-position: 0 0, 0 10px, 10px -10px, -10px 0;
 }
 
-/* ── Brand layer: emerald/teal accent on neutral base (light + dark) ── */
+/* ── Product layer: neutral, high-contrast (Apple/Nike-like). Green is a
+   functional color reserved for sound (playing, has audio). ── */
 :root {
-  --background: oklch(0.985 0.004 165);
-  --primary: oklch(0.56 0.14 165);
-  --primary-foreground: oklch(0.99 0.01 165);
-  --ring: oklch(0.62 0.13 165);
-  --accent: oklch(0.955 0.03 165);
-  --accent-foreground: oklch(0.32 0.08 165);
-  --chat: oklch(0.955 0.012 95);
-  --chat-dot: oklch(0.88 0.015 95);
-  --bubble: oklch(0.93 0.06 150);
-  --brand-glow: oklch(0.8 0.12 165 / 0.35);
+  --background: oklch(0.972 0.002 286);        /* #f5f5f7 */
+  --foreground: oklch(0.21 0.004 286);         /* #1d1d1f */
+  --card: oklch(1 0 0);
+  --card-foreground: var(--foreground);
+  --popover: oklch(1 0 0);
+  --muted: oklch(0.955 0.002 286);
+  --muted-foreground: oklch(0.52 0.008 286);   /* #6e6e73 */
+  --border: oklch(0.21 0.004 286 / 0.1);
+  --input: oklch(0.21 0.004 286 / 0.14);
+  --primary: oklch(0.21 0.004 286);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.945 0.002 286);
+  --secondary-foreground: var(--foreground);
+  --accent: oklch(0.945 0.002 286);
+  --accent-foreground: var(--foreground);
+  --ring: oklch(0.21 0.004 286 / 0.35);
+  --radius: 1rem;
+  --sound: oklch(0.62 0.17 152);
+  --sound-soft: oklch(0.62 0.17 152 / 0.12);
+  --stage: oklch(0.955 0.002 286);
+  --shimmer: oklch(1 0 0 / 0.65);
 }
 .dark {
-  --background: oklch(0.16 0.01 200);
-  --card: oklch(0.2 0.012 200);
-  --popover: oklch(0.21 0.012 200);
-  --muted: oklch(0.25 0.012 200);
-  --border: oklch(1 0 0 / 9%);
-  --input: oklch(1 0 0 / 13%);
-  --primary: oklch(0.74 0.15 165);
-  --primary-foreground: oklch(0.18 0.04 165);
-  --ring: oklch(0.7 0.13 165);
-  --accent: oklch(0.29 0.05 165);
-  --accent-foreground: oklch(0.9 0.06 165);
-  --chat: oklch(0.19 0.015 200);
-  --chat-dot: oklch(0.25 0.015 200);
-  --bubble: oklch(0.34 0.06 162);
-  --brand-glow: oklch(0.6 0.13 165 / 0.25);
+  --background: oklch(0.13 0 0);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.19 0.002 286);
+  --card-foreground: var(--foreground);
+  --popover: oklch(0.21 0.002 286);
+  --muted: oklch(0.235 0.002 286);
+  --muted-foreground: oklch(0.7 0.005 286);
+  --border: oklch(1 0 0 / 0.09);
+  --input: oklch(1 0 0 / 0.14);
+  --primary: oklch(0.97 0 0);
+  --primary-foreground: oklch(0.15 0 0);
+  --secondary: oklch(0.26 0.002 286);
+  --secondary-foreground: var(--foreground);
+  --accent: oklch(0.26 0.002 286);
+  --accent-foreground: var(--foreground);
+  --ring: oklch(1 0 0 / 0.35);
+  --sound: oklch(0.76 0.17 152);
+  --sound-soft: oklch(0.76 0.17 152 / 0.14);
+  --stage: oklch(0.155 0 0);
+  --shimmer: oklch(1 0 0 / 0.06);
 }
 
 @theme inline {
-  --color-chat: var(--chat);
-  --color-chat-dot: var(--chat-dot);
-  --color-bubble: var(--bubble);
-  --color-brand-glow: var(--brand-glow);
+  --color-sound: var(--sound);
+  --color-sound-soft: var(--sound-soft);
+  --color-stage: var(--stage);
+  --breakpoint-3xl: 120rem; /* 1920px — 27" monitors */
 }
 
-/* Subtle dotted wallpaper for the chat preview (generic, brand-free). */
-@utility chat-wallpaper {
-  background-color: var(--chat);
-  background-image: radial-gradient(var(--chat-dot) 1px, transparent 1px);
-  background-size: 14px 14px;
+/* Surfaces: borderless cards with a hairline only where needed. */
+@utility surface {
+  background-color: var(--card);
+  border-radius: calc(var(--radius) * 1.5);
+  box-shadow:
+    0 0 0 1px var(--border),
+    0 1px 2px oklch(0 0 0 / 0.03);
 }
 
-/* Soft brand glow behind the header. */
-@utility hero-glow {
-  background-image:
-    radial-gradient(60% 120% at 15% 0%, var(--brand-glow), transparent 70%),
-    radial-gradient(40% 90% at 90% 10%, oklch(0.75 0.12 250 / 0.15), transparent 70%);
+/* Display type: tight tracking, balanced lines. */
+@utility display {
+  font-family: var(--font-heading);
+  font-weight: 650;
+  letter-spacing: -0.045em;
+  line-height: 0.95;
+  text-wrap: balance;
+}
+
+/* Section eyebrow: "01 · Clip" */
+@utility eyebrow {
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+
+/* Skeleton shimmer (transform-only animation). */
+@utility shimmer {
+  position: relative;
+  overflow: hidden;
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    transform: translateX(-100%);
+    background: linear-gradient(90deg, transparent, var(--shimmer), transparent);
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+}
+@keyframes shimmer {
+  to {
+    transform: translateX(100%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .shimmer::after {
+    animation: none;
+  }
 }

@@ -1,80 +1,63 @@
 import { API_LIMITS, type FitMode } from "@contract";
-import { SparklesIcon } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
-import type { ConverterOptions, InputKind } from "../../types";
-import { SwitchRow } from "./OptionRow";
+import { selectBusy, useConverterStore } from "../../store/converterStore";
+import { GroupedList, SwitchListRow } from "../ui/GroupedList";
 
-/** Mini diagram of each framing mode (a 16:9 frame inside the square). */
+const FITS: { value: FitMode; title: string; detail: string }[] = [
+  { value: "crop", title: "Llenar", detail: "Recorta al centro" },
+  { value: "pad", title: "Completo", detail: "Bordes transparentes" },
+];
+
+/** Square canvas diagram: how a 16:9 frame lands in each mode. */
 function FitGlyph({ fit }: { fit: FitMode }) {
   return (
-    <span className="checkerboard relative grid size-11 shrink-0 place-items-center overflow-hidden rounded-md border">
-      <span
-        className={cn(
-          "bg-gradient-to-br from-primary/80 to-primary/40",
-          fit === "pad" ? "h-[56%] w-full" : "h-full w-[178%]",
-        )}
-      />
+    <span className="checkerboard grid aspect-square w-full place-items-center overflow-hidden rounded-xl">
+      <span className={cn("bg-foreground/85", fit === "pad" ? "h-[56%] w-full" : "size-full")} />
     </span>
   );
 }
 
-const FITS: { value: FitMode; title: string; description: string }[] = [
-  { value: "crop", title: "Llenar", description: "Recorta al centro; sin bordes" },
-  { value: "pad", title: "Completo", description: "Todo el cuadro, bordes transparentes" },
-];
-
-export function StyleOptions({
-  options,
-  inputKind,
-  disabled,
-  onChange,
-}: {
-  options: ConverterOptions;
-  inputKind: InputKind;
-  disabled?: boolean;
-  onChange: (patch: Partial<ConverterOptions>) => void;
-}) {
+export function StyleOptions() {
+  const { fit, hq, kind, disabled, update } = useConverterStore(
+    useShallow((s) => ({ fit: s.options.fit, hq: s.options.hq ?? false, kind: s.inputKind, disabled: selectBusy(s), update: s.updateOptions })),
+  );
   return (
-    <div className="space-y-3">
-      <div className="space-y-2">
-        <p className="text-sm font-medium">Encuadre</p>
-        <ToggleGroup
-          type="single"
-          value={options.fit}
-          disabled={disabled}
-          onValueChange={(v) => v && onChange({ fit: v as FitMode })}
-          className="grid w-full grid-cols-2 gap-2"
-        >
-          {FITS.map((f) => (
-            <ToggleGroupItem
-              key={f.value}
-              value={f.value}
-              aria-label={f.title}
-              className="h-auto justify-start gap-3 rounded-xl border bg-card p-3 text-left data-[state=on]:border-primary data-[state=on]:bg-accent/50 data-[state=on]:ring-2 data-[state=on]:ring-primary/20"
-            >
-              <FitGlyph fit={f.value} />
-              <span className="flex min-w-0 flex-col">
-                <span className="text-sm font-medium">{f.title}</span>
-                <span className="text-xs font-normal leading-snug whitespace-normal text-muted-foreground">
-                  {f.description}
-                </span>
-              </span>
-            </ToggleGroupItem>
-          ))}
-        </ToggleGroup>
-      </div>
-
-      {inputKind !== "image" && (
-        <SwitchRow
-          id="hq"
-          icon={<SparklesIcon />}
-          title="Calidad alta · experimental"
-          description={`Hasta ${API_LIMITS.maxExperimentalKb / 1024} MB en vez de 500 KB: más fluido en clips largos. WhatsApp podría no aceptarlo.`}
-          checked={options.hq ?? false}
-          disabled={disabled}
-          onCheckedChange={(hq) => onChange({ hq })}
-        />
+    <div className="space-y-4">
+      <ToggleGroup
+        type="single"
+        value={fit}
+        disabled={disabled}
+        onValueChange={(v) => v && update({ fit: v as FitMode })}
+        className="grid w-full grid-cols-2 gap-3"
+        aria-label="Encuadre"
+      >
+        {FITS.map((f) => (
+          <ToggleGroupItem
+            key={f.value}
+            value={f.value}
+            className="h-auto flex-col items-stretch gap-2.5 rounded-2xl bg-muted/60 p-3 text-left ring-0 data-[state=on]:bg-muted data-[state=on]:shadow-[inset_0_0_0_2px_var(--foreground)]"
+          >
+            <FitGlyph fit={f.value} />
+            <span>
+              <span className="block text-[15px] font-medium">{f.title}</span>
+              <span className="block text-[13px] font-normal whitespace-normal text-muted-foreground">{f.detail}</span>
+            </span>
+          </ToggleGroupItem>
+        ))}
+      </ToggleGroup>
+      {kind !== "image" && (
+        <GroupedList>
+          <SwitchListRow
+            id="hq"
+            title="Calidad alta"
+            detail={`Experimental · hasta ${API_LIMITS.maxExperimentalKb / 1024} MB en vez de 500 KB. WhatsApp podría no aceptarlo.`}
+            checked={hq}
+            disabled={disabled}
+            onCheckedChange={(v) => update({ hq: v })}
+          />
+        </GroupedList>
       )}
     </div>
   );

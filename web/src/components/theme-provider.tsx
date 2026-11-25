@@ -1,14 +1,7 @@
-import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type Theme, ThemeContext } from "./theme-context";
 
-export type Theme = "light" | "dark" | "system";
 const KEY = "sva-theme";
-
-interface ThemeContextValue {
-  theme: Theme;
-  resolvedTheme: "light" | "dark";
-  setTheme: (t: string) => void;
-}
-const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 const systemDark = () => window.matchMedia("(prefers-color-scheme: dark)").matches;
 const readStored = (): Theme => {
@@ -55,10 +48,4 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo(() => ({ theme, resolvedTheme, setTheme }), [theme, resolvedTheme, setTheme]);
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
-}
-
-export function useTheme(): ThemeContextValue {
-  const ctx = useContext(ThemeContext);
-  if (!ctx) throw new Error("useTheme must be used inside <ThemeProvider>");
-  return ctx;
 }

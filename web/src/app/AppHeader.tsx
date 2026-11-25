@@ -1,21 +1,17 @@
-import type { WhatsAppStatus } from "@contract";
 import { AudioWaveformIcon } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { BotStatusPill } from "@/features/bot/BotStatusPill";
+import { BotStatus } from "@/features/bot/BotStatus";
 
-export function AppHeader({ bot }: { bot: WhatsAppStatus | null }) {
+export function AppHeader() {
   return (
-    <header className="sticky top-0 z-20 border-b bg-background/75 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-        <div className="grid size-8 place-items-center rounded-lg bg-primary text-primary-foreground shadow-sm">
-          <AudioWaveformIcon className="size-4.5" />
-        </div>
-        <div className="min-w-0 leading-tight">
-          <p className="font-heading text-sm font-semibold tracking-tight">Sticker Video Audio</p>
-          <p className="hidden truncate text-xs text-muted-foreground sm:block">Stickers con sonido para WhatsApp</p>
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <BotStatusPill status={bot} />
+    <header className="sticky top-0 z-30 border-b border-border/60 bg-background/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-14 w-full max-w-[1760px] items-center gap-3 px-5 sm:px-8 2xl:px-12">
+        <span className="grid size-7 place-items-center rounded-lg bg-primary text-primary-foreground" aria-hidden>
+          <AudioWaveformIcon className="size-4" />
+        </span>
+        <span className="text-[15px] font-semibold tracking-tight">Sticker Video Audio</span>
+        <div className="ml-auto flex items-center gap-1.5">
+          <BotStatus />
           <ThemeToggle />
         </div>
       </div>

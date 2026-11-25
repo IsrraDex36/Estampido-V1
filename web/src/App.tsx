@@ -1,20 +1,16 @@
 import { AppHeader } from "@/app/AppHeader";
 import { Providers } from "@/app/providers";
-import { useBotStatus } from "@/features/bot/useBotStatus";
+import { useBotPolling } from "@/features/bot/botStore";
 import { ConverterPage } from "@/features/converter/ConverterPage";
 
 function Shell() {
-  const { status, refresh } = useBotStatus();
+  useBotPolling();
   return (
-    <div className="relative min-h-svh bg-background">
-      <div className="hero-glow pointer-events-none absolute inset-x-0 top-0 h-72" aria-hidden />
-      <AppHeader bot={status} />
-      <main className="relative mx-auto max-w-6xl px-4 py-8 sm:py-10">
-        <ConverterPage bot={status} onRefreshBot={() => void refresh()} />
+    <div className="min-h-svh bg-background text-foreground">
+      <AppHeader />
+      <main className="mx-auto w-full max-w-[1760px] px-5 pb-16 sm:px-8 2xl:px-12">
+        <ConverterPage />
       </main>
-      <footer className="relative mx-auto max-w-6xl px-4 pb-8 text-xs text-muted-foreground">
-        Hecho para pruebas locales · los archivos se borran a los 30 min.
-      </footer>
     </div>
   );
 }

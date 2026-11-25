@@ -1,56 +1,46 @@
-import { PackageIcon } from "lucide-react";
+import { useShallow } from "zustand/react/shallow";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import type { ConverterOptions } from "../../types";
-import { SwitchRow } from "./OptionRow";
+import { selectBusy, useConverterStore } from "../../store/converterStore";
+import { GroupedList, Row, SwitchListRow } from "../ui/GroupedList";
 
 type TextKey = "packName" | "publisher" | "emojis";
-
 const FIELDS: { key: TextKey; label: string; placeholder: string; maxLength: number }[] = [
-  { key: "packName", label: "Nombre del pack", placeholder: "Sticker Video Audio", maxLength: 128 },
+  { key: "packName", label: "Pack", placeholder: "Sticker Video Audio", maxLength: 128 },
   { key: "publisher", label: "Autor", placeholder: "sva", maxLength: 128 },
-  { key: "emojis", label: "Emojis (máx. 3)", placeholder: "😂,🔊", maxLength: 64 },
+  { key: "emojis", label: "Emojis", placeholder: "😂, 🔊 (máx. 3)", maxLength: 64 },
 ];
 
-export function PackOptions({
-  options,
-  disabled,
-  onChange,
-}: {
-  options: ConverterOptions;
-  disabled?: boolean;
-  onChange: (patch: Partial<ConverterOptions>) => void;
-}) {
+export function PackOptions() {
+  const { options, disabled, update } = useConverterStore(
+    useShallow((s) => ({ options: s.options, disabled: selectBusy(s), update: s.updateOptions })),
+  );
   return (
-    <div className="space-y-3">
-      <SwitchRow
+    <GroupedList>
+      <SwitchListRow
         id="metadata"
-        icon={<PackageIcon />}
         title="Datos del pack"
-        description="Lo que WhatsApp muestra al ver la información del sticker."
+        detail="Lo que se ve al abrir la información del sticker."
         checked={options.includeMetadata}
         disabled={disabled}
-        onCheckedChange={(includeMetadata) => onChange({ includeMetadata })}
+        onCheckedChange={(v) => update({ includeMetadata: v })}
       />
-      {options.includeMetadata && (
-        <div className="grid gap-3 sm:grid-cols-3">
-          {FIELDS.map((f) => (
-            <div key={f.key} className="space-y-1.5">
-              <Label htmlFor={f.key} className="text-xs text-muted-foreground">
-                {f.label}
-              </Label>
-              <Input
-                id={f.key}
-                placeholder={f.placeholder}
-                maxLength={f.maxLength}
-                disabled={disabled}
-                value={options[f.key] ?? ""}
-                onChange={(e) => onChange({ [f.key]: e.target.value })}
-              />
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
+      {options.includeMetadata &&
+        FIELDS.map((f) => (
+          <Row key={f.key} className="py-2">
+            <label htmlFor={f.key} className="w-20 shrink-0 text-[15px] font-medium">
+              {f.label}
+            </label>
+            <Input
+              id={f.key}
+              placeholder={f.placeholder}
+              maxLength={f.maxLength}
+              disabled={disabled}
+              value={options[f.key] ?? ""}
+              onChange={(e) => update({ [f.key]: e.target.value })}
+              className="h-9 border-0 bg-transparent px-0 text-right text-[15px] shadow-none focus-visible:ring-0 dark:bg-transparent"
+            />
+          </Row>
+        ))}
+    </GroupedList>
   );
 }
