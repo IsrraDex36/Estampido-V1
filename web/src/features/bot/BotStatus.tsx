@@ -18,7 +18,7 @@ export function BotStatus() {
     <Tooltip>
       <TooltipTrigger asChild>
         <span role="status" className="inline-flex h-8 items-center gap-2 rounded-full bg-muted px-3 text-[13px] font-medium">
-          <span className={cn("size-2 rounded-full", state === "on" ? "bg-sound" : state === "linking" ? "bg-amber-500" : "bg-muted-foreground/40")} />
+          <span className={cn("size-2 rounded-full", state === "on" ? "bg-sound" : state === "linking" ? "bg-retro-a" : "bg-muted-foreground/40")} />
           <span className="hidden sm:inline">{COPY[state].label}</span>
         </span>
       </TooltipTrigger>

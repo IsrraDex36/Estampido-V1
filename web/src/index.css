@@ -144,43 +144,43 @@
 /* ── Product layer: neutral, high-contrast (Apple/Nike-like). Green is a
    functional color reserved for sound (playing, has audio). ── */
 :root {
-  --background: oklch(0.955 0.006 280);        /* a touch darker, faint indigo */
-  --foreground: oklch(0.21 0.004 286);         /* #1d1d1f */
+  --background: oklch(0.955 0 0);        /* neutral gray */
+  --foreground: oklch(0.21 0 0);         /* #1d1d1f */
   --card: oklch(1 0 0);
   --card-foreground: var(--foreground);
   --popover: oklch(1 0 0);
-  --muted: oklch(0.955 0.002 286);
-  --muted-foreground: oklch(0.52 0.008 286);   /* #6e6e73 */
-  --border: oklch(0.21 0.004 286 / 0.1);
-  --input: oklch(0.21 0.004 286 / 0.14);
-  --primary: oklch(0.21 0.004 286);
+  --muted: oklch(0.955 0 0);
+  --muted-foreground: oklch(0.52 0 0);   /* #6e6e73 */
+  --border: oklch(0.21 0 0 / 0.1);
+  --input: oklch(0.21 0 0 / 0.14);
+  --primary: oklch(0.21 0 0);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.945 0.002 286);
+  --secondary: oklch(0.945 0 0);
   --secondary-foreground: var(--foreground);
-  --accent: oklch(0.945 0.002 286);
+  --accent: oklch(0.945 0 0);
   --accent-foreground: var(--foreground);
-  --ring: oklch(0.21 0.004 286 / 0.35);
+  --ring: oklch(0.21 0 0 / 0.35);
   --radius: 1rem;
   --sound: oklch(0.62 0.17 152);
   --sound-soft: oklch(0.62 0.17 152 / 0.12);
-  --stage: oklch(0.955 0.002 286);
+  --stage: oklch(0.955 0 0);
   --shimmer: oklch(1 0 0 / 0.65);
 }
 .dark {
-  --background: oklch(0.115 0.012 280);
+  --background: oklch(0 0 0);                  /* pure black */
   --foreground: oklch(0.97 0 0);
-  --card: oklch(0.19 0.002 286);
+  --card: oklch(0.14 0 0);
   --card-foreground: var(--foreground);
-  --popover: oklch(0.21 0.002 286);
-  --muted: oklch(0.235 0.002 286);
-  --muted-foreground: oklch(0.7 0.005 286);
+  --popover: oklch(0.21 0 0);
+  --muted: oklch(0.235 0 0);
+  --muted-foreground: oklch(0.7 0 0);
   --border: oklch(1 0 0 / 0.09);
   --input: oklch(1 0 0 / 0.14);
   --primary: oklch(0.97 0 0);
   --primary-foreground: oklch(0.15 0 0);
-  --secondary: oklch(0.26 0.002 286);
+  --secondary: oklch(0.26 0 0);
   --secondary-foreground: var(--foreground);
-  --accent: oklch(0.26 0.002 286);
+  --accent: oklch(0.26 0 0);
   --accent-foreground: var(--foreground);
   --ring: oklch(1 0 0 / 0.35);
   --sound: oklch(0.76 0.17 152);
@@ -250,24 +250,22 @@
 /* ── Retro layer: 80s pixel accents (decorative only) ── */
 
 :root {
-  --retro-a: oklch(0.7 0.2 350);   /* magenta */
-  --retro-b: oklch(0.72 0.13 230); /* cyan */
-  --dither: oklch(0.21 0.004 286 / 0.06);
+  /* Palette = neutral + green (sound, functional) + magenta (its complement).
+     No other hues are used for decoration. */
+  --retro-a: oklch(0.66 0.22 345);   /* magenta */
+  --dither: oklch(0.21 0 0 / 0.06);
   --pum-ink: #1d1d1f;
-  --sky-top: oklch(0.9 0.03 285);
   --star: oklch(0.45 0.03 285 / 0.55);
 }
 .dark {
   --dither: oklch(1 0 0 / 0.05);
   --pum-ink: #6b6b73;
-  --sky-top: oklch(0.2 0.05 285);
   --star: oklch(0.95 0.02 285 / 0.85);
 }
 
 @theme inline {
   --font-pixel: "Silkscreen", ui-monospace, monospace;
   --color-retro-a: var(--retro-a);
-  --color-retro-b: var(--retro-b);
 }
 
 /* 4px checker dither (2 of 16 px lit) — crisp at any zoom. */
@@ -370,10 +368,4 @@
   .pixel-wave { opacity: 1; }
   .pum-frame-a, .pum-mouth-a { animation: none; opacity: 1; }
   .pum-frame-b, .pum-mouth-b { opacity: 0; }
-}
-
-
-/* Night-sky depth: soft glow from the top, fading into the page color. */
-@utility sky {
-  background: radial-gradient(120% 70% at 50% -10%, var(--sky-top), transparent 70%);
 }

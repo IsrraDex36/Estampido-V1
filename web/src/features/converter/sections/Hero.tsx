@@ -16,11 +16,11 @@ export function Hero() {
               hasFile ? "display text-4xl sm:text-5xl" : "display text-5xl sm:text-7xl 2xl:text-8xl 3xl:text-[7.5rem]"
             }
           >
-            Stickers que suenan.
+            Haz ruido en el chat.
           </h1>
           <p className="mt-4 max-w-xl text-pretty text-base text-muted-foreground sm:text-lg 3xl:max-w-2xl 3xl:text-xl">
-            Convierte un video, un GIF o una foto en un sticker de WhatsApp con sonido. Lo ajustamos para que entre en
-            el límite.
+            Convierte cualquier video, GIF o foto en un sticker de WhatsApp que suena al tocarlo. Tú eliges el momento;
+            Estampido lo deja listo para enviar.
           </p>
         </div>
         <Mascot

@@ -24,7 +24,7 @@ describe("Estampido web (real browser, real API)", () => {
     const { page, problems } = await openPage(browser, url);
     expect(await page.title()).toMatch(/Estampido/);
     expect(await page.$('[aria-label^="Pum"]')).not.toBeNull();
-    expect(await page.evaluate(() => document.body.innerText)).toMatch(/Stickers que suenan/);
+    expect(await page.evaluate(() => document.body.innerText)).toMatch(/Haz ruido en el chat/);
     expect(problems).toEqual([]);
     await page.close();
   });

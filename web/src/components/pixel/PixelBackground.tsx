@@ -3,8 +3,8 @@ import { PixelSprite } from "./PixelSprite";
 import { NOTE, SPARK, STAR } from "./sprites";
 
 /**
- * Pixel night sky behind the whole app: soft top glow, a starfield of tiny
- * pixel stars (a few tinted with the app accents) and musical notes drifting
+ * Pixel night sky behind the whole app: a starfield of tiny pixel stars (a
+ * few tinted with the two accents: green and magenta) and musical notes drifting
  * in the margins. Fixed, decorative, low contrast. Positions/timings are
  * deterministic (no Math.random → stable renders, no layout shift).
  */
@@ -14,14 +14,14 @@ const rand = (i: number, salt: number) => {
 };
 
 const STARS = 70;
-const TINTS = ["var(--retro-a)", "var(--retro-b)", "var(--sound)"];
+const TINTS = ["var(--retro-a)", "var(--sound)"];
 
 const NOTES = [
   { rows: NOTE, x: "0.7%", y: "30%", size: 18, color: "var(--retro-a)" },
-  { rows: STAR, x: "97.6%", y: "12%", size: 14, color: "var(--retro-b)" },
+  { rows: STAR, x: "97.6%", y: "12%", size: 14, color: "var(--sound)" },
   { rows: NOTE, x: "97.8%", y: "46%", size: 16, color: "var(--sound)" },
-  { rows: SPARK, x: "0.9%", y: "58%", size: 10, color: "var(--retro-b)" },
-  { rows: NOTE, x: "0.7%", y: "84%", size: 14, color: "var(--retro-b)" },
+  { rows: SPARK, x: "0.9%", y: "58%", size: 10, color: "var(--sound)" },
+  { rows: NOTE, x: "0.7%", y: "84%", size: 14, color: "var(--sound)" },
   { rows: NOTE, x: "97.6%", y: "78%", size: 18, color: "var(--retro-a)" },
 ] as const;
 
@@ -48,7 +48,6 @@ function starStyle(i: number): { style: CSSProperties; sparkle: boolean } {
 export function PixelBackground() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-      <div className="sky absolute inset-0" />
       {Array.from({ length: STARS }, (_, i) => {
         const { style, sparkle } = starStyle(i);
         return (
