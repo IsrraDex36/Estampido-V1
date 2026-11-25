@@ -3,7 +3,7 @@ import { saveCapture } from "./capture.js";
 import { isCancel } from "./command.js";
 import { takeRawFor } from "./rawCapture.js";
 import { SentIds, shouldHandle, trackOwnSends } from "./routing.js";
-import { createSaudio } from "./saudio.js";
+import { createSaudio, type SendMode } from "./saudio.js";
 
 export interface BotConfig {
   allowed: ReadonlySet<string>;
@@ -11,6 +11,8 @@ export interface BotConfig {
   capture: boolean;
   /** Default pack metadata; publisher falls back to the sender's WhatsApp name. */
   metadata?: { packName?: string; publisher?: string };
+  /** How to deliver sticker + sound (default native). */
+  sendMode?: SendMode;
 }
 
 function textOf(m: proto.IMessage | null | undefined): string | undefined {
@@ -22,7 +24,7 @@ function textOf(m: proto.IMessage | null | undefined): string | undefined {
 export function registerHandlers(sock: WASocket, config: BotConfig): void {
   const sent = new SentIds();
   trackOwnSends(sock, sent);
-  const saudio = createSaudio(sock, undefined, config.metadata);
+  const saudio = createSaudio(sock, undefined, config.metadata, config.sendMode);
 
   sock.ev.on("messages.upsert", async ({ messages, type }) => {
     for (const msg of messages) {

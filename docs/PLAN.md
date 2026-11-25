@@ -132,10 +132,10 @@ sticker-video-audio/
 ### Fase 5 — Envío por WhatsApp (experimental) 🚧
 
 - [x] Herramienta de captura: hook sobre `proto.Message.decode` + decoder protobuf sin esquema + extractor genérico de media (`npm run bot:capture`), ver `docs/PROTOCOLO.md`
-- [ ] **Capturar un sound sticker real** (requiere que el usuario escanee el QR y envíe uno)
+- [x] **Capturar un sound sticker real**: hecho el 2026-11-25. El formato está documentado en `docs/PROTOCOLO.md`
 - [ ] Confirmar el códec real del audio y ajustar la fase 2 si hace falta
-- [x] `adapters/bot`: conexión Baileys 7.0.0-rc14 (QR, reconexión)
-- [ ] Envío nativo `audioStickerMessage` (campo 134): depende de la captura
+- [x] `adapters/bot`: conexión Baileys 7.0.0-rc14 (QR, reconexión). Fixes de vinculación: versión de WA Web en vivo y `companion_reg_refresh`
+- [x] Envío nativo `audioStickerMessage` (campo 134), con _fallback_ automático. Pendiente: confirmar la recepción en teléfono
 - [x] Fallback: sticker + nota de voz (`/saudio`, con control de acceso `SVA_ALLOWED`)
 - [x] Límite de descarga en el bot: 50 MB para video y 20 MB para audio. Se rechaza antes de descargar por `fileLength` y se corta en pleno stream si el tamaño declarado no coincide
 - [x] Errores de usuario tipados (`UserInputError`) con mensajes claros en API (422), bot y CLI (exit 2). Los errores internos no filtran detalles

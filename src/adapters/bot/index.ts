@@ -2,6 +2,8 @@ import { resolve } from "node:path";
 import { connect } from "./connection.js";
 import { registerHandlers } from "./handlers.js";
 import { installRawCapture } from "./rawCapture.js";
+import type { SendMode } from "./saudio.js";
+import { installRawEncode } from "./soundSticker.js";
 
 /**
  * WhatsApp bot (Baileys, unofficial → use a secondary number).
@@ -22,9 +24,15 @@ const allowed = new Set(
 );
 
 installRawCapture();
+installRawEncode();
+
+const modes: SendMode[] = ["native", "fallback", "both"];
+const sendMode = (modes as string[]).includes(process.env.SVA_SEND_MODE ?? "")
+  ? (process.env.SVA_SEND_MODE as SendMode)
+  : "native";
 
 console.log(
-  `Bot SVA · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
+  `Bot SVA · envío ${sendMode} · captura ${capture ? "ON" : "OFF"} · remitentes permitidos: ${allowed.size || "solo tú (fromMe)"}`,
 );
 
 await connect({
@@ -35,6 +43,7 @@ await connect({
       allowed,
       capture,
       captureDir: resolve("captures"),
+      sendMode,
       metadata: { packName: process.env.SVA_PACK || undefined, publisher: process.env.SVA_AUTHOR || undefined },
     }),
 });

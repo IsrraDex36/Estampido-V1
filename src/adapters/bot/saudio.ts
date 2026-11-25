@@ -9,6 +9,13 @@ import { Semaphore } from "../../utils/semaphore.js";
 import { parseSaudio, SAUDIO_USAGE, type SaudioCommand } from "./command.js";
 import { type Downloader, downloadLimited, mediaOf } from "./media.js";
 import { PendingAudioStore, senderKey } from "./pending.js";
+import { sendSoundSticker } from "./soundSticker.js";
+
+/**
+ * native: one real sound sticker (field 134, from the 2026-11-25 capture).
+ * fallback: sticker + separate voice note. both: send both (to compare).
+ */
+export type SendMode = "native" | "fallback" | "both";
 
 const jobs = new Semaphore(1);
 
@@ -27,6 +34,7 @@ export function createSaudio(
   sock: WASocket,
   download?: Downloader,
   metadataDefaults: { packName?: string; publisher?: string } = {},
+  sendMode: SendMode = "native",
 ) {
   const pending = new PendingAudioStore(undefined, (key) => {
     const jid = key.split("|")[0];
@@ -68,21 +76,43 @@ export function createSaudio(
       }),
     );
 
-    // Fallback delivery (works today): sticker + voice note. Native sound
-    // sticker (field 134) pending capture analysis — see docs/PROTOCOLO.md.
-    await sock.sendMessage(jid, { sticker: { url: result.webpPath } }, { quoted: origin });
-    if (result.audioPath) {
-      await sock.sendMessage(jid, {
-        audio: { url: result.audioPath },
-        mimetype: "audio/ogg; codecs=opus",
-        ptt: true,
-      });
+    let delivered = "separado";
+    const sendSeparate = async () => {
+      await sock.sendMessage(jid, { sticker: { url: result.webpPath } }, { quoted: origin });
+      if (result.audioPath) {
+        await sock.sendMessage(jid, {
+          audio: { url: result.audioPath },
+          mimetype: "audio/ogg; codecs=opus",
+          ptt: true,
+        });
+      }
+    };
+    if (result.audioPath && result.stats.audio && sendMode !== "fallback") {
+      try {
+        await sendSoundSticker(sock, jid, {
+          webpPath: result.webpPath,
+          audioPath: result.audioPath,
+          audioDurationSec: result.stats.audio.durationSec,
+          animated: result.stats.sticker.animated,
+        });
+        delivered = "nativo 🔊";
+        if (sendMode === "both") await sendSeparate();
+      } catch (err) {
+        console.error("[saudio:native] falló el envío nativo; uso el separado", err);
+        delivered = "separado (falló el nativo)";
+        await sendSeparate();
+      }
+    } else {
+      await sendSeparate();
     }
     const s = result.stats.sticker;
     const notes = result.warnings.length ? `\n⚠️ ${result.warnings.join("\n⚠️ ")}` : "";
     const shape = s.animated ? `${s.fps} fps · ${(s.durationMs / 1000).toFixed(1)} s` : "estático";
     const sound = result.stats.audio ? ` · 🔊 ${result.stats.audio.durationSec.toFixed(1)} s` : "";
-    await reply(origin, `✔ ${(s.bytes / 1024).toFixed(0)} KB · ${shape} · q${s.quality}${sound}${notes}`);
+    await reply(
+      origin,
+      `✔ ${(s.bytes / 1024).toFixed(0)} KB · ${shape} · q${s.quality}${sound} · ${delivered}${notes}`,
+    );
     await react(origin, "✅");
   }
 

@@ -75,7 +75,7 @@ const kinds = (sent: { content: Record<string, unknown> }[]) =>
 describe("/saudio via fake socket (real pipeline)", () => {
   it("plain: sends sticker + voice note + summary", async () => {
     const { sock, sent } = fakeSock();
-    const saudio = createSaudio(sock, downloader);
+    const saudio = createSaudio(sock, downloader, {}, "fallback");
     await saudio.onCommand(msg("1", { videoMessage: { caption: "/saudio 0 2" } }), "/saudio 0 2");
 
     expect(kinds(sent)).toEqual(["react", "sticker", "audio", "text", "react"]);
@@ -89,7 +89,7 @@ describe("/saudio via fake socket (real pipeline)", () => {
 
   it("sticker carries pack metadata; author defaults to sender name", async () => {
     const { sock, sent } = fakeSock();
-    const saudio = createSaudio(sock, downloader, { packName: "Pack Bot" });
+    const saudio = createSaudio(sock, downloader, { packName: "Pack Bot" }, "fallback");
     const m = { ...msg("m", { videoMessage: { caption: "/saudio 0 1" } }), pushName: "Isra" };
     await saudio.onCommand(m, "/saudio 0 1");
     const bytes = sent.find((s) => "sticker" in s.content)?.content.bytes as Buffer;
@@ -101,7 +101,7 @@ describe("/saudio via fake socket (real pipeline)", () => {
 
   it("voz: waits for audio, then uses it", async () => {
     const { sock, sent } = fakeSock();
-    const saudio = createSaudio(sock, downloader);
+    const saudio = createSaudio(sock, downloader, {}, "fallback");
     await saudio.onCommand(msg("2", { videoMessage: { caption: "/saudio voz" } }), "/saudio voz");
     expect(saudio.pending.size).toBe(1);
     expect(String(sent.at(-1)?.content.text)).toMatch(/nota de voz/);
@@ -119,7 +119,7 @@ describe("/saudio via fake socket (real pipeline)", () => {
   it("rejects oversized video from declared fileLength without downloading", async () => {
     const { sock, sent } = fakeSock();
     const dl = vi.fn(downloader);
-    const saudio = createSaudio(sock, dl);
+    const saudio = createSaudio(sock, dl, {}, "fallback");
     await saudio.onCommand(
       msg("5", {
         videoMessage: { caption: "/saudio", fileLength: 999 * 1024 * 1024 },
@@ -132,7 +132,7 @@ describe("/saudio via fake socket (real pipeline)", () => {
 
   it("cancel discards pending job", async () => {
     const { sock, sent } = fakeSock();
-    const saudio = createSaudio(sock, downloader);
+    const saudio = createSaudio(sock, downloader, {}, "fallback");
     await saudio.onCommand(msg("6", { videoMessage: { caption: "/saudio voz" } }), "/saudio voz");
     await saudio.onCancel(msg("7", { conversation: "/cancelar" }));
     expect(saudio.pending.size).toBe(0);
@@ -141,13 +141,13 @@ describe("/saudio via fake socket (real pipeline)", () => {
 
   it("no video → usage hint", async () => {
     const { sock, sent } = fakeSock();
-    await createSaudio(sock, downloader).onCommand(msg("8", { conversation: "/saudio" }), "/saudio");
+    await createSaudio(sock, downloader, {}, "fallback").onCommand(msg("8", { conversation: "/saudio" }), "/saudio");
     expect(String(sent[0]?.content.text)).toMatch(/Uso: \/saudio/);
   });
 
   it("image with caption → asks for sound (implicit voz) → static sticker + sound", async () => {
     const { sock, sent } = fakeSock();
-    const saudio = createSaudio(sock, downloader);
+    const saudio = createSaudio(sock, downloader, {}, "fallback");
     await saudio.onCommand(msg("i1", { imageMessage: { caption: "/saudio" } }), "/saudio");
     expect(String(sent.at(-1)?.content.text)).toMatch(/La imagen no tiene sonido/);
     expect(saudio.pending.size).toBe(1);
@@ -160,7 +160,7 @@ describe("/saudio via fake socket (real pipeline)", () => {
 
   it("WhatsApp GIF (gifPlayback) → asks for sound; sound may outlast the loop", async () => {
     const { sock, sent } = fakeSock();
-    const saudio = createSaudio(sock, downloader);
+    const saudio = createSaudio(sock, downloader, {}, "fallback");
     await saudio.onCommand(msg("g1", { videoMessage: { caption: "/saudio 0 1", gifPlayback: true } }), "/saudio 0 1");
     expect(String(sent.at(-1)?.content.text)).toMatch(/El GIF no tiene sonido/);
     sent.length = 0;
@@ -171,7 +171,7 @@ describe("/saudio via fake socket (real pipeline)", () => {
 
   it("reply to a sticker → re-encodes it with sound", async () => {
     const { sock, sent } = fakeSock();
-    const saudio = createSaudio(sock, downloader);
+    const saudio = createSaudio(sock, downloader, {}, "fallback");
     const reply = msg("s1", {
       extendedTextMessage: {
         text: "/saudio",
@@ -183,5 +183,44 @@ describe("/saudio via fake socket (real pipeline)", () => {
     sent.length = 0;
     await saudio.onAudio(msg("s2", { audioMessage: {} }));
     expect(kinds(sent)).toContain("sticker");
+  });
+
+  it("native mode: uploads both media and relays ONE field-134 sound sticker", async () => {
+    const { sock, sent } = fakeSock();
+    const relayed: { jid: string; message: Record<string, unknown> }[] = [];
+    const uploads: string[] = [];
+    Object.assign(sock, {
+      user: { id: "525500000001:8@s.whatsapp.net" },
+      waUploadToServer: async (_path: string, opts: { mediaType: string }) => {
+        uploads.push(opts.mediaType);
+        return { mediaUrl: `https://mmg.whatsapp.net/${opts.mediaType}`, directPath: `/v/t62/${opts.mediaType}` };
+      },
+      relayMessage: async (jid: string, message: Record<string, unknown>) => {
+        relayed.push({ jid, message });
+        return "id";
+      },
+    });
+    const saudio = createSaudio(sock, downloader, {}, "native");
+    await saudio.onCommand(msg("n1", { videoMessage: { caption: "/saudio 0 2" } }), "/saudio 0 2");
+
+    expect(uploads.sort()).toEqual(["audio", "sticker"]);
+    expect(relayed).toHaveLength(1);
+    expect(kinds(sent)).not.toContain("sticker"); // no separate sticker
+    expect(kinds(sent)).not.toContain("audio"); // no separate voice note
+    expect(String(sent.find((s) => "text" in s.content)?.content.text)).toMatch(/nativo 🔊/);
+
+    const { proto } = await import("baileys");
+    const { decodeRaw } = await import("../../src/utils/protobufRaw.js");
+    const bytes = Buffer.from(proto.Message.encode(relayed[0]?.message as never).finish());
+    const f134 = decodeRaw(bytes).find((f) => f.field === 134);
+    expect(f134).toBeDefined();
+  });
+
+  it("native failure falls back to separate sticker + voice note", async () => {
+    const { sock, sent } = fakeSock(); // no relayMessage/waUploadToServer → native throws
+    const saudio = createSaudio(sock, downloader, {}, "native");
+    await saudio.onCommand(msg("f1", { videoMessage: { caption: "/saudio 0 1" } }), "/saudio 0 1");
+    expect(kinds(sent)).toEqual(expect.arrayContaining(["sticker", "audio"]));
+    expect(String(sent.find((s) => "text" in s.content)?.content.text)).toMatch(/falló el nativo/);
   });
 });
