@@ -215,3 +215,47 @@ describe("API: junk URLs never break it", () => {
     expect(bad.status).toBe(400);
   });
 });
+
+describe("public server rules", () => {
+  const CLIENT_ID = "6f1c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
+  const botWith = (state: "linked" | "unlinked") => ({
+    ...noBot,
+    linkStatus: async () => (state === "linked" ? { state, phone: "…1", linkedAt: 1 } : { state }),
+  });
+  const publish = (a: ReturnType<typeof createApp>, resultId: string, headers: Record<string, string> = {}) =>
+    a.request("/api/community/stickers", {
+      method: "POST",
+      headers: { "content-type": "application/json", ...headers },
+      body: JSON.stringify({ resultId, category: "memes", ownsAudio: true }),
+    });
+
+  it("publishRequiresLink: no browser id / unlinked → 403 link_required; linked → 201", async () => {
+    const repo = new CommunityRepo(join(dir, "guarded"));
+    const unlinked = createApp({
+      store: results,
+      bot: botWith("unlinked") as never,
+      community: repo,
+      publishRequiresLink: true,
+    });
+    const r1 = await publish(unlinked, await fakeResult());
+    expect(r1.status).toBe(403);
+    expect(await r1.json()).toMatchObject({ error: { code: "link_required" } });
+    expect((await publish(unlinked, await fakeResult(), { "x-estampido-client": CLIENT_ID })).status).toBe(403);
+    const linked = createApp({
+      store: results,
+      bot: botWith("linked") as never,
+      community: repo,
+      publishRequiresLink: true,
+    });
+    expect((await publish(linked, await fakeResult(), { "x-estampido-client": CLIENT_ID })).status).toBe(201);
+  });
+
+  it("storage cap → 507 storage_full, nothing half-written", async () => {
+    const repo = new CommunityRepo(join(dir, "tiny"), Date.now, 10); // 10 bytes
+    const app = createApp({ store: results, bot: noBot, community: repo });
+    const r = await publish(app, await fakeResult());
+    expect(r.status).toBe(507);
+    expect(await r.json()).toMatchObject({ error: { code: "storage_full" } });
+    expect(await repo.list()).toHaveLength(0);
+  });
+});

@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { RateLimiter } from "./rateLimit.js";
+import { RateLimiter } from "../../utils/rateLimit.js";
 
 /**
  * "This browser ↔ this WhatsApp chat" links, owned by the bot (it is the one

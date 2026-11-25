@@ -144,3 +144,21 @@ describe("link routes", () => {
     expect(clientHash(undefined)).toBeNull();
   });
 });
+
+describe("createBotClient vs an older bot", () => {
+  it("a 404 from the control server means «restart the bot», reported as unavailable (503)", async () => {
+    const { createServer } = await import("node:http");
+    const srv = createServer((_req, res) => {
+      res.writeHead(404, { "content-type": "text/plain" });
+      res.end("404 Not Found");
+    });
+    await new Promise<void>((r) => srv.listen(0, "127.0.0.1", r));
+    const port = (srv.address() as { port: number }).port;
+    const file = join(root, "control-old.json");
+    await writeFile(file, JSON.stringify({ port, token: "t" }));
+    const client = createBotClient(file);
+    await expect(client.linkStatus("c".repeat(64))).rejects.toThrow(/reiniciarse/);
+    await expect(client.linkStatus("c".repeat(64))).rejects.toBeInstanceOf(BotUnavailableError);
+    srv.close();
+  });
+});

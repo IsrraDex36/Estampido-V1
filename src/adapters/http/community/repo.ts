@@ -5,6 +5,8 @@ import type { CommunityCategory } from "../contract.js";
 import type { Rankable } from "./feed.js";
 
 export interface StoredSticker extends Rankable {
+  /** webp + ogg size (for the storage cap). Older entries may lack it. */
+  bytes?: number;
   animated: boolean;
   /** Seconds of sound; null = silent. */
   soundSec: number | null;
@@ -35,6 +37,14 @@ export interface NewSticker {
  * (tmp + rename), so a crash never leaves a half-written index.
  * Swappable for a database later behind the same methods.
  */
+/** The storage cap would be exceeded (→ 507). */
+export class CommunityFullError extends Error {
+  constructor() {
+    super("La comunidad alcanzó su espacio máximo por ahora. Inténtalo más tarde.");
+    this.name = "CommunityFullError";
+  }
+}
+
 export class CommunityRepo {
   private items: StoredSticker[] | null = null;
   private queue: Promise<unknown> = Promise.resolve();
@@ -42,7 +52,13 @@ export class CommunityRepo {
   constructor(
     readonly root: string,
     private readonly now: () => number = Date.now,
+    /** Total bytes allowed for published files (public server safety). */
+    private readonly maxBytes = Number.POSITIVE_INFINITY,
   ) {}
+
+  async usedBytes(): Promise<number> {
+    return (await this.load()).reduce((n, s) => n + (s.bytes ?? 0), 0);
+  }
 
   private get indexPath(): string {
     return join(this.root, "index.json");
@@ -86,6 +102,8 @@ export class CommunityRepo {
   add(input: NewSticker): Promise<StoredSticker> {
     return this.exclusive(async () => {
       const items = await this.load();
+      const incoming = (await stat(input.webpPath)).size + (input.oggPath ? (await stat(input.oggPath)).size : 0);
+      if (items.reduce((n, s) => n + (s.bytes ?? 0), 0) + incoming > this.maxBytes) throw new CommunityFullError();
       const id = randomUUID();
       const dir = join(this.root, id);
       await mkdir(dir, { recursive: true });
@@ -99,6 +117,7 @@ export class CommunityRepo {
           tags: input.tags,
           createdAt: this.now(),
           uses: 0,
+          bytes: incoming,
           animated: input.animated,
           soundSec: input.oggPath ? input.soundSec : null,
           soundOrigin: input.soundOrigin,

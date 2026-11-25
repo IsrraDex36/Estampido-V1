@@ -5,13 +5,15 @@ import { publishSticker, recordSoundUse } from "./endpoints";
 
 /**
  * Publish a result. On success everything community-related is invalidated
- * (feed, ranking, sounds, stats). Errors: global toast with the API message.
+ * (feed, ranking, sounds, stats). Errors are handled by the form (see PublishButton).
  */
 export function usePublish() {
   const qc = useQueryClient();
   return useMutation<CommunitySticker, Error, PublishRequest>({
     mutationKey: ["community", "publish"],
     mutationFn: publishSticker,
+    // The form handles errors itself (it may open the WhatsApp link step instead of a toast).
+    meta: { errorMessage: false },
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.community.all }),
   });
 }

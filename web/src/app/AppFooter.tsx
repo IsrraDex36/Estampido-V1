@@ -1,5 +1,7 @@
 import { ArrowUpIcon, AudioWaveformIcon } from "@/components/icons";
 import { useState } from "react";
+import { Link } from "wouter";
+import { ROUTES } from "./routes";
 import { Button } from "@/components/ui/button";
 import { BotStatus } from "@/features/bot/BotStatus";
 
@@ -41,7 +43,12 @@ export function AppFooter() {
       </div>
 
       <div className="mt-6 flex flex-col items-center justify-between gap-3 text-[13px] text-muted-foreground sm:flex-row">
-        <p>© {YEAR} Estampido</p>
+        <p>
+          © {YEAR} Estampido ·{" "}
+          <Link href={ROUTES.privacy} className="underline-offset-4 hover:text-foreground hover:underline">
+            Privacidad y términos
+          </Link>
+        </p>
         <a
           href={AUTHOR.url}
           target="_blank"

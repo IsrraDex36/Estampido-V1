@@ -15,7 +15,7 @@ import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { type BotClient, BotRequestError, BotUnavailableError, createBotClient } from "./botClient.js";
 import { CommunityRepo } from "./community/repo.js";
-import { communityRoutes } from "./community/routes.js";
+import { communityRoutes, type PublishGuard } from "./community/routes.js";
 import {
   API_LIMITS,
   type ApiErrorBody,
@@ -32,6 +32,8 @@ export interface AppDeps {
   bot?: BotClient;
   store?: ResultStore;
   community?: CommunityRepo;
+  /** Public server: only browsers with a linked WhatsApp may publish (anti-spam, accountability). */
+  publishRequiresLink?: boolean;
   convert?: (opts: ConvertOptions) => Promise<ConvertResult>;
   maxConcurrent?: number;
   maxQueue?: number;
@@ -62,7 +64,25 @@ export function createApp(deps: AppDeps = {}): Hono {
 
   app.get("/health", (c) => c.json({ ok: true }));
 
-  app.route("/community", communityRoutes(deps.community ?? new CommunityRepo(communityRoot()), store));
+  const canPublish: PublishGuard | undefined = deps.publishRequiresLink
+    ? async (c) => {
+        const client = clientHash(c.req.header(CLIENT_HEADER));
+        const need = {
+          status: 403 as const,
+          body: fail("link_required", "Vincula tu WhatsApp para publicar en la comunidad."),
+        };
+        if (!client) return need;
+        try {
+          return (await bot.linkStatus(client)).state === "linked" ? null : need;
+        } catch {
+          return {
+            status: 503,
+            body: fail("bot_unavailable", "No se puede verificar tu WhatsApp ahora; inténtalo luego."),
+          };
+        }
+      }
+    : undefined;
+  app.route("/community", communityRoutes(deps.community ?? new CommunityRepo(communityRoot()), store, { canPublish }));
 
   app.post(
     "/convert",

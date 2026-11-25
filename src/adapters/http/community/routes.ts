@@ -1,7 +1,7 @@
 import { createReadStream } from "node:fs";
 import { readFile, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { probe } from "../../../core/probe/probe.js";
 import { inspectWebp } from "../../../core/webp/inspect.js";
@@ -16,7 +16,13 @@ import {
 } from "../contract.js";
 import type { ResultStore } from "../resultStore.js";
 import { pageOf } from "./feed.js";
-import { COMMUNITY_FILES, type CommunityFile, type CommunityRepo, type StoredSticker } from "./repo.js";
+import {
+  COMMUNITY_FILES,
+  type CommunityFile,
+  CommunityFullError,
+  type CommunityRepo,
+  type StoredSticker,
+} from "./repo.js";
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });
 const categoryIds = COMMUNITY_CATEGORIES.map((c) => c.id) as [string, ...string[]];
@@ -76,7 +82,14 @@ export const toSoundDto = (s: StoredSticker): CommunitySound => ({
 const defaultTitle = (category: string) =>
   `Sticker de ${COMMUNITY_CATEGORIES.find((c) => c.id === category)?.label ?? "la comunidad"}`;
 
-export function communityRoutes(repo: CommunityRepo, results: ResultStore): Hono {
+/** Decides if this request may publish (e.g. «needs a linked WhatsApp»). null = allowed. */
+export type PublishGuard = (c: Context) => Promise<{ status: 403 | 503; body: ApiErrorBody } | null>;
+
+export function communityRoutes(
+  repo: CommunityRepo,
+  results: ResultStore,
+  opts: { canPublish?: PublishGuard } = {},
+): Hono {
   const app = new Hono();
 
   const list = async (query: Record<string, string>, onlySounds: boolean) => {
@@ -108,6 +121,8 @@ export function communityRoutes(repo: CommunityRepo, results: ResultStore): Hono
   });
 
   app.post("/stickers", async (c) => {
+    const denied = opts.canPublish ? await opts.canPublish(c) : null;
+    if (denied) return c.json(denied.body, denied.status);
     const parsed = publishSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json(fail("bad_request", parsed.error.issues.map((i) => i.message).join(" ")), 400);
     const req = parsed.data;
@@ -129,16 +144,22 @@ export function communityRoutes(repo: CommunityRepo, results: ResultStore): Hono
       return c.json(fail("audio_rights", "Confirma que el audio es tuyo o que tienes permiso."), 400);
     }
 
-    const item = await repo.add({
-      title: req.title || defaultTitle(req.category),
-      category: req.category as never,
-      tags: [...new Set((req.tags ?? []).map((t) => t.toLowerCase()))],
-      animated: inspectWebp(webp).animated,
-      soundSec: hasAudio ? Math.round((await probe(oggPath)).durationSec * 10) / 10 : null,
-      soundOrigin: origin?.id ?? null,
-      webpPath,
-      oggPath: hasAudio ? oggPath : null,
-    });
+    let item: StoredSticker;
+    try {
+      item = await repo.add({
+        title: req.title || defaultTitle(req.category),
+        category: req.category as never,
+        tags: [...new Set((req.tags ?? []).map((t) => t.toLowerCase()))],
+        animated: inspectWebp(webp).animated,
+        soundSec: hasAudio ? Math.round((await probe(oggPath)).durationSec * 10) / 10 : null,
+        soundOrigin: origin?.id ?? null,
+        webpPath,
+        oggPath: hasAudio ? oggPath : null,
+      });
+    } catch (err) {
+      if (err instanceof CommunityFullError) return c.json(fail("storage_full", err.message), 507);
+      throw err;
+    }
     return c.json(toStickerDto(item), 201);
   });
 

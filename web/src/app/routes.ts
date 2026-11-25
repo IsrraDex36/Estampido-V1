@@ -2,6 +2,7 @@
 export const ROUTES = {
   create: "/",
   community: "/comunidad",
+  privacy: "/privacidad",
 } as const;
 
 /** Query param that opens «Crear» with a community sound loaded (remix). */

@@ -1,7 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { controlFile } from "../../config/paths.js";
 
-/** Talks to the bot's localhost control endpoint (see adapters/bot/control.ts). */
 export interface SendRequest {
   /** SHA-256 of the browser id (see CLIENT_HEADER). */
   client: string;
@@ -52,6 +51,7 @@ async function readControl(file: string): Promise<{ port: number; token: string 
   }
 }
 
+/** Talks to the bot's localhost control endpoint (see adapters/bot/control.ts). */
 export function createBotClient(file: string = controlFile(), timeoutMs = 60_000): BotClient {
   async function call(path: string, init: RequestInit = {}): Promise<Response> {
     const ctl = await readControl(file);
@@ -70,6 +70,9 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
   async function json<T>(res: Response): Promise<T> {
     const body = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string };
     if (res.status === 503) throw new BotUnavailableError(body.error ?? "El bot no está conectado a WhatsApp.");
+    // The control server doesn't know this endpoint → an older bot is running.
+    if (res.status === 404)
+      throw new BotUnavailableError("El bot necesita reiniciarse para esta función (Ctrl+C y npm run bot).");
     if (!res.ok) throw new BotRequestError(body.error ?? `bot ${res.status}`, body.code ?? "bot_error", res.status);
     return body;
   }

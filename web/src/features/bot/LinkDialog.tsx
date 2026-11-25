@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { CheckIcon, CircleCheckIcon, ExternalIcon, Loader2Icon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { ROUTES } from "@/app/routes";
 import { formatTime } from "@/lib/time";
 import { useBotStatus, useCreateLink, useLink, useUnlink } from "./api";
 
@@ -112,6 +113,12 @@ function LinkBody({ onDone }: { onDone: () => void }) {
 
           <p className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground" role="status">
             <Loader2Icon className="size-4 animate-spin" /> Esperando tu mensaje…
+          </p>
+          <p className="text-center text-[11px] text-muted-foreground">
+            Solo te enviaremos lo que pidas. Puedes desvincularte cuando quieras.{" "}
+            <a href={ROUTES.privacy} target="_blank" rel="noreferrer" className="underline underline-offset-2">
+              Privacidad
+            </a>
           </p>
         </div>
       )}

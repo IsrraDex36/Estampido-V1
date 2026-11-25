@@ -5,7 +5,10 @@ import { ROUTES } from "@/app/routes";
 import { CheckIcon, CommunityIcon, Loader2Icon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { LinkDialog } from "@/features/bot/LinkDialog";
+import { useLinkGate } from "@/features/bot/useLinkGate";
 import { usePublish } from "@/features/community/api/mutations";
+import { ApiError } from "@/lib/api";
 import { useFavorites } from "@/features/community/store/favoritesStore";
 import { cn } from "@/lib/utils";
 import { parseTags } from "../../model/publish";
@@ -64,8 +67,9 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
   const needsRights = result.audio !== null && !soundOrigin;
   const canSubmit = category !== null && (!needsRights || owns) && !publish.isPending;
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const { gate, dialog } = useLinkGate();
+
+  const doPublish = async () => {
     if (!category) return;
     try {
       const sticker = await publish.mutateAsync({
@@ -81,9 +85,16 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
       notify.success("¡Publicado en la comunidad!", {
         action: { label: "Ver", onClick: () => navigate(ROUTES.community) },
       });
-    } catch {
-      // Error toast comes from the global MutationCache (API message); the form stays open to retry.
+    } catch (err) {
+      // Public server: publishing needs a linked WhatsApp → link, then publish automatically.
+      if (err instanceof ApiError && err.code === "link_required") gate(() => void doPublish());
+      else notify.error(err, { fallback: "No se pudo publicar." }); // form stays open to retry
     }
+  };
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault();
+    void doPublish();
   };
 
   return (
@@ -170,6 +181,7 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
         {publish.isPending && <Loader2Icon data-icon="inline-start" className="animate-spin" />}
         {publish.isPending ? "Publicando…" : "Publicar"}
       </Button>
+      <LinkDialog {...dialog} />
     </form>
   );
 }

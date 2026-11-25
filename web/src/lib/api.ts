@@ -102,7 +102,8 @@ export async function getWhatsAppStatus(signal?: AbortSignal): Promise<WhatsAppS
   }
 }
 
-const clientHeaders = () => ({ [CLIENT_HEADER]: getClientId() });
+/** Identifies this browser to the API (hashed server-side). */
+export const clientHeaders = () => ({ [CLIENT_HEADER]: getClientId() });
 
 /** Send a result to THIS browser's linked WhatsApp chat (native sound sticker). 409 not_linked if none. */
 export async function sendToWhatsApp(resultId: string): Promise<SendToWhatsAppResponse> {

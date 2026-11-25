@@ -4,12 +4,12 @@ import { join } from "node:path";
 import type { WAMessage, WASocket } from "baileys";
 import { describe, expect, it, vi } from "vitest";
 import { HELP_TEXT, isHelp } from "../../src/adapters/bot/help.js";
-import { RateLimiter } from "../../src/adapters/bot/rateLimit.js";
 import { SentIds, selfIdsOf, shouldHandle } from "../../src/adapters/bot/routing.js";
 import { StatusMessage } from "../../src/adapters/bot/status.js";
 import { formatSummary } from "../../src/adapters/bot/summary.js";
 import { cleanupTempDirs } from "../../src/adapters/bot/tempCleanup.js";
 import type { ConvertResult } from "../../src/pipeline/convert.js";
+import { RateLimiter } from "../../src/utils/rateLimit.js";
 
 const origin = { key: { id: "o1", remoteJid: "x@s.whatsapp.net" } } as WAMessage;
 

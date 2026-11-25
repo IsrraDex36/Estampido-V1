@@ -17,6 +17,8 @@ const ALIASES: Record<string, string> = {
   "/index.html": ROUTES.create,
   "/community": ROUTES.community,
   "/comunidades": ROUTES.community,
+  "/privacy": ROUTES.privacy,
+  "/terminos": ROUTES.privacy,
 };
 
 const KNOWN = new Set<string>(Object.values(ROUTES));

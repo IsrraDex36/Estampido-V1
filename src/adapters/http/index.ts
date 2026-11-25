@@ -1,14 +1,49 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
+import { communityRoot } from "../../config/paths.js";
 import { createApp } from "./app.js";
+import { CommunityRepo } from "./community/repo.js";
 import { ResultStore } from "./resultStore.js";
+import { createServerApp } from "./server.js";
+
+/**
+ * API entry.
+ * - dev (default): API only on 127.0.0.1:8787 (Vite serves the web and proxies /api)
+ * - production (SVA_MODE=production): ONE port serving web/dist + /api, per-IP
+ *   limits, security headers, «publish needs a linked WhatsApp». Still bound to
+ *   127.0.0.1: the public entry is a tunnel/reverse proxy (SVA_TRUST_PROXY).
+ */
+const production = process.env.SVA_MODE === "production";
+const flag = (v: string | undefined, def: boolean) => (v === undefined ? def : /^(1|true|yes|si|sí)$/i.test(v));
 
 const port = Number(process.env.PORT ?? 8787);
 const store = new ResultStore();
-const app = createApp({ store });
+const maxMb = Number(process.env.SVA_COMMUNITY_MAX_MB ?? (production ? 2048 : 0)) || Number.POSITIVE_INFINITY;
+const community = new CommunityRepo(communityRoot(), Date.now, maxMb * 1024 * 1024);
+const api = createApp({
+  store,
+  community,
+  publishRequiresLink: flag(process.env.SVA_PUBLISH_REQUIRES_LINK, production),
+});
+
+let fetch = api.fetch;
+if (production) {
+  const webDist = resolve(process.env.SVA_WEB_DIST ?? "web/dist");
+  if (!existsSync(resolve(webDist, "index.html"))) {
+    console.error(`Falta la web compilada en ${webDist}. Ejecuta: npm run build:web`);
+    process.exit(1);
+  }
+  fetch = createServerApp({ api, webDist, trustProxy: flag(process.env.SVA_TRUST_PROXY, true) }).fetch;
+}
 
 // Periodic cleanup of expired results.
 setInterval(() => void store.sweep(), 5 * 60 * 1000).unref();
 
-serve({ fetch: app.fetch, port, hostname: "127.0.0.1" }, ({ port }) => {
-  console.log(`sva api → http://127.0.0.1:${port}/api`);
+serve({ fetch, port, hostname: "127.0.0.1" }, ({ port }) => {
+  console.log(
+    production
+      ? `Estampido (producción) → http://127.0.0.1:${port}  · web + API · límites por IP · publicar requiere WhatsApp`
+      : `sva api → http://127.0.0.1:${port}/api`,
+  );
 });

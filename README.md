@@ -118,6 +118,21 @@ npm run cli -- convert video.mp4 --pack "Mis memes" --author Yo --emoji 😂,�
 npm run cli -- doctor
 ```
 
+### Publicarlo en internet (prueba)
+
+```bash
+brew install cloudflared      # una vez
+npm run start:public          # compila la web, arranca la API en producción + el bot + un túnel de Cloudflare
+```
+
+En la consola aparece `🌍 URL pública: https://….trycloudflare.com`: compártela. Esa URL **cambia cada vez que reinicias**.
+
+- En producción, la API sirve la web y la API desde un solo puerto. Aplica límites por IP, cabeceras de seguridad (CSP con hash, sin scripts inline), **exige WhatsApp vinculado para publicar** y pone un tope de espacio a la comunidad.
+- La API solo escucha en `127.0.0.1`: la única entrada pública es el túnel.
+- La Mac se mantiene despierta mientras corre (`caffeinate`) y cada proceso se reinicia solo si se cae.
+- Sin túnel: `npm run start` (producción local en <http://127.0.0.1:8787>).
+- ⚠️ Mientras el bot use tu número personal, quien use la web lo verá en el enlace de WhatsApp.
+
 ### Configuración del bot (`.env`)
 
 Copia [`.env.example`](.env.example) a `.env`:

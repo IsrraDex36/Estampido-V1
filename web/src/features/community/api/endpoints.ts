@@ -5,7 +5,7 @@ import type {
   CommunitySticker,
   PublishRequest,
 } from "@contract";
-import { readJson } from "@/lib/api";
+import { clientHeaders, readJson } from "@/lib/api";
 import type { CommunityFilters } from "../store/filters";
 
 const BASE = "/api/community";
@@ -55,7 +55,7 @@ export async function publishSticker(req: PublishRequest): Promise<CommunityStic
   return readJson(
     await fetch(`${BASE}/stickers`, {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers: { "content-type": "application/json", ...clientHeaders() },
       body: JSON.stringify(req),
     }),
   );

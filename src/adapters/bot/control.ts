@@ -8,9 +8,9 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { STICKER_LIMITS } from "../../config/limits.js";
 import { controlFile, RESULTS_ROOT } from "../../config/paths.js";
+import { RateLimiter } from "../../utils/rateLimit.js";
 import { jidDigits } from "./command.js";
 import { isClientHash, type LinkStore, maskJid } from "./links.js";
-import { RateLimiter } from "./rateLimit.js";
 import { sendSoundSticker } from "./soundSticker.js";
 
 /**
