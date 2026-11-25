@@ -125,6 +125,28 @@
   body {
     @apply bg-background text-foreground;
     }
+  /* Tailwind v4 no longer sets pointer on buttons: restore it for everything clickable. */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  [role="menuitemradio"],
+  [role="option"],
+  [role="switch"],
+  [role="slider"],
+  a[href],
+  label[for],
+  select,
+  summary,
+  input[type="file"],
+  input[type="checkbox"],
+  input[type="radio"] {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
   html {
     @apply font-sans;
     }

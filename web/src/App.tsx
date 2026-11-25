@@ -1,3 +1,4 @@
+import { AppFooter } from "@/app/AppFooter";
 import { AppHeader } from "@/app/AppHeader";
 import { Providers } from "@/app/providers";
 import { PixelBackground } from "@/components/pixel/PixelBackground";
@@ -11,9 +12,10 @@ function Shell() {
     <div className="relative isolate min-h-svh overflow-x-clip bg-background text-foreground">
       <PixelBackground />
       <AppHeader />
-      <main className="mx-auto w-full max-w-[1760px] px-5 pb-16 sm:px-8 2xl:px-12">
+      <main className="mx-auto w-full max-w-[1760px] px-5 sm:px-8 2xl:px-12">
         <ConverterPage />
       </main>
+      <AppFooter />
     </div>
   );
 }
