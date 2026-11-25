@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { formatTime } from "@/lib/time";
 import { useElapsed } from "../../hooks/useElapsed";
 import { useConverterStore } from "../../store/converterStore";
-import { Waveform } from "../ui/Waveform";
+import { Mascot } from "@/components/pixel/Mascot";
 import { Stage } from "./Stage";
 
 /** Interactive loader: real upload %, real elapsed time, cancel. */
@@ -15,7 +15,7 @@ export function ProcessingStage() {
   return (
     <Stage>
       <div className="flex w-full max-w-72 flex-col items-center gap-6 px-6 text-center" aria-live="polite">
-        <Waveform className="text-foreground/80" />
+        <Mascot mood="singing" size={104} />
         {uploading ? (
           <div className="w-full space-y-3">
             <p className="display text-5xl tabular-nums">{percent}%</p>

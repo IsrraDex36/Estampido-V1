@@ -2,6 +2,7 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/geist";
+@import "@fontsource/silkscreen";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -244,4 +245,83 @@
   .shimmer::after {
     animation: none;
   }
+}
+
+/* ── Retro layer: 80s pixel accents (decorative only) ── */
+
+:root {
+  --retro-a: oklch(0.7 0.2 350);   /* magenta */
+  --retro-b: oklch(0.72 0.13 230); /* cyan */
+  --dither: oklch(0.21 0.004 286 / 0.06);
+  --grid-line: oklch(0.7 0.2 350 / 0.09);
+}
+.dark {
+  --dither: oklch(1 0 0 / 0.05);
+  --grid-line: oklch(0.7 0.2 350 / 0.22);
+}
+
+@theme inline {
+  --font-pixel: "Silkscreen", ui-monospace, monospace;
+  --color-retro-a: var(--retro-a);
+  --color-retro-b: var(--retro-b);
+}
+
+/* 4px checker dither (2 of 16 px lit) — crisp at any zoom. */
+@utility pixel-dither {
+  background: repeating-conic-gradient(var(--dither) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent 70%);
+  mask-image: linear-gradient(to bottom, black, transparent 70%);
+}
+
+/* Synthwave perspective grid fading under the hero. */
+@utility synth-grid {
+  background-image:
+    linear-gradient(var(--grid-line) 2px, transparent 2px),
+    linear-gradient(90deg, var(--grid-line) 2px, transparent 2px);
+  background-size: 48px 48px;
+  transform: perspective(520px) rotateX(58deg) translateY(-30%) scale(2.2);
+  transform-origin: top center;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, black 35%, transparent 95%);
+  mask-image: linear-gradient(to bottom, transparent, black 35%, transparent 95%);
+}
+
+@utility font-pixel {
+  font-family: var(--font-pixel);
+  letter-spacing: 0.04em;
+}
+
+/* 8-bit motion: stepped, not smooth. */
+@keyframes pixel-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6%); }
+}
+@keyframes pixel-blink {
+  0%, 92%, 100% { opacity: 1; }
+  94%, 98% { opacity: 0; }
+}
+@keyframes pixel-wave {
+  0%, 100% { opacity: 0; }
+  30%, 70% { opacity: 1; }
+}
+@keyframes pixel-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+@utility pixel-bob {
+  animation: pixel-bob 1.4s steps(2, jump-none) infinite;
+}
+@utility pixel-blink {
+  animation: pixel-blink 4.2s steps(1, end) infinite;
+}
+@utility pixel-wave {
+  animation: pixel-wave 0.9s steps(2, jump-none) infinite;
+}
+.pixel-wave-2 { animation-delay: 0.15s; }
+.pixel-wave-3 { animation-delay: 0.3s; }
+@utility pixel-float {
+  animation: pixel-float 6s steps(4, jump-none) infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pixel-bob, .pixel-blink, .pixel-float, .pixel-wave { animation: none; }
+  .pixel-wave { opacity: 1; }
 }
