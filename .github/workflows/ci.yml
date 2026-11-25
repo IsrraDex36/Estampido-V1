@@ -84,6 +84,10 @@ jobs:
           set -e
           curl -fsS http://127.0.0.1:8787/ | grep -q '<div id="root">'
           curl -fsS http://127.0.0.1:8787/comunidad | grep -q '<div id="root">'
+          curl -fsS http://127.0.0.1:8787/ | grep -q 'rel="canonical"'
+          curl -fsS http://127.0.0.1:8787/robots.txt | grep -q 'Sitemap:'
+          curl -fsS http://127.0.0.1:8787/sitemap.xml | grep -q '<urlset'
+          curl -fsSI http://127.0.0.1:8787/favicon.ico | grep -qi 'image/x-icon'
           curl -fsSI http://127.0.0.1:8787/ | grep -qi 'content-security-policy'
           curl -fsSI http://127.0.0.1:8787/ | grep -qi 'x-frame-options: DENY'
           test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8787/api/nope)" = "404"

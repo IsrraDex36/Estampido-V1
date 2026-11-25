@@ -42,7 +42,14 @@ if (production) {
   const { limits, ignored } = parseLimits(process.env.SVA_LIMITS);
   if (ignored.length) console.warn(`SVA_LIMITS: ignoro ${ignored.join(", ")} (formato: nombre=N/10m)`);
   if (limits && Object.keys(limits).length) console.log(`Límites personalizados: ${Object.keys(limits).join(", ")}`);
-  fetch = createServerApp({ api, webDist, trustProxy: flag(process.env.SVA_TRUST_PROXY, true), limits }).fetch;
+  fetch = createServerApp({
+    api,
+    webDist,
+    trustProxy: flag(process.env.SVA_TRUST_PROXY, true),
+    limits,
+    publicUrl: process.env.SVA_PUBLIC_URL,
+    googleVerification: process.env.SVA_GOOGLE_SITE_VERIFICATION,
+  }).fetch;
 }
 
 // Periodic cleanup of expired results.

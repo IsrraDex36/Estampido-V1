@@ -32,12 +32,14 @@ SVA_PACK=Estampido
 SVA_RATE_PER_MIN=6
 ```
 
-| Variable                  | Para qué                                                                                                       |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| `SVA_PAIRING_NUMBER`      | Número del bot (con código de país, sin `+`). Muestra un **código** de vinculación en los logs en lugar del QR |
-| `SVA_ALLOWED`             | Quién puede usar `/saudio` desde el chat (los códigos de vinculación funcionan para todos)                     |
-| `SVA_PACK` / `SVA_AUTHOR` | Metadatos por defecto de los stickers                                                                          |
-| `SVA_RATE_PER_MIN`        | Límite de `/saudio` por persona                                                                                |
+| Variable                       | Para qué                                                                                                                                                             |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SVA_PAIRING_NUMBER`           | Número del bot (con código de país, sin `+`). Muestra un **código** de vinculación en los logs en lugar del QR                                                       |
+| `SVA_ALLOWED`                  | Quién puede usar `/saudio` desde el chat (los códigos de vinculación funcionan para todos)                                                                           |
+| `SVA_PACK` / `SVA_AUTHOR`      | Metadatos por defecto de los stickers                                                                                                                                |
+| `SVA_RATE_PER_MIN`             | Límite de `/saudio` por persona                                                                                                                                      |
+| `SVA_PUBLIC_URL`               | Dominio público canónico (p. ej. `https://estampido.mx`) para Google: canonical, Open Graph, `sitemap.xml` y `robots.txt`. Sin ella se usa el dominio de la petición |
+| `SVA_GOOGLE_SITE_VERIFICATION` | Código de verificación de Google Search Console (método «etiqueta HTML», solo el valor de `content`)                                                                 |
 
 Ya vienen fijadas en la imagen (no hace falta tocarlas): `SVA_MODE=production`, `SVA_HOST=0.0.0.0`, `SVA_TRUST_PROXY=1` y las rutas en `/data` (`SVA_AUTH_DIR=/data/auth`, `SVA_DATA_DIR=/data`, `SVA_COMMUNITY_DIR=/data/community`). Railway pone `PORT` solo.
 
@@ -119,3 +121,11 @@ SVA_LIMITS=convert=100/5m,send=200/10m,api=3000/10m
 | Costo             | Plan Hobby, unos $5 al mes con uso incluido; revisa _Usage_                                                                                                                |
 
 Durante cada redespliegue hay unos segundos sin servicio: un volumen solo puede montarse en un despliegue a la vez, así que nunca corren dos bots juntos.
+
+## Google (SEO)
+
+El servidor genera `/sitemap.xml` y `/robots.txt` con el dominio real, y pone en cada página su título, descripción, canonical, Open Graph (vista previa en WhatsApp/redes, imagen `og-image.png`) y datos estructurados (`WebApplication`). Para darla de alta en Google:
+
+1. Fija `SVA_PUBLIC_URL` con tu dominio definitivo.
+2. En [Google Search Console](https://search.google.com/search-console) agrega la propiedad (prefijo de URL) → método **Etiqueta HTML** → copia solo el valor de `content` en `SVA_GOOGLE_SITE_VERIFICATION` → redeploy → **Verificar**.
+3. En Search Console → _Sitemaps_ → envía `sitemap.xml`.

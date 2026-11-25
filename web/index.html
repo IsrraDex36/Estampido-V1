@@ -2,9 +2,24 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Estampido · Haz ruido en el chat</title>
+    <!--seo:start-->
+    <title>Estampido · Stickers de WhatsApp con sonido</title>
+    <meta
+      name="description"
+      content="Convierte tus videos, GIFs e imágenes en stickers de WhatsApp que suenan al tocarlos. Recorta el tramo, elige el sonido, el encuadre y el fondo, y mándalo a tu WhatsApp. Gratis."
+    />
+    <!--seo:end-->
+    <meta name="application-name" content="Estampido" />
+    <meta name="apple-mobile-web-app-title" content="Estampido" />
+    <meta property="og:site_name" content="Estampido" />
+    <meta property="og:locale" content="es_MX" />
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b0b0b" media="(prefers-color-scheme: dark)" />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
     <script>
       // Apply the saved/system theme before first paint (no flash).
       try {
@@ -15,6 +30,7 @@
     </script>
   </head>
   <body>
+    <noscript>Estampido necesita JavaScript para crear stickers de WhatsApp con sonido.</noscript>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

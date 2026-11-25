@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createReadStream, readFileSync } from "node:fs";
+import { createReadStream, readFileSync, statSync } from "node:fs";
 import { stat } from "node:fs/promises";
 import { extname, join, normalize, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
@@ -7,6 +7,7 @@ import { getConnInfo } from "@hono/node-server/conninfo";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { RateLimiter } from "../../utils/rateLimit.js";
 import type { ApiErrorBody } from "./contract.js";
+import { robotsTxt, seoHead, sitemapXml, siteOrigin, withSeo } from "./seo.js";
 
 /**
  * Production server: one port for everything.
@@ -21,6 +22,10 @@ export interface ServerOptions {
   webDist?: string | null;
   trustProxy?: boolean;
   limits?: Partial<Record<LimitName, { max: number; windowMs: number }>>;
+  /** Canonical public origin for SEO (SVA_PUBLIC_URL); default: the request's host. */
+  publicUrl?: string;
+  /** Google Search Console HTML-tag token (SVA_GOOGLE_SITE_VERIFICATION). */
+  googleVerification?: string;
 }
 
 const MIN = 60_000;
@@ -104,10 +109,14 @@ function rateLimits(opts: ServerOptions): MiddlewareHandler {
   };
 }
 
-/** CSP hashes for the inline scripts in index.html (the no-flash theme script). */
+/**
+ * CSP hashes for the inline scripts in index.html (the no-flash theme script).
+ * JSON-LD data blocks are never executed, so they need no hash (and they vary per page).
+ */
 export function inlineScriptHashes(html: string): string[] {
-  return [...html.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)]
-    .map((m) => m[1] ?? "")
+  return [...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>([\s\S]*?)<\/script>/gi)]
+    .filter((m) => !/application\/ld\+json/i.test(m[1] ?? ""))
+    .map((m) => m[2] ?? "")
     .filter((body) => body.trim())
     .map((body) => `'sha256-${createHash("sha256").update(body).digest("base64")}'`);
 }
@@ -197,6 +206,21 @@ export function createServerApp(opts: ServerOptions): Hono {
   app.route("/", opts.api);
 
   if (root && indexHtml) {
+    const origin = (c: Context) => siteOrigin(c, { publicUrl: opts.publicUrl, trustProxy: opts.trustProxy ?? false });
+    const lastmod = statSync(indexHtml).mtime.toISOString().slice(0, 10); // = deploy/build date
+    app.get("/robots.txt", (c) =>
+      c.body(robotsTxt(origin(c)), 200, {
+        "Content-Type": MIME[".txt"] as string,
+        "Cache-Control": "public, max-age=3600",
+      }),
+    );
+    app.get("/sitemap.xml", (c) =>
+      c.body(sitemapXml(origin(c), lastmod), 200, {
+        "Content-Type": "application/xml; charset=utf-8",
+        "Cache-Control": "public, max-age=3600",
+      }),
+    );
+
     app.on(["GET", "HEAD"], "*", async (c) => {
       const path = c.req.path;
       if (path.startsWith("/api/")) return c.notFound();
@@ -208,8 +232,10 @@ export function createServerApp(opts: ServerOptions): Hono {
         if (res) return res;
         if (extname(path)) return c.text("Not found", 404); // a missing asset is a real 404
       }
-      // SPA fallback: every route (/, /comunidad, /privacidad, unknown → app's 404 page).
-      return (await sendFile(c, indexHtml, "no-cache")) ?? c.text("Not found", 404);
+      // SPA fallback: every route (/, /comunidad, /privacidad, unknown → app's 404 page),
+      // with that route's title/description/canonical/preview tags for crawlers.
+      const page = withSeo(html, seoHead(origin(c), path, opts.googleVerification));
+      return c.body(page, 200, { "Content-Type": MIME[".html"] as string, "Cache-Control": "no-cache" });
     });
   }
   return app;

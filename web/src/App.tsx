@@ -9,6 +9,7 @@ import { Providers } from "@/app/providers";
 import { RouteErrorBoundary } from "@/app/RouteErrorBoundary";
 import { ROUTES } from "@/app/routes";
 import { useCanonicalUrl } from "@/app/useCanonicalUrl";
+import { useDocumentMeta } from "@/app/useDocumentMeta";
 import { useScrollTopOnNavigate } from "@/app/useScrollTopOnNavigate";
 import { PixelBackground } from "@/components/pixel/PixelBackground";
 import { CommunitySkeleton } from "@/features/community/components/CommunitySkeleton";
@@ -22,6 +23,7 @@ const CommunityPage = lazy(loadCommunityPage);
 
 function Shell() {
   useCanonicalUrl();
+  useDocumentMeta();
   useScrollTopOnNavigate();
   return (
     // isolate: own stacking context so the -z-10 backdrop sits above our bg.

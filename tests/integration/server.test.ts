@@ -18,7 +18,7 @@ beforeAll(async () => {
   await mkdir(join(dist, "assets"));
   await writeFile(
     join(dist, "index.html"),
-    `<!doctype html><html><head><script>${THEME}</script></head><body><div id="root"></div><script type="module" src="/assets/app-abc.js"></script></body></html>`,
+    `<!doctype html><html><head><!--seo:start--><title>dev</title><!--seo:end--><script>${THEME}</script></head><body><div id="root"></div><script type="module" src="/assets/app-abc.js"></script></body></html>`,
   );
   await writeFile(join(dist, "assets", "app-abc.js"), "console.log(1)");
   await writeFile(join(dist, "favicon.svg"), "<svg/>");
@@ -36,6 +36,57 @@ const api = () => {
 const ip = (addr: string) => ({ "cf-connecting-ip": addr });
 
 describe("production server", () => {
+  it("SEO: per-route head with absolute URLs from the proxy host; robots.txt + sitemap.xml", async () => {
+    const app = createServerApp({ api: api(), webDist: dist, trustProxy: true, googleVerification: "abcDEF123_-xyz" });
+    const h = { "x-forwarded-proto": "https", "x-forwarded-host": "estampido.example" };
+    const home = await (await app.request("/", { headers: h })).text();
+    expect(home).toContain("<title>Estampido · Stickers de WhatsApp con sonido</title>");
+    expect(home).not.toContain("<title>dev</title>");
+    expect(home).toContain('<link rel="canonical" href="https://estampido.example/" />');
+    expect(home).toContain('<meta property="og:image" content="https://estampido.example/og-image.png" />');
+    expect(home).toContain('<meta name="google-site-verification" content="abcDEF123_-xyz" />');
+    expect(home).toContain('"@type":"WebApplication"');
+    const community = await (await app.request("/comunidad", { headers: h })).text();
+    expect(community).toContain("<title>Comunidad · Sonidos y stickers con sonido · Estampido</title>");
+    expect(community).toContain('href="https://estampido.example/comunidad"');
+    const missing = await (await app.request("/no/existe", { headers: h })).text();
+    expect(missing).toContain('<meta name="robots" content="noindex" />');
+    expect(missing).not.toContain('rel="canonical"');
+
+    const robots = await app.request("/robots.txt", { headers: h });
+    expect(robots.headers.get("content-type")).toMatch(/text\/plain/);
+    expect(await robots.text()).toBe(
+      "User-agent: *\nAllow: /\nDisallow: /api/\nDisallow: /admin\n\nSitemap: https://estampido.example/sitemap.xml\n",
+    );
+    const sitemap = await app.request("/sitemap.xml", { headers: h });
+    expect(sitemap.headers.get("content-type")).toMatch(/application\/xml/);
+    const xml = await sitemap.text();
+    for (const loc of [
+      "https://estampido.example/",
+      "https://estampido.example/comunidad",
+      "https://estampido.example/privacidad",
+    ]) {
+      expect(xml).toContain(`<loc>${loc}</loc>`);
+    }
+    expect(xml).not.toContain("/admin");
+  });
+
+  it("SEO: SVA_PUBLIC_URL wins; forged Host headers can't inject markup", async () => {
+    const pinned = createServerApp({ api: api(), webDist: dist, trustProxy: true, publicUrl: "https://estampido.mx/" });
+    const html = await (await pinned.request("/", { headers: { "x-forwarded-host": "evil.example" } })).text();
+    expect(html).toContain('href="https://estampido.mx/"');
+    expect(html).not.toContain("evil.example");
+
+    const open = createServerApp({ api: api(), webDist: dist, trustProxy: true });
+    const forged = await (await open.request("/", { headers: { "x-forwarded-host": '"><script>x</script>' } })).text();
+    expect(forged).not.toContain("<script>x</script>");
+    // Untrusted proxy: X-Forwarded-* ignored entirely.
+    const direct = createServerApp({ api: api(), webDist: dist, trustProxy: false });
+    expect(
+      await (await direct.request("/robots.txt", { headers: { "x-forwarded-host": "evil.example" } })).text(),
+    ).not.toContain("evil.example");
+  });
+
   it("serves the SPA: assets cached forever, routes → index.html (no-cache), missing asset 404", async () => {
     const app = createServerApp({ api: api(), webDist: dist, trustProxy: true });
     const asset = await app.request("/assets/app-abc.js");
