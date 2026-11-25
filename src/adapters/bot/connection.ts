@@ -89,7 +89,17 @@ export async function connect(opts: ConnectOptions): Promise<void> {
             showQr(qr, "Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:");
           });
       }
-    } else if (qr) showQr(qr, "Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:");
+    } else if (qr) {
+      showQr(qr, "Escanea con WhatsApp → Dispositivos vinculados → Vincular dispositivo:");
+      // No terminal (server logs): the QR is usually unscannable there — say how to get a code instead.
+      if (!process.stdout.isTTY) {
+        console.log(
+          opts.pairingNumber
+            ? `⚠️ SVA_PAIRING_NUMBER="${opts.pairingNumber}" no es un número válido (código de país + número, solo dígitos). Uso QR.`
+            : "💡 ¿En un servidor? Define SVA_PAIRING_NUMBER=<tu número con código de país> para vincular con un código en vez de este QR.",
+        );
+      }
+    }
     if (connection === "open") {
       console.log(`✔ Conectado como ${sock.user?.id ?? "?"}`);
       onReady(sock);
