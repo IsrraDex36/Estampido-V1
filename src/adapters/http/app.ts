@@ -1,4 +1,4 @@
-import { createHash, timingSafeEqual } from "node:crypto";
+import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -365,11 +365,12 @@ export function createApp(deps: AppDeps = {}): Hono {
     if (!(await stat(mp4Path).catch(() => null))) {
       let build = mp4Builds.get(id);
       if (!build) {
+        // Registered synchronously (no await before the set): concurrent requests share one build.
         const oggPath = store.resolve(id, "sticker.ogg") as string;
-        const hasAudio = Boolean(await stat(oggPath).catch(() => null));
-        const tmp = `${mp4Path}.part.mp4`;
+        const tmp = `${mp4Path}.${randomUUID()}.part.mp4`;
         build = jobs
           .run(async () => {
+            const hasAudio = Boolean(await stat(oggPath).catch(() => null));
             await buildWhatsAppMp4({
               webp: webpPath,
               animated: inspectWebp(webp).animated,

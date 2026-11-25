@@ -50,7 +50,9 @@ describe("HTTP end-to-end (real ffmpeg)", () => {
     const body = (await (await app.request("/api/convert", { method: "POST", body: fd })).json()) as ConvertResponse;
 
     const url = `/api/results/${body.id}/whatsapp.mp4`;
-    const [a, b] = await Promise.all([app.request(url), app.request(url)]); // concurrent → one build
+    // Concurrent requests share one build (regression: a second build raced on the same temp file → 422).
+    const [a, b, c] = await Promise.all([app.request(url), app.request(url), app.request(url)]);
+    expect(c.status).toBe(200);
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
     expect(a.headers.get("content-type")).toBe("video/mp4");
