@@ -175,3 +175,43 @@ describe("community API: lookups", () => {
     expect(stats.sounds).toBeLessThanOrEqual(stats.stickers);
   });
 });
+
+describe("API: junk URLs never break it", () => {
+  it.each([
+    "/api/nope",
+    "/api/community/nope",
+    "/api/community/stickers/../../etc/passwd",
+    "/api/results/not-a-uuid/sticker.webp",
+    "/api/community/files/<script>/sticker.webp",
+  ])("%s → JSON error, not a crash", async (path) => {
+    const res = await app.request(path);
+    expect(res.status).toBeGreaterThanOrEqual(400);
+    expect(res.status).toBeLessThan(500);
+    expect(res.headers.get("content-type")).toMatch(/json/);
+    expect(((await res.json()) as { error: { code: string } }).error.code).toBeTruthy();
+  });
+
+  it.each([
+    "?sort=<script>",
+    "?limit=-5",
+    "?limit=99999",
+    "?category=../../x",
+    `?q=${"a".repeat(500)}`,
+    "?cursor=%E0%A4%A",
+    "?period=forever",
+  ])("feed query %s → 400 JSON", async (q) => {
+    const res = await app.request(`/api/community/stickers${q}`);
+    expect(res.status).toBe(400);
+    expect(res.headers.get("content-type")).toMatch(/json/);
+  });
+
+  it("unknown params are ignored; malformed JSON body → 400", async () => {
+    expect((await app.request("/api/community/stickers?utm_source=x&foo=bar")).status).toBe(200);
+    const bad = await app.request("/api/community/stickers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{nope",
+    });
+    expect(bad.status).toBe(400);
+  });
+});

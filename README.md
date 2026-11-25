@@ -47,6 +47,12 @@ En `/comunidad` (pestaña **Comunidad** del encabezado) los stickers que publica
   - Scroll infinito, con un botón «Cargar más» de respaldo.
   - Skeletons mientras carga.
   - Los filtros viven en la URL (`?orden=top&cat=memes&q=gato`), así que puedes compartir o recargar una vista filtrada.
+  - Al pasar el mouse por «Comunidad» se precargan el código y los datos: al hacer clic aparece al instante.
+- **URLs a prueba de todo**:
+  - Mayúsculas, barras de más y alias (`/crear`, `/community`) llevan a la URL correcta.
+  - Los parámetros desconocidos o inválidos se descartan sin romper nada.
+  - Las rutas que no existen muestran un 404.
+  - Si una página falla, aparece un aviso con «Reintentar» en lugar de una pantalla en blanco.
 - **Top de la semana** (podio) y **Sonidos virales**. Toca cualquier sticker o sonido para escucharlo: nunca se reproduce solo y suena uno a la vez.
 - **Favoritos**: guarda stickers y sonidos con el marcador. Los ves en «Tu espacio» (Guardados, Sonidos, Publicados); se guardan en este dispositivo.
 - Los datos se guardan en `.data/community` (persistente y fuera de git; otra ruta con `SVA_COMMUNITY_DIR`). Todavía no hay cuentas ni votos. El reto semanal, los packs y los creadores siguen como «Pronto».

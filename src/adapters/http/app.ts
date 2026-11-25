@@ -212,5 +212,12 @@ export function createApp(deps: AppDeps = {}): Hono {
     });
   });
 
+  // Uniform JSON errors: unknown endpoints and unexpected failures never answer HTML/text.
+  app.notFound((c) => c.json(fail("not_found", "Ruta de la API no encontrada."), 404));
+  app.onError((err, c) => {
+    console.error("[api]", err);
+    return c.json(fail("internal", "Error interno del servidor."), 500);
+  });
+
   return app;
 }

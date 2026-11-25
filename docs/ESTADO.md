@@ -46,14 +46,48 @@ web/src/features/<feature>/api/
 
 ## 4. Fases
 
-| Fase                         | Contenido                                                                                                                                                                                                                              | Estado    |
-| ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
-| **0. Base**                  | `createQueryClient` (valores por defecto, `QueryCache`/`MutationCache` globales, tipos `Register` para `meta` y errores), `notify`, Devtools solo en desarrollo (carga diferida), utilidades de test                                   | ✅        |
-| **1. Lecturas del servidor** | Comunidad con `queryOptions`/`infiniteQueryOptions` y keys centralizadas; **estado del bot** migrado de zustand + `setInterval` a `useQuery` con `refetchInterval` (se pausa con la pestaña oculta y comparte caché entre componentes) | ✅        |
-| **2. Mutaciones**            | Publicar, enviar a WhatsApp y contar uso de sonido con `useMutation`: `mutationKey`, invalidaciones (`community`, `bot`) y avisos por `meta`                                                                                           | ✅        |
-| **3. Avisos globales**       | Todos los `toast` directos pasan a `notify`; los errores de red llegan por las cachés globales                                                                                                                                         | ✅        |
-| **4. Tests**                 | Unitarios de keys, `notify` y errores globales (QueryClient nuevo por test, `retry: false`). Hooks con `renderHook` en happy-dom y `fetch` simulado. Las e2e cubren el flujo real                                                      | ✅        |
-| **5. Siguiente**             | Prefetch del feed al pasar por «Comunidad», actualizaciones optimistas de favoritos cuando haya cuentas (fase 1 de comunidad), `useSuspenseQuery` + límites de error si se adopta Suspense                                             | Pendiente |
+| Fase                            | Contenido                                                                                                                                                                                                                              | Estado    |
+| ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| **0. Base**                     | `createQueryClient` (valores por defecto, `QueryCache`/`MutationCache` globales, tipos `Register` para `meta` y errores), `notify`, Devtools solo en desarrollo (carga diferida), utilidades de test                                   | ✅        |
+| **1. Lecturas del servidor**    | Comunidad con `queryOptions`/`infiniteQueryOptions` y keys centralizadas; **estado del bot** migrado de zustand + `setInterval` a `useQuery` con `refetchInterval` (se pausa con la pestaña oculta y comparte caché entre componentes) | ✅        |
+| **2. Mutaciones**               | Publicar, enviar a WhatsApp y contar uso de sonido con `useMutation`: `mutationKey`, invalidaciones (`community`, `bot`) y avisos por `meta`                                                                                           | ✅        |
+| **3. Avisos globales**          | Todos los `toast` directos pasan a `notify`; los errores de red llegan por las cachés globales                                                                                                                                         | ✅        |
+| **4. Tests**                    | Unitarios de keys, `notify` y errores globales (QueryClient nuevo por test, `retry: false`). Hooks con `renderHook` en happy-dom y `fetch` simulado. Las e2e cubren el flujo real                                                      | ✅        |
+| **5. Prefetch, URLs y errores** | Prefetch por intención en «Comunidad» (código + datos), URLs canónicas, query validada por ruta, error boundary por ruta y errores JSON uniformes en la API (ver §6)                                                                   | ✅        |
+| **6. Siguiente**                | Actualizaciones optimistas de favoritos cuando haya cuentas (fase 1 de comunidad); `useSuspenseQuery` si se adopta Suspense                                                                                                            | Pendiente |
+
+## 6. Prefetch, URLs y errores (fase 5)
+
+**Prefetch por intención** (`features/community/prefetch.ts`). Al pasar el mouse, enfocar o tocar el enlace «Comunidad» se cargan:
+
+- el chunk de la página, con el mismo `import()` que la ruta, así que es un solo chunk;
+- la primera página del feed con los filtros del enlace;
+- el ranking, los sonidos virales y las cifras.
+
+Respeta `staleTime`: volver a pasar el mouse no repite peticiones. Al hacer clic la página se pinta desde la caché, sin skeleton.
+
+**URLs canónicas** (`app/url.ts`, funciones puras e idempotentes, así que no hay bucles de redirección). `useCanonicalUrl` reemplaza la barra de direcciones (`replace`, sin nueva entrada en el historial):
+
+| Entrada                                       | Resultado                                                                     |
+| --------------------------------------------- | ----------------------------------------------------------------------------- |
+| `/Comunidad/`, `//comunidad///`, `/community` | `/comunidad`                                                                  |
+| `/crear`, `/inicio`, `/index.html`            | `/`                                                                           |
+| `/comunidad?orden=top&utm_source=x&cat=memes` | `/comunidad?orden=top&cat=memes` (solo parámetros válidos, en orden canónico) |
+| `/comunidad?orden=<script>&cat=../../etc`     | `/comunidad` (los valores inválidos vuelven al predeterminado)                |
+| `/comunidad?q=%E0%A4%A` (codificación rota)   | no falla: `?q=%EF%BF%BD%25A`                                                  |
+| `/?sonido=../../x`                            | `/` y **un aviso** («enlace no válido»); nunca llega a la API                 |
+| `/?sonido=<UUID EN MAYÚSCULAS>`               | `/?sonido=<uuid>`                                                             |
+| `/nada?x=1`                                   | 404 con «Ir a crear», sin parámetros                                          |
+
+Las URLs muy largas se recortan (2048 caracteres) y la búsqueda (`q`) a 80.
+
+**Errores por ruta** (`RouteErrorBoundary`):
+
+- Si una página falla, se muestra un aviso con «Reintentar» e «Ir a crear» en lugar de dejar la app en blanco.
+- Si lo que falla es la descarga del código de la página (sin conexión o un despliegue nuevo), el mensaje es otro y «Reintentar» recarga la página.
+- El boundary se reinicia al cambiar de ruta (`key={location}`).
+
+**API**: rutas desconocidas → `404 { error: { code: "not_found" } }`; fallos inesperados → `500` JSON; query inválida → `400` JSON (validada con zod). Nunca responde texto ni HTML.
 
 ## 5. Valores por defecto elegidos
 

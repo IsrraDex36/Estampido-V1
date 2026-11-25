@@ -1,7 +1,8 @@
 import type { CommunitySound } from "@contract";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSearch } from "wouter";
-import { SOUND_PARAM } from "@/app/routes";
+import { ROUTES, SOUND_PARAM } from "@/app/routes";
+import { canonicalSearch } from "@/app/url";
 import { useQueryClient } from "@tanstack/react-query";
 import { soundAsFile } from "@/features/community/api/endpoints";
 import { useRecordSoundUse } from "@/features/community/api/mutations";
@@ -56,7 +57,9 @@ export function useCommunitySoundLink(): void {
   useEffect(() => () => inflight.current?.abort(), []);
 
   useEffect(() => {
-    const id = new URLSearchParams(search).get(SOUND_PARAM);
+    // Only well-formed ids reach the API; invalid ones are reported once by useCanonicalUrl.
+    const clean = canonicalSearch(ROUTES.create, search).search;
+    const id = new URLSearchParams(clean).get(SOUND_PARAM);
     if (!id) return;
     // Consume the param right away so a reload doesn't re-apply it.
     const rest = new URLSearchParams(search);
