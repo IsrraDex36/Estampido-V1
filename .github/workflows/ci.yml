@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Lint · types · tests · e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+
+      # Recent static FFmpeg with libwebp/libwebp_anim, libopus, libx264 and the
+      # animated-WebP decoder the tests rely on (distro ffmpeg is too old).
+      - name: Install FFmpeg
+        run: |
+          curl -fsSL https://johnvansickle.com/ffmpeg/builds/ffmpeg-git-amd64-static.tar.xz -o /tmp/ffmpeg.tar.xz
+          sudo mkdir -p /opt/ffmpeg
+          sudo tar -xJf /tmp/ffmpeg.tar.xz -C /opt/ffmpeg --strip-components=1
+          echo "FFMPEG_PATH=/opt/ffmpeg/ffmpeg" >> "$GITHUB_ENV"
+          echo "FFPROBE_PATH=/opt/ffmpeg/ffprobe" >> "$GITHUB_ENV"
+
+      - name: Install webpmux (optional cross-check in tests)
+        run: sudo apt-get update && sudo apt-get install -y webp
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm ci --prefix web
+
+      - run: npm run check-deps
+      - name: Lint (API/core + web)
+        run: |
+          npm run lint
+          npm --prefix web run lint
+      - run: npm run typecheck
+      - name: Unit + integration tests
+        run: npm test
+      - name: Build web
+        run: npm --prefix web run build
+      - name: Browser end-to-end tests
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npx vitest run --config vitest.e2e.config.ts

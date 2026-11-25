@@ -15,6 +15,7 @@ Proyecto para crear **stickers de WhatsApp con sonido** a partir de video, GIF o
 npm install
 npm run check-deps   # verifica ffmpeg/ffprobe + encoders
 npm test
+npm run test:e2e   # navegador real (Chrome/Brave/Chromium; CHROME_PATH para otro)
 
 # CLI
 npm run cli -- convert video.mp4 -s 2 -d 4 -o out/      # sticker + audio del video

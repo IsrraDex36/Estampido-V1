@@ -177,6 +177,11 @@ sticker-video-audio/
 - [x] Bot: `/cancelar` detiene también los trabajos en cola o en curso; `/ayuda`
 - [x] Bot: límite por usuario (`SVA_RATE_PER_MIN`, 6/min por defecto); `SVA_SELF_CHAT_ONLY`; al arrancar borra las carpetas `sva-bot-*` huérfanas
 
+### Fase 5f — Pruebas de navegador + CI ✅
+
+- [x] Pruebas e2e en el repo (`npm run test:e2e`): API real + web compilada + Chrome sin ventana. Cubren carga sin errores de consola, que no haya scroll horizontal en 390/1440/2560 px, flujo completo con conversión real, persistencia del tema y la interacción con Pum
+- [x] GitHub Actions (`.github/workflows/ci.yml`): lint, typecheck, tests, build y e2e con FFmpeg estático reciente. Pendiente de verificar en el primer push
+
 ### Fase 6 — Pulido
 
 - [ ] Dockerfile con FFmpeg

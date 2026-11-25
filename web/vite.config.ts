@@ -13,6 +13,7 @@ export default defineConfig({
   },
   server: {
     // API (Hono) runs on :8787 — see ../src/adapters/http
-    proxy: { "/api": "http://127.0.0.1:8787" },
+    // API port is configurable so e2e tests can run beside a dev server.
+    proxy: { "/api": `http://127.0.0.1:${process.env.SVA_API_PORT ?? 8787}` },
   },
 });
