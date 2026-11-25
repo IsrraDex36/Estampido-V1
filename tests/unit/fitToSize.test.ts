@@ -2,7 +2,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type EncodeAttempt, fitToSize, LONG_LADDER, ladderFor } from "../../src/core/optimize/fitToSize.js";
+import { type EncodeAttempt, fitToSize } from "../../src/core/optimize/fitToSize.js";
 
 let dir: string;
 beforeEach(async () => {
@@ -46,20 +46,5 @@ describe("fitToSize", () => {
   it("first step fits → single attempt", async () => {
     const out = join(dir, "x.webp");
     expect((await fitToSize(fakeEncode(out), out, 10_000, ladder)).attempts).toBe(1);
-  });
-
-  it("long ladder: skips steps that obviously cannot fit, always tries the last", async () => {
-    const out = join(dir, "x.webp");
-    const encoded: number[] = [];
-    const enc = async (a: EncodeAttempt) => {
-      encoded.push(a.fps);
-      await writeFile(out, Buffer.alloc(Math.round(a.fps * 100 * 1024))); // 100 KB per fps
-    };
-    const r = await fitToSize(enc, out, 150 * 1024, LONG_LADDER);
-    expect(r.withinLimit).toBe(true);
-    expect(r.fps).toBe(1);
-    expect(encoded.length).toBeLessThan(LONG_LADDER.length / 2);
-    expect(ladderFor(180)).toBe(LONG_LADDER);
-    expect(ladderFor(5)).not.toBe(LONG_LADDER);
   });
 });

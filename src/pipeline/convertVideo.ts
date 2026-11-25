@@ -1,6 +1,7 @@
+import { rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import { DEFAULT_FIT, STICKER_LIMITS } from "../config/limits.js";
-import { fitToSize, ladderFor } from "../core/optimize/fitToSize.js";
+import { fitFpsFirst } from "../core/optimize/fpsFirst.js";
 import type { MediaInfo } from "../core/probe/probe.js";
 import { encodeVideo } from "../core/video/encodeVideo.js";
 import { resolveSegment } from "../core/video/segment.js";
@@ -53,21 +54,28 @@ export async function convertAnimated(
   const maxFps = source.fps > 0 ? Math.max(1, Math.floor(source.fps)) : Number.POSITIVE_INFINITY;
 
   const webpPath = join(opts.outDir, `${name}.webp`);
-  const fitted = await fitToSize(
-    (a) =>
-      encodeVideo({
+  const probePath = join(opts.outDir, `${name}.probe.webp`);
+  const fitted = await fitFpsFirst(
+    async (req) => {
+      const output = req.final ? webpPath : probePath;
+      await encodeVideo({
         input: opts.input,
-        output: webpPath,
-        ...segment,
+        output,
+        startSec: segment.startSec,
+        durationSec: req.durationSec,
         fit: opts.fit ?? DEFAULT_FIT,
-        quality: a.quality,
-        fps: Math.min(a.fps, maxFps),
+        quality: req.quality,
+        fps: req.fps,
         seek: kind === "animated" ? "output" : "input",
-      }),
-    webpPath,
-    maxBytes - overhead,
-    ladderFor(segment.durationSec),
-  );
+      });
+      return (await stat(output)).size;
+    },
+    {
+      durationSec: segment.durationSec,
+      maxFps: Math.min(STICKER_LIMITS.defaultFps, maxFps),
+      maxBytes: maxBytes - overhead,
+    },
+  ).finally(() => rm(probePath, { force: true }));
   if (fitted.fps < 2) {
     warnings.push(
       `Para entrar en ${kb(maxBytes)} quedó a ${fitted.fps} fps (calidad ${fitted.quality}). Usa «hq» o un clip más corto para más fluidez.`,
@@ -131,7 +139,7 @@ export async function convertAnimated(
         withinLimit: bytes.length <= maxBytes,
         maxBytes,
         quality: fitted.quality,
-        fps: Math.min(fitted.fps, maxFps),
+        fps: fitted.fps,
         frames: info.frames.length,
         durationMs: totalDurationMs(info),
         attempts: fitted.attempts,
