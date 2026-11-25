@@ -9,7 +9,7 @@ import { ResultLayout } from "../components/preview/ResultLayout";
 import { ResultView } from "../components/preview/ResultView";
 import { useRevealOnDone } from "../hooks/useRevealOnDone";
 import { selectBusy, selectResult, useConverterStore } from "../store/converterStore";
-import { Section } from "./Section";
+import { Section } from "@/components/section";
 
 export function ResultSection({ className }: { className?: string }) {
   const result = useConverterStore(selectResult);

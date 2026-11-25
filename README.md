@@ -1,91 +1,174 @@
 # 🔊 Estampido
 
-> _Estampa + estampido_: stickers de WhatsApp que suenan.
+> **Haz ruido en el chat.** Convierte cualquier video, GIF o foto en un sticker de WhatsApp que suena al tocarlo.
 
-Proyecto para crear **stickers de WhatsApp con sonido** a partir de video, GIF o imagen, aprovechando el nuevo formato nativo de _sound stickers_ (despliegue limitado desde nov 2026).
+_Estampa + estampido._ Estampido genera **stickers con sonido nativos** de WhatsApp (el formato de _sound stickers_ en despliegue desde nov 2026) y los envía a tu chat. Puedes usarlo desde una **web**, un **bot de WhatsApp**, una **CLI** o su **API**.
 
-> Estado: **funcional de punta a punta**. El bot envía **stickers con sonido nativos** de WhatsApp (validado en teléfono). También hay web, CLI y API. Ver [docs/PROTOCOLO.md](docs/PROTOCOLO.md), [docs/PLAN.md](docs/PLAN.md) e [INVESTIGACION.md](INVESTIGACION.md).
+[![CI](https://github.com/IsrraDex36/Estampido-V1/actions/workflows/ci.yml/badge.svg)](https://github.com/IsrraDex36/Estampido-V1/actions/workflows/ci.yml)
+
+![Inicio de Estampido: clip y ajustes](docs/img/inicio.webp)
+
+![Resultado: sticker, reproductor, envío a WhatsApp y ficha técnica](docs/img/resultado.webp)
+
+## Qué hace
+
+- **Video → sticker animado con su propio sonido.** Eliges el tramo, hasta **3 min**.
+- **Imagen, GIF o sticker + tu audio**, por ejemplo una nota de voz. Con imagen, hasta 10 s de sonido.
+- **Sticker con sonido nativo** (`audioStickerMessage`, campo 134), validado en teléfono real. Si falla, envía el sticker y una nota de voz por separado.
+- **Siempre dentro del límite de WhatsApp**: WebP 512×512 de ≤ 500 KB (estáticos ≤ 100 KB), con frames uniformes. El modo **«Calidad alta»** (`hq`) sube hasta 5 MB, pero es experimental.
+- **Sonido robusto**: elige la pista correcta, recorta los silencios, nivela el audio bajito (hasta +20 dB) y alinea el audio con la imagen.
+- **Metadatos de pack y autor** (EXIF de WhatsApp) y emojis.
+
+## Web
+
+`npm run dev` → <http://localhost:5173>
+
+1. **Clip**: arrastra un video, GIF o imagen. Marca el tramo con el control de rango o escribiendo los tiempos en `m:ss`.
+2. **Ajustes**: pestañas Tiempo, Sonido (audio propio), Estilo (encuadre `crop`/`pad`, Calidad alta) y Pack (nombre, autor, emojis).
+3. **Resultado**: lo escuchas ahí mismo, lo descargas o lo **envías a tu WhatsApp** con un clic, si el bot está corriendo.
+4. **Colección**: cada sticker que creas se guarda en la sesión. Selecciona varios y **envíalos todos a la vez**: llegan en orden y con sonido, con barra de progreso y opción de cancelar.
+
+Otros detalles: tema claro/oscuro (negro puro), atajo `⌘/Ctrl + Enter` para crear el sticker, carga real y cancelación (que también detiene FFmpeg en el servidor). Es responsive desde el móvil hasta monitores de 27″, con fondo pixel-art y Pum, la mascota.
+
+> **¿Y los packs de stickers nativos?** El formato de pack de WhatsApp (`stickerPackMessage`) **no admite audio**: los stickers llegarían mudos. Por eso la Colección envía varios stickers con sonido uno tras otro. La investigación y el modo de captura de packs están en [docs/PROTOCOLO.md](docs/PROTOCOLO.md).
+
+## Comunidad (en construcción)
+
+En `/comunidad` (pestaña **Comunidad** del encabezado) ya están todos los apartados, pero todavía sin datos:
+
+- **Feed** con Tendencias, Nuevos y Top (por periodo) y filtro por categorías.
+- **Ranking** con podio.
+- **Reto semanal**.
+- **Packs de la comunidad**.
+- **Tu espacio**: Publicados, Guardados y Votados.
+- **Creadores** destacados.
+
+Cada tarjeta ya tiene su forma final: duración del sonido, votar, guardar, compartir y enviar a WhatsApp. Por ahora esos botones están desactivados y avisan «Pronto». El análisis (perfiles, flujos, ranking con Wilson y «hot», modelo de datos, API, moderación) y el plan por fases están en [docs/COMUNIDAD.md](docs/COMUNIDAD.md).
+
+## Bot de WhatsApp
+
+Funciona con [Baileys](https://github.com/WhiskeySockets/Baileys) (no oficial; ver [Riesgos](#riesgos)). Envía o responde un video, GIF, imagen o sticker con:
+
+| Comando                | Qué hace                                 |
+| ---------------------- | ---------------------------------------- |
+| `/saudio`              | Video completo, hasta 3 min              |
+| `/saudio 0:12 5`       | Desde 0:12, durante 5 s                  |
+| `/saudio pad` / `crop` | Encuadre: con bordes o recortado         |
+| `/saudio voz`          | Usa la siguiente nota de voz como sonido |
+| `/saudio hq`           | Calidad alta, hasta 5 MB (experimental)  |
+| `/cancelar`            | Detiene lo que esté en curso             |
+| `/ayuda`               | Muestra la ayuda                         |
+
+Muestra el progreso en un solo mensaje que se va editando y te dice tu posición en la cola. Tiene límite de usos por persona y, si el bot corre en tu propio número, puede responder solo en tu chat contigo mismo.
+
+## Calidad y fluidez
+
+El optimizador busca primero la mayor cantidad de **fps** posible:
+
+1. Codifica una muestra de ≤ 4 s y estima cuánto pesará el clip completo.
+2. Si cabe, usa la mejor calidad a fps completos (máx. 15, sin duplicar frames de la fuente).
+3. Si no cabe, calcula cuántos fps entran en el presupuesto y luego verifica con el clip completo.
+
+libwebp usa el preset `picture`: a la misma calidad pesa ~5–10 % menos, lo que da ~1 fps más sin tardar más. El audio va en un archivo Opus aparte (48 kbps; 32 kbps para clips de más de 30 s), así que no ocupa espacio del sticker.
+
+| Clip | fps típicos        |
+| ---- | ------------------ |
+| 5 s  | 15                 |
+| 10 s | 8–11               |
+| 30 s | 3–4 (más con `hq`) |
 
 ## Requisitos
 
-- Node.js ≥ 24
-- FFmpeg con `libwebp` + `libopus`: `brew install ffmpeg-full`
+- **Node.js ≥ 24**
+- **FFmpeg** con `libwebp_anim` y `libopus`, y decodificador de WebP animado (FFmpeg ≥ 8)
+  - macOS: `brew install ffmpeg-full`
+  - Otra ruta: `FFMPEG_PATH` / `FFPROBE_PATH`
+
+## Uso rápido
 
 ```bash
-npm install
-npm run check-deps   # verifica ffmpeg/ffprobe + encoders
-npm test
-npm run test:e2e   # navegador real (Chrome/Brave/Chromium; CHROME_PATH para otro)
+npm install && npm --prefix web install
+npm run check-deps        # verifica ffmpeg/ffprobe y encoders
+
+npm run dev               # API :8787 + web :5173
+npm run bot               # bot (lee .env); la primera vez muestra un QR o código para vincular
 
 # CLI
-npm run cli -- convert video.mp4 -s 2 -d 4 -o out/      # sticker + audio del video
-npm run cli -- convert video.mp4 -a voz.ogg --crop         # audio propio
-npm run cli -- convert foto.png -a voz.ogg                 # imagen + sonido (≤ 10 s, sticker estático)
-npm run cli -- convert anim.gif -a voz.ogg                 # GIF + sonido
-npm run cli -- convert video.mp4 --pack "Mis memes" --author Isra --emoji 😂,🔊
-npm run cli -- doctor                                      # verifica dependencias
-# o compilada: npm run build && node dist/adapters/cli/index.js convert …
-
-# Web de pruebas (API :8787 + Vite :5173)
-npm --prefix web install
-npm run dev          # abre http://localhost:5173 (botón «Enviar a mi WhatsApp» si el bot está corriendo)
-
-# Bot WhatsApp (Baileys, usar número secundario)
-npm run bot   # lee .env (ver .env.example) · /saudio [inicio] [duración en m:ss] [crop|pad] [voz] [hq] · /ayuda · /saudio [inicio] [duración] [crop|pad] [voz] · /cancelar
-SVA_ALLOWED=<tu_numero> npm run bot:capture   # + volcado de mensajes desconocidos (campo 134)
+npm run cli -- convert video.mp4 -s 2 -d 4 -o out/      # tramo 0:02–0:06 con su audio
+npm run cli -- convert video.mp4 -a voz.ogg --crop      # audio propio
+npm run cli -- convert foto.png -a voz.ogg              # imagen + sonido (≤ 10 s)
+npm run cli -- convert anim.gif -a voz.ogg              # GIF + sonido
+npm run cli -- convert video.mp4 --pack "Mis memes" --author Yo --emoji 😂,🔊
+npm run cli -- doctor
 ```
 
-## Idea
+### Configuración del bot (`.env`)
 
-1. El usuario envía un video, una imagen + audio, o una nota de voz.
-2. El proyecto genera un **WebP animado** de 512×512, por debajo de 500 KB, con frames uniformes.
-3. Recorta y codifica el audio: 5 s desde video y hasta 10 s desde imagen.
-4. Envía un **sound sticker nativo** (`audioStickerMessage`, campo 134).
-5. **Fallback:** si el receptor o la librería no lo soportan, envía el sticker normal y una nota de voz.
+Copia [`.env.example`](.env.example) a `.env`:
 
-## Alcance inicial (propuesto)
+| Variable                  | Para qué                                                        |
+| ------------------------- | --------------------------------------------------------------- |
+| `SVA_ALLOWED`             | Números que pueden usar `/saudio` (con código de país, sin `+`) |
+| `SVA_PACK` / `SVA_AUTHOR` | Pack y autor por defecto (autor = tu nombre de WhatsApp)        |
+| `SVA_FIT`                 | Encuadre por defecto: `crop` o `pad`                            |
+| `SVA_SEND_MODE`           | `native`, `fallback` o `both`                                   |
+| `SVA_RATE_PER_MIN`        | Máx. `/saudio` por persona y minuto (`0` = sin límite)          |
+| `SVA_SELF_CHAT_ONLY`      | `1`: solo responde en tu chat contigo mismo                     |
 
-- Comando de bot, p. ej. `/stickeraudio` o `/saudio`, inspirado en bots tipo [Zeus](https://github.com/DavidModzz/zeus).
-- Conversión con `ffmpeg`: recorte, escala, fps y WebP animado. Audio en Opus/OGG (por verificar).
-- Metadatos EXIF de pack/autor (estilo `wa-sticker-formatter`).
-- Transporte: Baileys, con el parche del campo 134 hasta que haya soporte upstream.
+## Scripts
 
-## Stack tentativo
+| Script                        |                                                                                                  |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ |
+| `npm run dev`                 | API + web en modo desarrollo                                                                     |
+| `npm run bot` / `bot:capture` | Bot; `capture` también guarda los mensajes desconocidos (sound stickers, packs) para analizarlos |
+| `npm run cli`                 | CLI `sva`                                                                                        |
+| `npm test`                    | Pruebas unitarias y de integración (Vitest, FFmpeg real)                                         |
+| `npm run test:e2e`            | Pruebas en navegador real (Chrome/Brave/Chromium; `CHROME_PATH` para otro)                       |
+| `npm run lint` / `typecheck`  | Biome + oxlint (web) / TypeScript                                                                |
+| `npm run build` / `build:web` | Compila la API, la CLI y el bot / compila la web                                                 |
 
-- Node.js
-- [Baileys](https://github.com/WhiskeySockets/Baileys) (no oficial)
-- FFmpeg, sharp
+La **CI** (GitHub Actions) corre lint, tipos, tests, el build de la web y las pruebas en navegador en cada push.
 
-## Riesgos clave
+## Arquitectura
 
-- Formato no documentado por Meta: puede cambiar sin aviso.
-- Las librerías no oficiales arriesgan el baneo del número.
-- Rollout parcial: algunos receptores verán un mensaje vacío o sin audio.
-- Copyright del audio de terceros.
-
-## Próximos pasos
-
-1. Capturar un sound sticker real con WhatsApp Web y decodificar su protobuf: códec, campos y upload.
-2. Prototipo del conversor video → WebP + audio.
-3. Prueba de envío entre dos dispositivos reales.
-4. Definir la estrategia de fallback.
-
-## Estructura
-
-Plan por fases y arquitectura: [docs/PLAN.md](docs/PLAN.md).
+Arquitectura hexagonal: un **núcleo** puro de conversión, un **pipeline** que lo orquesta y **adaptadores** delgados para cada forma de uso.
 
 ```
-sticker-video-audio/
-├── src/
-│   ├── core/{probe,video,audio,optimize,metadata}
-│   ├── pipeline/
-│   ├── adapters/{cli,bot}
-│   ├── config/
-│   └── utils/
-├── tests/{unit,integration,fixtures}
-├── samples/{input,output}
-├── scripts/
-├── docs/PLAN.md
-├── README.md
-└── INVESTIGACION.md
+src/
+├── core/        probe · video · audio · image · frame · optimize (fps-first) · metadata (EXIF) · webp
+├── pipeline/    convertToSoundSticker: valida, extrae el sonido, optimiza, agrega metadatos y cancela
+├── adapters/
+│   ├── http/    API Hono: /api/convert, resultados, envío a WhatsApp
+│   ├── bot/     Baileys: /saudio, sticker con sonido nativo (campo 134), cola, captura
+│   └── cli/     sva convert · sva doctor
+├── config/      límites y rutas
+└── utils/       ffmpeg, semáforo cancelable, protobuf crudo, tiempos
+web/src/
+├── app/         header, footer, providers
+├── features/
+│   ├── converter/   store (zustand), hooks, secciones Clip · Ajustes · Resultado
+│   ├── collection/  colección de la sesión + envío por lotes
+│   ├── community/   /comunidad (fase 0: apartados sin datos)
+│   └── bot/         estado del bot en vivo
+└── components/  UI (shadcn), pixel art (fondo, mascota Pum), tema
+tests/  unit · integration       e2e/  navegador real
 ```
+
+Más detalle en [docs/PLAN.md](docs/PLAN.md) (fases), [docs/PROTOCOLO.md](docs/PROTOCOLO.md) (formato del sticker con sonido y de los packs) e [INVESTIGACION.md](INVESTIGACION.md).
+
+## Privacidad y seguridad
+
+- Los archivos se borran a los **30 min**. La API solo escucha en `127.0.0.1`.
+- El servidor de control del bot usa un token local (`.auth/control.json`, permisos `0600`) y solo envía a tu propio chat.
+- **Nunca subas** `.env`, `.auth/` ni `captures/`: contienen claves de sesión y claves de medios. Ya están en `.gitignore`.
+
+## Riesgos
+
+- El formato de los sound stickers **no está documentado por Meta** y puede cambiar sin aviso.
+- Baileys es una librería no oficial: **existe riesgo de que baneen el número**. Usa un número secundario.
+- El despliegue es parcial: algunos receptores pueden ver el sticker sin sonido.
+- Respeta los derechos del audio de terceros.
+
+---
+
+Desarrollado por [@IsrraDex36](https://github.com/IsrraDex36).

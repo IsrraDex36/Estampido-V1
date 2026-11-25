@@ -4,7 +4,7 @@ import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { useBotStore } from "@/features/bot/botStore";
-import { Section } from "@/features/converter/sections/Section";
+import { Section } from "@/components/section";
 import { selectSelectedItems, useCollectionStore } from "../collectionStore";
 import { useBatchSend } from "../useBatchSend";
 import { CollectionTile } from "./CollectionTile";

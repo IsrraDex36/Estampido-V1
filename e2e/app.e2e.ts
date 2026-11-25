@@ -71,6 +71,24 @@ describe("Estampido web (real browser, real API)", () => {
     await page.close();
   });
 
+  it("navigation: Crear ⇄ Comunidad, community sections, 404", async () => {
+    const { page, problems } = await openPage(browser, url);
+    await page.click('nav a[href="/comunidad"]');
+    await page.waitForFunction(() => document.body.innerText.includes("Lo que suena en el chat."));
+    expect(await page.evaluate(() => location.pathname)).toBe("/comunidad");
+    const titles = await page.$$eval("section h2", (hs) => hs.map((h) => h.textContent ?? ""));
+    for (const t of ["Tendencias", "Ranking", "Reto semanal", "Packs de la comunidad", "Tu espacio", "Creadores"]) {
+      expect(titles.some((x) => x.includes(t))).toBe(true);
+    }
+    expect(await page.$eval('nav a[href="/comunidad"]', (a) => a.getAttribute("aria-current"))).toBe("page");
+    await page.click('nav a[href="/"]');
+    await page.waitForSelector('input[type=file][accept="video/*,image/*"]');
+    await page.goto(new URL("/no-existe", url).href, { waitUntil: "networkidle0" });
+    await page.waitForFunction(() => document.body.innerText.includes("Página no encontrada"));
+    expect(problems).toEqual([]);
+    await page.close();
+  });
+
   it("theme choice persists across reloads", async () => {
     const { page } = await openPage(browser, url, { scheme: "light" });
     await page.click('button[aria-label="Cambiar tema"]');

@@ -1,19 +1,36 @@
+import { lazy, Suspense } from "react";
+import { Route, Switch } from "wouter";
 import { AppFooter } from "@/app/AppFooter";
 import { AppHeader } from "@/app/AppHeader";
+import { NotFound } from "@/app/NotFound";
 import { Providers } from "@/app/providers";
+import { ROUTES } from "@/app/routes";
+import { useScrollTopOnNavigate } from "@/app/useScrollTopOnNavigate";
 import { PixelBackground } from "@/components/pixel/PixelBackground";
 import { useBotPolling } from "@/features/bot/botStore";
 import { ConverterPage } from "@/features/converter/ConverterPage";
 
+// Community is a separate chunk: the tool stays as light as before.
+const CommunityPage = lazy(() => import("@/features/community/CommunityPage"));
+
 function Shell() {
   useBotPolling();
+  useScrollTopOnNavigate();
   return (
     // isolate: own stacking context so the -z-10 backdrop sits above our bg.
     <div className="relative isolate min-h-svh overflow-x-clip bg-background text-foreground">
       <PixelBackground />
       <AppHeader />
       <main className="mx-auto w-full max-w-[1760px] px-5 sm:px-8 2xl:px-12">
-        <ConverterPage />
+        <Switch>
+          <Route path={ROUTES.create} component={ConverterPage} />
+          <Route path={ROUTES.community}>
+            <Suspense fallback={<div className="min-h-[60svh]" aria-busy="true" />}>
+              <CommunityPage />
+            </Suspense>
+          </Route>
+          <Route component={NotFound} />
+        </Switch>
       </main>
       <AppFooter />
     </div>

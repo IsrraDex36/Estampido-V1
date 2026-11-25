@@ -1,5 +1,5 @@
 import { MediaDropzone } from "../components/MediaDropzone";
-import { Section } from "./Section";
+import { Section } from "@/components/section";
 
 export function ClipSection({ className }: { className?: string }) {
   return (

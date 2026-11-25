@@ -1,7 +1,7 @@
 import { ConvertButton } from "../components/ConvertButton";
 import { SettingsTabs } from "../components/SettingsTabs";
 import { useConverterStore } from "../store/converterStore";
-import { Section } from "./Section";
+import { Section } from "@/components/section";
 
 export function SettingsSection({ className }: { className?: string }) {
   const hasFile = useConverterStore((s) => Boolean(s.file));
