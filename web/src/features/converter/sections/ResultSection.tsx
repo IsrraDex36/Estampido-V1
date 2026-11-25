@@ -4,6 +4,7 @@ import { useRef } from "react";
 import { EmptyStage } from "../components/preview/Stage";
 import { ProcessingStage } from "../components/preview/ProcessingStage";
 import { ResultSkeleton } from "../components/preview/ResultSkeleton";
+import { ResultLayout } from "../components/preview/ResultLayout";
 import { ResultView } from "../components/preview/ResultView";
 import { useRevealOnDone } from "../hooks/useRevealOnDone";
 import { selectBusy, selectResult, useConverterStore } from "../store/converterStore";
@@ -30,16 +31,38 @@ export function ResultSection({ className }: { className?: string }) {
             {result ? (
               <ResultView result={result} />
             ) : busy ? (
-              <div className="space-y-6">
-                <ProcessingStage />
+              <ResultLayout stage={<ProcessingStage />}>
                 <ResultSkeleton />
-              </div>
+              </ResultLayout>
             ) : (
-              <EmptyStage />
+              <ResultLayout stage={<EmptyStage />}>
+                <EmptySteps />
+              </ResultLayout>
             )}
           </m.div>
         </AnimatePresence>
       </Section>
     </div>
+  );
+}
+
+const STEPS = [
+  ["Elige tu clip", "Video, GIF o imagen. Marca el tramo que suena mejor."],
+  ["Ajusta", "Encuadre, sonido y calidad. Lo de siempre ya viene listo."],
+  ["Crea y envía", "Escúchalo aquí y mándalo a WhatsApp con su sonido."],
+] as const;
+
+/** What the result area will hold, while empty. */
+function EmptySteps() {
+  return (
+    <ol className="hidden gap-3 md:grid xl:grid-cols-3">
+      {STEPS.map(([title, text], i) => (
+        <li key={title} className="rounded-2xl bg-muted/50 p-4">
+          <p className="font-pixel text-[10px] text-muted-foreground">0{i + 1}</p>
+          <p className="mt-2 font-semibold tracking-tight">{title}</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{text}</p>
+        </li>
+      ))}
+    </ol>
   );
 }
