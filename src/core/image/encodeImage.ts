@@ -1,4 +1,4 @@
-import { DEFAULT_FIT, type FitMode, STICKER_LIMITS } from "../../config/limits.js";
+import { DEFAULT_FIT, type FitMode, STICKER_LIMITS, type StickerBackground } from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
 import { buildFitFilter } from "../frame/fit.js";
 import type { EncodeAttempt } from "../optimize/fitToSize.js";
@@ -8,6 +8,7 @@ export interface EncodeImageOptions {
   output: string;
   quality?: number;
   fit?: FitMode;
+  background?: StickerBackground;
   size?: number;
   signal?: AbortSignal;
 }
@@ -29,7 +30,7 @@ export function buildImageArgs(opts: EncodeImageOptions): string[] {
     "-i",
     opts.input,
     "-vf",
-    buildFitFilter(opts.fit ?? DEFAULT_FIT, size).join(","),
+    buildFitFilter(opts.fit ?? DEFAULT_FIT, size, opts.background).join(","),
     "-frames:v",
     "1",
     "-an",

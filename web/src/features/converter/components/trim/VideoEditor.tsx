@@ -8,7 +8,7 @@ import type { Span } from "../../model/trim";
 import { useConverterStore } from "../../store/converterStore";
 import { usePlaybackStore } from "../../store/playbackStore";
 import { useSegment } from "../segment/useSegment";
-import { Trimmer } from "./Trimmer";
+import { Filmstrip, Trimmer } from "./Trimmer";
 
 const FRAMES = 12;
 
@@ -167,7 +167,8 @@ export function VideoEditor({ url }: { url: string }) {
 
       {span ? (
         <Trimmer
-          frames={frames}
+          strip={<Filmstrip frames={frames} />}
+          label="Recortar el video: arrastra los bordes o el marco"
           span={span}
           limits={{ total: seg.sourceDuration, min: seg.minDuration, max: seg.maxDuration }}
           disabled={seg.disabled}

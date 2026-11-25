@@ -3,6 +3,8 @@
  * web/ via the `@contract` path alias). Keep this file dependency-free.
  */
 export type FitMode = "pad" | "crop";
+/** "pad" bars: transparent, a blurred copy of the frame, or "#rrggbb". */
+export type StickerBackground = "transparent" | "blur" | `#${string}`;
 export type MediaKind = "video" | "animated" | "image";
 
 /** Multipart: `media` (video, GIF or image; legacy name `video`) + optional `audio`. */
@@ -12,6 +14,7 @@ export interface ConvertRequestFields {
   /** Video: clip, GIF: sound (≤ API_LIMITS.maxDurationSec). Image: sound (≤ maxImageAudioSec). Omit → server default. */
   durationSec?: number;
   fit: FitMode;
+  background?: StickerBackground;
   includeAudio: boolean;
   /** Start offset inside the replacement audio file (multipart field `audio`). */
   audioStartSec: number;

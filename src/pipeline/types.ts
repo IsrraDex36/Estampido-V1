@@ -1,4 +1,4 @@
-import type { FitMode } from "../config/limits.js";
+import type { FitMode, StickerBackground } from "../config/limits.js";
 import type { StickerMetadata, StickerMetadataInput } from "../core/metadata/stickerExif.js";
 import type { MediaKind } from "../core/probe/probe.js";
 
@@ -22,6 +22,8 @@ export interface ConvertOptions {
    */
   durationSec?: number;
   fit?: FitMode;
+  /** "pad" only: what fills the bars (default transparent). */
+  background?: StickerBackground;
   /**
    * "source" = the input's own sound (videos), "none" = silent, or a
    * replacement file (audio or video) read from its own `startSec`.

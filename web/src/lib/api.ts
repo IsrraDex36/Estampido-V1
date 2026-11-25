@@ -51,11 +51,12 @@ export function convertVideo(
     form.set("startSec", String(fields.startSec));
     if (fields.durationSec !== undefined) form.set("durationSec", String(fields.durationSec));
     form.set("fit", fields.fit);
+    if (fields.fit === "pad" && fields.background && fields.background !== "transparent") form.set("background", fields.background);
     form.set("includeAudio", String(fields.includeAudio));
     form.set("audioStartSec", String(fields.audioStartSec));
     form.set("includeMetadata", String(fields.includeMetadata));
     if (fields.hq) form.set("hq", "true");
-    for (const key of ["packName", "publisher", "emojis"] as const) {
+    for (const key of ["packName", "publisher"] as const) {
       const v = fields[key]?.trim();
       if (v) form.set(key, v);
     }

@@ -26,6 +26,7 @@ function useTabSummaries(): { values: Record<TabId, string>; attention: Partial<
       includeAudio: st.options.includeAudio,
       durationSec: st.options.durationSec,
       fit: st.options.fit,
+      background: st.options.background ?? "transparent",
       hq: st.options.hq === true,
       includeMetadata: st.options.includeMetadata,
       packName: st.options.packName,
@@ -52,7 +53,7 @@ function useTabSummaries(): { values: Record<TabId, string>; attention: Partial<
     values: {
       time,
       sound,
-      style: `${s.fit === "pad" ? "Completo" : "Llenar"}${s.hq ? " · HQ" : ""}`,
+      style: `${s.fit === "crop" ? "Llenar" : s.background === "blur" ? "Desenfoque" : s.background === "transparent" ? "Completo" : "Color"}${s.hq ? " · HQ" : ""}`,
       pack: s.includeMetadata ? s.packName?.trim() || "Estampido" : "Sin datos",
     },
     attention: { sound: needsSound, style: s.hq },
@@ -65,7 +66,7 @@ export function SettingsTabs() {
   const { values, attention, muted } = useTabSummaries();
 
   return (
-    <Tabs defaultValue="time" className="gap-5">
+    <Tabs defaultValue="time" className="flex-1 gap-5">
       <TabsList className="grid h-auto w-full grid-cols-4 gap-1 rounded-2xl bg-muted p-1 group-data-horizontal/tabs:h-auto">
         {SETTINGS_TABS.map((t) => (
           <TabsTrigger
@@ -92,7 +93,7 @@ export function SettingsTabs() {
         ))}
       </TabsList>
       {SETTINGS_TABS.map((t) => (
-        <TabsContent key={t.value} value={t.value}>
+        <TabsContent key={t.value} value={t.value} className="flex flex-col">
           {CONTENT[t.value]}
         </TabsContent>
       ))}

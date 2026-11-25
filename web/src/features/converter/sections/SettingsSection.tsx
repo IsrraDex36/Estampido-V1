@@ -3,14 +3,18 @@ import { SettingsTabs } from "../components/SettingsTabs";
 import { SETTINGS_TABS } from "../components/settingsTabList";
 import { useConverterStore } from "../store/converterStore";
 import { Section } from "@/components/section";
+import { cn } from "@/lib/utils";
 
 export function SettingsSection({ className }: { className?: string }) {
   const hasFile = useConverterStore((s) => Boolean(s.file));
   return (
-    <Section index="02" title="Ajustes" className={className}>
-      <div className="space-y-6">
+    <Section index="02" title="Ajustes" className={cn("flex flex-col", className)}>
+      {/* lg: the column stretches to the clip's height; the button sits at the bottom, no dead space below. */}
+      <div className="flex flex-1 flex-col gap-6">
         {hasFile ? <SettingsTabs /> : <SettingsPlaceholder />}
-        <ConvertButton />
+        <div className="mt-auto">
+          <ConvertButton />
+        </div>
       </div>
     </Section>
   );

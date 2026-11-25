@@ -28,6 +28,12 @@ export const STICKER_LIMITS = {
 
 export type FitMode = "pad" | "crop";
 
+/**
+ * What fills the empty area in "pad" mode: transparent, a blurred copy of the
+ * frame, or a solid "#rrggbb" color.
+ */
+export type StickerBackground = "transparent" | "blur" | `#${string}`;
+
 /** Default fit: transparent padding keeps the whole frame visible. */
 export const DEFAULT_FIT: FitMode = "pad";
 

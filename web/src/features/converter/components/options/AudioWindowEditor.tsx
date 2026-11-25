@@ -1,158 +1,112 @@
-import { type KeyboardEvent, type PointerEvent, useRef } from "react";
+import { useEffect, useRef } from "react";
 import { PauseIcon, PlayIcon } from "@/components/icons";
 import { TimeInput } from "@/components/time-input";
 import { Button } from "@/components/ui/button";
-import { formatTime } from "@/lib/time";
-import { cn } from "@/lib/utils";
 import { useAudioPeaks } from "../../hooks/useAudioPeaks";
 import { useAudioPreview } from "../../hooks/useAudioPreview";
-import { clipWindow, maxStartFor, startFromPointer } from "../../model/audioWindow";
+import { clipWindow, maxStartFor } from "../../model/audioWindow";
+import type { Span } from "../../model/trim";
+import { Trimmer, WaveStrip } from "../trim/Trimmer";
 
 const BARS = 64;
 
+export interface AudioWindowChange {
+  audioStartSec: number;
+  durationSec?: number;
+}
+
 /**
- * Waveform of the chosen sound with the stretch that will play highlighted.
- * Tap/drag the waveform (or use the arrows) to move it; ▶ listens to it.
+ * Same editor as the video: the sound's waveform with a white frame over the
+ * stretch that plays. Videos/GIFs fix its length (the frame only slides);
+ * images let the grips set it. ▶ listens to it.
  */
 export function AudioWindowEditor({
   file,
   start,
   wanted,
+  minSec,
   maxSec,
+  resizable,
   disabled,
-  onStart,
+  onChange,
 }: {
   file: File;
   start: number;
   /** Seconds the sticker plays; undefined = auto (to the end, up to maxSec). */
   wanted: number | undefined;
+  minSec: number;
   maxSec: number;
+  resizable: boolean;
   disabled?: boolean;
-  onStart: (sec: number) => void;
+  onChange: (change: AudioWindowChange) => void;
 }) {
   const peaks = useAudioPeaks(file, BARS);
   const preview = useAudioPreview(file);
-  const trackRef = useRef<HTMLDivElement>(null);
+  const playheadRef = useRef<HTMLSpanElement>(null);
   const total = peaks.kind === "ready" ? peaks.duration : 0;
   const win = clipWindow(total, start, wanted, maxSec);
-  const maxStart = maxStartFor(total, wanted);
+  const span: Span = { start: win.start, end: Math.round((win.start + win.length) * 10) / 10 };
 
-  const move = (sec: number) => {
+  useEffect(() => {
+    const el = playheadRef.current;
+    if (!el) return;
+    el.style.opacity = preview.position === null ? "0" : "1";
+    if (preview.position !== null && total > 0) el.style.left = `${(preview.position / total) * 100}%`;
+  }, [preview.position, total]);
+
+  const change = (next: Span) => {
     if (preview.playing) preview.stop();
-    onStart(sec);
-  };
-  const fromPointer = (e: PointerEvent<HTMLDivElement>) => {
-    const rect = trackRef.current?.getBoundingClientRect();
-    if (!rect || rect.width === 0 || total === 0) return;
-    const ratio = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
-    move(startFromPointer(ratio * total, total, wanted));
-  };
-  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const step = e.shiftKey ? 1 : 0.1;
-    const next =
-      e.key === "ArrowLeft" || e.key === "ArrowDown"
-        ? win.start - step
-        : e.key === "ArrowRight" || e.key === "ArrowUp"
-          ? win.start + step
-          : e.key === "Home"
-            ? 0
-            : e.key === "End"
-              ? maxStart
-              : null;
-    if (next === null) return;
-    e.preventDefault();
-    move(Math.round(Math.min(maxStart, Math.max(0, next)) * 10) / 10);
+    onChange(
+      resizable
+        ? { audioStartSec: next.start, durationSec: Math.round((next.end - next.start) * 10) / 10 }
+        : { audioStartSec: next.start },
+    );
   };
 
-  const left = total > 0 ? (win.start / total) * 100 : 0;
-  const width = total > 0 ? (win.length / total) * 100 : 100;
-  const head = preview.position !== null && total > 0 ? (preview.position / total) * 100 : null;
-  const canPlay = peaks.kind !== "loading" && !disabled;
+  const playButton = (
+    <Button
+      type="button"
+      size="icon"
+      className="size-8 shrink-0 rounded-full bg-sound text-background hover:bg-sound/90"
+      disabled={peaks.kind === "loading" || disabled}
+      aria-label={preview.playing ? "Detener" : "Escuchar el tramo que sonará"}
+      onClick={() =>
+        preview.playing
+          ? preview.stop()
+          : total > 0
+            ? preview.play(win.start, win.length)
+            : preview.play(start, wanted ?? maxSec)
+      }
+    >
+      {preview.playing ? <PauseIcon weight="fill" /> : <PlayIcon weight="fill" />}
+    </Button>
+  );
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <Button
-          type="button"
-          size="icon"
-          className="size-11 shrink-0 rounded-full bg-sound text-background hover:bg-sound/90"
-          disabled={!canPlay}
-          aria-label={preview.playing ? "Detener" : "Escuchar el tramo que sonará"}
-          onClick={() =>
-            preview.playing
-              ? preview.stop()
-              : total > 0
-                ? preview.play(win.start, win.length)
-                : preview.play(start, wanted ?? maxSec)
-          }
-        >
-          {preview.playing ? <PauseIcon weight="fill" /> : <PlayIcon weight="fill" />}
-        </Button>
-
-        {peaks.kind === "ready" ? (
-          <div
-            ref={trackRef}
-            role="slider"
-            tabIndex={disabled ? -1 : 0}
-            aria-label="Tramo del sonido"
-            aria-valuemin={0}
-            aria-valuemax={maxStart}
-            aria-valuenow={win.start}
-            aria-valuetext={`De ${formatTime(win.start)} a ${formatTime(win.start + win.length)}`}
-            aria-disabled={disabled}
-            onKeyDown={disabled ? undefined : onKey}
-            onPointerDown={(e) => {
-              if (disabled) return;
-              e.currentTarget.setPointerCapture(e.pointerId);
-              fromPointer(e);
-            }}
-            onPointerMove={(e) => {
-              if (!disabled && e.currentTarget.hasPointerCapture(e.pointerId)) fromPointer(e);
-            }}
-            className={cn(
-              "relative h-14 min-w-0 flex-1 touch-none rounded-xl outline-none select-none focus-visible:ring-2 focus-visible:ring-ring",
-              disabled ? "opacity-60" : "cursor-grab active:cursor-grabbing",
-            )}
-          >
-            <span
-              className="absolute inset-y-0 rounded-lg bg-sound-soft shadow-[inset_0_0_0_1.5px_var(--sound)] transition-[left] duration-75"
-              style={{ left: `${left}%`, width: `${width}%` }}
-              aria-hidden
-            />
-            <span className="absolute inset-0 flex items-center gap-[2px] px-0.5" aria-hidden>
-              {peaks.peaks.map((p, i) => {
-                const at = ((i + 0.5) / BARS) * 100;
-                const inside = at >= left && at <= left + width;
-                return (
-                  <span
-                    // biome-ignore lint/suspicious/noArrayIndexKey: fixed bars of one decoded file
-                    key={i}
-                    className={cn("flex-1 rounded-full", inside ? "bg-sound" : "bg-foreground/20")}
-                    style={{ height: `${Math.max(8, Math.round(p * 86))}%` }}
-                  />
-                );
-              })}
-            </span>
-            {head !== null && (
-              <span className="absolute inset-y-0 w-0.5 rounded-full bg-foreground" style={{ left: `${head}%` }} aria-hidden />
-            )}
-          </div>
-        ) : (
+      {peaks.kind === "ready" && win.length > 0 ? (
+        <Trimmer
+          strip={<WaveStrip peaks={peaks.peaks} />}
+          resizable={resizable}
+          label={resizable ? "Tramo del sonido: arrastra los bordes o el marco" : "Tramo del sonido: arrastra el marco"}
+          headerExtra={playButton}
+          span={span}
+          limits={{ total, min: Math.min(minSec, total), max: resizable ? Math.min(maxSec, total) : win.length }}
+          disabled={disabled}
+          playheadRef={playheadRef}
+          onChange={change}
+          onScrub={() => {}}
+          onDragging={(on) => on && preview.playing && preview.stop()}
+        />
+      ) : (
+        <div className="flex items-center gap-3">
+          {playButton}
           <WaveformFallback loading={peaks.kind === "loading" || peaks.kind === "idle"} />
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 text-[13px] text-muted-foreground">
-        <span className="font-mono tabular-nums">
-          {total > 0 ? (
-            <>
-              Suena <span className="text-foreground">{formatTime(win.start)} – {formatTime(win.start + win.length)}</span> de{" "}
-              {formatTime(total)}
-            </>
-          ) : (
-            "Arrastra sobre la onda para elegir el tramo."
-          )}
-        </span>
+        <span>{resizable ? "Arrastra los bordes para cambiar cuánto suena." : "Arrastra el marco para elegir qué parte suena."}</span>
         <label className="flex items-center gap-2" htmlFor="audio-start">
           Empieza en
           <TimeInput
@@ -160,9 +114,12 @@ export function AudioWindowEditor({
             className="h-9 w-24"
             value={start}
             min={0}
-            max={total > 0 ? maxStart : undefined}
+            max={total > 0 ? maxStartFor(total, wanted) : undefined}
             disabled={disabled}
-            onValueChange={(v) => move(v ?? 0)}
+            onValueChange={(v) => {
+              if (preview.playing) preview.stop();
+              onChange({ audioStartSec: v ?? 0 });
+            }}
           />
         </label>
       </div>

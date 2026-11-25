@@ -1,21 +1,27 @@
-import type { FitMode } from "../../config/limits.js";
+import type { FitMode, StickerBackground } from "../../config/limits.js";
 
 /**
  * Square-canvas filter chain shared by video and image encoders.
- * pad: whole frame visible, transparent bars. crop: fill, center crop.
- * Alpha from the source (GIF/PNG/WebP) is preserved in both modes.
+ * pad: whole frame visible; the bars are transparent, a solid color, or a
+ * blurred, zoomed copy of the frame. crop: fill, center crop.
+ * Alpha from the source (GIF/PNG/WebP) is preserved.
  */
-export function buildFitFilter(fit: FitMode, size: number): string[] {
-  if (fit === "pad") {
+export function buildFitFilter(fit: FitMode, size: number, background: StickerBackground = "transparent"): string[] {
+  if (fit === "crop") {
     return [
-      `scale=${size}:${size}:force_original_aspect_ratio=decrease:flags=lanczos`,
+      `scale=${size}:${size}:force_original_aspect_ratio=increase:flags=lanczos`,
+      `crop=${size}:${size}`,
       "format=rgba",
-      `pad=${size}:${size}:(ow-iw)/2:(oh-ih)/2:color=0x00000000`,
     ];
   }
-  return [
-    `scale=${size}:${size}:force_original_aspect_ratio=increase:flags=lanczos`,
-    `crop=${size}:${size}`,
-    "format=rgba",
-  ];
+  const fitInside = `scale=${size}:${size}:force_original_aspect_ratio=decrease:flags=lanczos`;
+  if (background === "blur") {
+    // One chain in, one out (valid inside -vf): split → blurred fill + fitted frame → overlay.
+    return [
+      `split[sva_bg][sva_fg];[sva_bg]scale=${size}:${size}:force_original_aspect_ratio=increase,crop=${size}:${size},boxblur=24:2,eq=brightness=-0.06[sva_b];[sva_fg]${fitInside}[sva_f];[sva_b][sva_f]overlay=(W-w)/2:(H-h)/2`,
+      "format=rgba",
+    ];
+  }
+  const color = background === "transparent" ? "0x00000000" : `0x${background.slice(1)}FF`;
+  return [fitInside, "format=rgba", `pad=${size}:${size}:(ow-iw)/2:(oh-ih)/2:color=${color}`];
 }

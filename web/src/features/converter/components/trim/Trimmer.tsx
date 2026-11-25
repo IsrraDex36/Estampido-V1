@@ -1,4 +1,4 @@
-import { type KeyboardEvent, type PointerEvent, type RefObject, useRef } from "react";
+import { type KeyboardEvent, type PointerEvent, type ReactNode, type RefObject, useRef } from "react";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { centerSpanAt, dragTrim, hitTest, nudge, type Span, type TrimDrag, type TrimLimits } from "../../model/trim";
@@ -10,7 +10,10 @@ const HANDLE_PX = 16;
  * drag a grip to trim, drag the frame to slide it, tap outside to jump there.
  */
 export function Trimmer({
-  frames,
+  strip,
+  resizable = true,
+  label = "Recortar: arrastra los bordes o el marco",
+  headerExtra,
   span,
   limits,
   disabled,
@@ -19,7 +22,12 @@ export function Trimmer({
   onScrub,
   onDragging,
 }: {
-  frames: (string | null)[];
+  /** What's under the frame: filmstrip, waveform… */
+  strip: ReactNode;
+  /** false: fixed length, the frame only slides (grips move it too). */
+  resizable?: boolean;
+  label?: string;
+  headerExtra?: ReactNode;
   span: Span;
   limits: TrimLimits;
   disabled?: boolean;
@@ -47,6 +55,7 @@ export function Trimmer({
     const { at, tol } = timeAt(e.clientX);
     let current = span;
     let mode = hitTest(at, span, tol);
+    if (!resizable && mode !== "outside") mode = "move";
     if (mode === "outside") {
       current = centerSpanAt(at, span, total);
       onChange(current);
@@ -80,15 +89,18 @@ export function Trimmer({
             {formatTime(span.start)} – {formatTime(span.end)}
           </span>
         </span>
-        <span className="rounded-full bg-sound-soft px-2.5 py-0.5 font-mono text-[12px] font-medium text-sound tabular-nums">
-          {formatTime(span.end - span.start)}
+        <span className="flex items-center gap-2">
+          {headerExtra}
+          <span className="rounded-full bg-sound-soft px-2.5 py-0.5 font-mono text-[12px] font-medium text-sound tabular-nums">
+            {formatTime(span.end - span.start)}
+          </span>
         </span>
       </div>
 
       <div
         ref={trackRef}
         role="group"
-        aria-label="Recortar el video: arrastra los bordes o el marco"
+        aria-label={label}
         className={cn("relative h-14 touch-none select-none", disabled ? "opacity-60" : "cursor-pointer")}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
@@ -96,18 +108,7 @@ export function Trimmer({
         onPointerCancel={endDrag}
       >
         <div className="absolute inset-x-0 inset-y-1 flex overflow-hidden rounded-lg bg-muted" aria-hidden>
-          {frames.map((src, i) =>
-            src ? (
-              // biome-ignore lint/suspicious/noArrayIndexKey: frames are positional
-              <img key={i} src={src} alt="" draggable={false} className="h-full min-w-0 flex-1 object-cover" />
-            ) : (
-              <span
-                // biome-ignore lint/suspicious/noArrayIndexKey: frames are positional
-                key={i}
-                className="h-full min-w-0 flex-1 animate-pulse border-r border-background/30 bg-foreground/10 motion-reduce:animate-none"
-              />
-            ),
-          )}
+          {strip}
         </div>
         <span className="absolute inset-y-1 left-0 rounded-l-lg bg-black/60" style={{ width: `${left}%` }} aria-hidden />
         <span className="absolute inset-y-1 right-0 rounded-r-lg bg-black/60" style={{ width: `${100 - right}%` }} aria-hidden />
@@ -116,8 +117,8 @@ export function Trimmer({
           style={{ left: `${left}%`, width: `${right - left}%` }}
           aria-hidden
         />
-        <Grip side="start" pos={left} span={span} limits={limits} disabled={disabled} onChange={onChange} />
-        <Grip side="end" pos={right} span={span} limits={limits} disabled={disabled} onChange={onChange} />
+        <Grip side="start" pos={left} span={span} limits={limits} resizable={resizable} disabled={disabled} onChange={onChange} />
+        <Grip side="end" pos={right} span={span} limits={limits} resizable={resizable} disabled={disabled} onChange={onChange} />
         <span
           ref={playheadRef}
           className="pointer-events-none absolute inset-y-0 left-0 w-[3px] -translate-x-1/2 rounded-full bg-white ring-1 ring-black/30 shadow-[0_0_4px_rgb(0_0_0/0.5)]"
@@ -139,6 +140,7 @@ function Grip({
   pos,
   span,
   limits,
+  resizable,
   disabled,
   onChange,
 }: {
@@ -146,6 +148,7 @@ function Grip({
   pos: number;
   span: Span;
   limits: TrimLimits;
+  resizable: boolean;
   disabled?: boolean;
   onChange: (span: Span) => void;
 }) {
@@ -155,13 +158,13 @@ function Grip({
     const delta = e.key === "ArrowLeft" || e.key === "ArrowDown" ? -step : e.key === "ArrowRight" || e.key === "ArrowUp" ? step : 0;
     if (!delta) return;
     e.preventDefault();
-    onChange(nudge(side, delta, span, limits));
+    onChange(resizable ? nudge(side, delta, span, limits) : dragTrim("move", span.start + delta, 0, span, limits));
   };
   return (
     <span
       role="slider"
       tabIndex={disabled ? -1 : 0}
-      aria-label={side === "start" ? "Inicio del tramo" : "Fin del tramo"}
+      aria-label={resizable ? (side === "start" ? "Inicio del tramo" : "Fin del tramo") : side === "start" ? "Mover el tramo" : "Mover el tramo (fin)"}
       aria-valuemin={0}
       aria-valuemax={limits.total}
       aria-valuenow={value}
@@ -171,11 +174,43 @@ function Grip({
       className={cn(
         "absolute inset-y-0 grid w-4 place-items-center bg-white outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         side === "start" ? "rounded-l-lg" : "-translate-x-full rounded-r-lg",
-        !disabled && "cursor-ew-resize",
+        !disabled && (resizable ? "cursor-ew-resize" : "cursor-grab"),
       )}
       style={{ left: `${pos}%` }}
     >
       <span className="h-5 w-[3px] rounded-full bg-black/45" aria-hidden />
+    </span>
+  );
+}
+
+/** Video frames under the trimmer (gray placeholders until decoded). */
+export function Filmstrip({ frames }: { frames: (string | null)[] }) {
+  return frames.map((src, i) =>
+    src ? (
+      // biome-ignore lint/suspicious/noArrayIndexKey: frames are positional
+      <img key={i} src={src} alt="" draggable={false} className="h-full min-w-0 flex-1 object-cover" />
+    ) : (
+      <span
+        // biome-ignore lint/suspicious/noArrayIndexKey: frames are positional
+        key={i}
+        className="h-full min-w-0 flex-1 animate-pulse border-r border-background/30 bg-foreground/10 motion-reduce:animate-none"
+      />
+    ),
+  );
+}
+
+/** Waveform bars under the trimmer. */
+export function WaveStrip({ peaks }: { peaks: number[] }) {
+  return (
+    <span className="flex size-full items-center gap-[2px] px-1">
+      {peaks.map((p, i) => (
+        <span
+          // biome-ignore lint/suspicious/noArrayIndexKey: fixed bars of one decoded file
+          key={i}
+          className="min-w-0 flex-1 rounded-full bg-sound"
+          style={{ height: `${Math.max(10, Math.round(p * 88))}%` }}
+        />
+      ))}
     </span>
   );
 }

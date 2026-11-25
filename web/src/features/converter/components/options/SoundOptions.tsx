@@ -103,9 +103,11 @@ export function SoundOptions() {
               file={audioFile}
               start={audioStartSec}
               wanted={wanted}
+              minSec={seg.minDuration}
               maxSec={seg.maxDuration}
+              resizable={seg.isImage}
               disabled={disabled}
-              onStart={(sec) => update({ audioStartSec: sec })}
+              onChange={update}
             />
           </div>
         ) : recording ? (

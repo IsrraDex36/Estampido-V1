@@ -4,13 +4,13 @@ export const DEFAULT_OPTIONS: ConverterOptions = {
   startSec: 0,
   durationSec: 5,
   fit: "pad",
+  background: "transparent",
   includeAudio: true,
   audioStartSec: 0,
   hq: false,
   includeMetadata: true,
   packName: "",
   publisher: "",
-  emojis: "",
 };
 
 /** Images default to "the sound's own length"; videos/GIFs to 5 s. Pure. */

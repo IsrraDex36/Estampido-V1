@@ -9,6 +9,20 @@ describe("buildVideoFilter", () => {
     expect(f).toContain("color=0x00000000");
     expect(f.indexOf("format=rgba")).toBeLessThan(f.indexOf("pad="));
   });
+  it("pads with a solid color background", () => {
+    const f = buildVideoFilter("pad", 15, 512, "#ff3366");
+    expect(f).toContain("pad=512:512:(ow-iw)/2:(oh-ih)/2:color=0xff3366FF");
+  });
+  it("pads with a blurred copy of the frame (single in/out chain)", () => {
+    const f = buildVideoFilter("pad", 15, 512, "blur");
+    expect(f.startsWith("fps=15,split[")).toBe(true);
+    expect(f).toContain("boxblur=");
+    expect(f).toContain("overlay=(W-w)/2:(H-h)/2,format=rgba");
+    expect(f).not.toContain("pad=");
+  });
+  it("ignores the background when cropping", () => {
+    expect(buildVideoFilter("crop", 15, 512, "blur")).toBe(buildVideoFilter("crop", 15, 512));
+  });
   it("crops to fill", () => {
     const f = buildVideoFilter("crop", 15, 512);
     expect(f).toContain("force_original_aspect_ratio=increase");

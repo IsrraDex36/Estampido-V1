@@ -167,6 +167,7 @@ export function createApp(deps: AppDeps = {}): Hono {
               durationSec: opts.durationSec,
               maxBytes: opts.hq ? API_LIMITS.maxExperimentalKb * 1024 : undefined,
               fit: opts.fit,
+              background: opts.background,
               audio: !opts.includeAudio
                 ? "none"
                 : audioPath

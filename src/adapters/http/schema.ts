@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { API_LIMITS, type ConvertRequestFields } from "./contract.js";
+import { API_LIMITS, type ConvertRequestFields, type StickerBackground } from "./contract.js";
 
 const boolish = z
   .union([z.boolean(), z.enum(["true", "false", "1", "0", "on", "off"])])
@@ -14,6 +14,11 @@ export const convertFieldsSchema = z.object({
     .max(API_LIMITS.maxDurationSec, `La duración máxima es ${API_LIMITS.maxDurationSec} s.`)
     .optional(),
   fit: z.enum(["pad", "crop"]).default("pad"),
+  background: z
+    .string()
+    .regex(/^(transparent|blur|#[0-9a-fA-F]{6})$/, "Fondo no válido.")
+    .transform((v) => v as StickerBackground)
+    .optional(),
   includeAudio: boolish.default(true),
   audioStartSec: z.coerce.number().min(0).default(0),
   hq: boolish.default(false),
