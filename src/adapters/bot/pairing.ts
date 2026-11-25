@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import { fetchLatestBaileysVersion, fetchLatestWaWebVersion, type WAVersion } from "baileys";
+import { fetchLatestBaileysVersion, fetchLatestWaWebVersion, proto, type WAVersion } from "baileys";
 
 /**
  * Workarounds for new-device pairing on Baileys 7.0.0-rc14 (Nov 2026):
@@ -56,3 +56,19 @@ export function isRotateRequest(node: NodeLike): boolean {
     node.content.some((c: { tag?: string }) => c?.tag === "companion_reg_refresh" || c?.tag === "pair-device-rotate-qr")
   );
 }
+
+/**
+ * History sync policy. Keep only the light syncs that carry LID↔PN mappings
+ * and contact names (Baileys warns that disabling *all* sync breaks LID
+ * mappings → session errors). Skip message history: the bot never reads it,
+ * and with RECENT disabled Baileys goes online right after pending
+ * notifications instead of buffering new messages for up to 20–30 s.
+ */
+const HISTORY_TYPES_TO_SYNC = new Set<number>([
+  proto.HistorySync.HistorySyncType.INITIAL_BOOTSTRAP,
+  proto.HistorySync.HistorySyncType.PUSH_NAME,
+  proto.HistorySync.HistorySyncType.NON_BLOCKING_DATA,
+]);
+
+export const shouldSyncHistory = ({ syncType }: { syncType?: number | null }): boolean =>
+  syncType != null && HISTORY_TYPES_TO_SYNC.has(syncType);

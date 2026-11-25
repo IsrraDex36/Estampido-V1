@@ -31,3 +31,20 @@ it("newAdvSecret is 32 random bytes base64", () => {
   expect(Buffer.from(a, "base64")).toHaveLength(32);
   expect(newAdvSecret()).not.toBe(a);
 });
+
+describe("shouldSyncHistory", async () => {
+  const { proto, PROCESSABLE_HISTORY_TYPES } = await import("baileys");
+  const { shouldSyncHistory } = await import("../../src/adapters/bot/pairing.js");
+  const T = proto.HistorySync.HistorySyncType;
+  it("keeps light syncs that carry LID mappings / names", () => {
+    for (const t of [T.INITIAL_BOOTSTRAP, T.PUSH_NAME, T.NON_BLOCKING_DATA])
+      expect(shouldSyncHistory({ syncType: t })).toBe(true);
+  });
+  it("skips message history (RECENT → Baileys goes online without the 20 s wait)", () => {
+    for (const t of [T.RECENT, T.FULL, T.ON_DEMAND, T.INITIAL_STATUS_V3])
+      expect(shouldSyncHistory({ syncType: t })).toBe(false);
+  });
+  it("is not 'all sync disabled' (the condition Baileys warns about)", () => {
+    expect(PROCESSABLE_HISTORY_TYPES.some((syncType) => shouldSyncHistory({ syncType }))).toBe(true);
+  });
+});
