@@ -6,6 +6,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **«Compartir» volvió a estar visible** en el resultado (quedaba escondido cuando el bot estaba conectado y en computadora). En celular abre el menú de compartir con el sticker; en computadora lo descarga y explica cómo mandarlo por WhatsApp Web.
+
 - Prueba de rendimiento de SQLite intermitente en CI (una sola medición): ahora toma la mejor de 5 tras calentar.
 
 - **Sincronía imagen–sonido en WhatsApp:** un GIF o WebP animado con un sonido más largo ahora se estira (repitiéndose sin saltos) hasta durar lo mismo que el sonido, en lugar de desfasarse en cada vuelta. Hasta 10 s.

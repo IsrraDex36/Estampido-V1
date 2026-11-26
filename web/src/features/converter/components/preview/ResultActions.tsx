@@ -34,7 +34,8 @@ export function ResultActions({ result }: { result: ConvertResponse }) {
     <div className="space-y-3">
       <SendCard result={result} />
       <CreateInWhatsApp result={result} />
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <ShareAction stickerUrl={result.sticker.url} />
         <PublishButton result={result} />
         <CollectionAction result={result} />
         <DownloadAction stickerUrl={result.sticker.url} audioUrl={result.audio?.url} />
@@ -180,8 +181,33 @@ function CollectionAction({ result }: { result: ConvertResponse }) {
   );
 }
 
-function DownloadAction({ stickerUrl, audioUrl }: { stickerUrl: string; audioUrl?: string }) {
+/**
+ * «Compartir», always visible. Phones: the system share sheet with the
+ * sticker (straight into a WhatsApp chat). Computers (no file sharing):
+ * download it and say how to send it from WhatsApp Web.
+ */
+function ShareAction({ stickerUrl }: { stickerUrl: string }) {
   const share = canShareFiles();
+  return (
+    <ActionTile
+      icon={<Share2Icon weight="duotone" />}
+      title="Compartir"
+      hint={share ? "A un chat" : "Descargar"}
+      onClick={() => {
+        if (share) {
+          void shareSticker(stickerUrl);
+          return;
+        }
+        const a = document.createElement("a");
+        a.href = downloadUrl(stickerUrl);
+        a.click();
+        notify.success("Descargado: arrástralo a un chat de WhatsApp Web y se envía como sticker.");
+      }}
+    />
+  );
+}
+
+function DownloadAction({ stickerUrl, audioUrl }: { stickerUrl: string; audioUrl?: string }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -193,11 +219,6 @@ function DownloadAction({ stickerUrl, audioUrl }: { stickerUrl: string; audioUrl
         />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="min-w-48">
-        {share && (
-          <DropdownMenuItem onSelect={() => void shareSticker(stickerUrl)}>
-            <Share2Icon /> Compartir…
-          </DropdownMenuItem>
-        )}
         <DropdownMenuItem asChild>
           <a href={downloadUrl(stickerUrl)}>
             <DownloadIcon /> Sticker (.webp)
