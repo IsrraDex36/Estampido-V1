@@ -45,7 +45,7 @@ function Working() {
       <p className="text-lg font-semibold tracking-tight">Creando tu sticker</p>
       <p className="font-mono text-[13px] tabular-nums text-muted-foreground">{formatTime(Math.floor(elapsed))}</p>
       <p className="text-[13px] leading-snug text-muted-foreground">
-        Probamos calidades y fps hasta que entre en el límite, y preparamos el sonido.
+        Ajustamos calidad y nitidez para que entre en el límite a 14–15 fps, y preparamos el sonido.
       </p>
     </div>
   );

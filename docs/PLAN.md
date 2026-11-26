@@ -105,7 +105,7 @@ sticker-video-audio/
 
 ### Fase 3 — Optimización + metadata + CLI (optimizador ✅ adelantado)
 
-- [x] `core/optimize`: loop de calidad 80→30 y fps 15→10 hasta quedar en ≤500 KB
+- [x] `core/optimize`: estándar 14–15 fps; para quedar en ≤500 KB baja calidad (75→30) y nitidez (512→256 px sobre el lienzo de 512), y solo después los fps
 - [x] `core/metadata`: EXIF de pack/autor/emojis (TIFF con el tag `0x5741` y JSON `sticker-pack-*`) incrustado sin recodificar (`core/webp/chunks.ts`). Sus bytes se reservan dentro de los 500 KB. Verificado con `webpmux`. Disponible en CLI (`--pack --author --emoji --no-metadata`), web, API y bot (`SVA_PACK`/`SVA_AUTHOR`; el autor por defecto es el nombre de quien lo pide)
 - [x] `adapters/cli`: `sva convert <video> [-s] [-d] [--crop] [-a archivo] [--no-audio] [-o] [-n] [--json]` + `sva doctor`. Códigos de salida: 0 ok, 1 interno, 2 entrada inválida
 - [x] Reporte final: tamaño, fps, calidad usada, duración y origen del audio

@@ -259,8 +259,8 @@ function DurationCard() {
 }
 
 const SMOOTH: Record<Smoothness, { level: number; title: string; detail: string }> = {
-  fluid: { level: 3, title: "Fluido", detail: "≈ 15 fps: se ve como el video." },
-  reduced: { level: 2, title: "Menos fluido", detail: "Clip largo: baja a pocos fps para entrar en 500 KB." },
+  fluid: { level: 3, title: "Fluido", detail: "14–15 fps asegurados: si pesa, se ajusta la nitidez, no la fluidez." },
+  reduced: { level: 2, title: "Menos fluido", detail: "Más de 10 s: puede bajar de 14 fps para entrar en 500 KB." },
   slideshow: { level: 1, title: "Tipo diapositivas", detail: "Muy largo: casi fotos fijas. El sonido se mantiene completo." },
 };
 

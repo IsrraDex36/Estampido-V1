@@ -27,9 +27,16 @@ export const STICKER_LIMITS = {
    * the chat while their sound keeps going.
    */
   whatsappMaxAnimationSec: 10,
-  /** Default and minimum frame rate for animated output. */
+  /** Target frame rate for animated stickers. */
   defaultFps: 15,
-  minFps: 10,
+  /**
+   * Frame-rate STANDARD: an animated sticker never goes under this while
+   * detail/quality can still be lowered (sources slower than this keep their
+   * own rate). Only clips too long for the byte limit drop below it, with a warning.
+   */
+  standardFps: 14,
+  /** Absolute floor for those over-long clips. */
+  minFps: 0.5,
 } as const;
 
 export type FitMode = "pad" | "crop";

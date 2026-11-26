@@ -25,7 +25,11 @@ export function ResultDetails({ result }: { result: ConvertResponse }) {
       </Spec>
       <Spec label="Imagen">
         {sticker.animated ? `${sticker.fps} fps · ${sticker.frames} frames` : "Estática"}
-        <span className="text-muted-foreground"> · calidad {sticker.quality}</span>
+        <span className="text-muted-foreground">
+          {" "}
+          · calidad {sticker.quality}
+          {sticker.detail && sticker.detail < 512 ? ` · nitidez ${sticker.detail} px` : ""}
+        </span>
       </Spec>
       <Spec label="Sonido">
         {audio ? (

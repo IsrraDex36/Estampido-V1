@@ -55,6 +55,8 @@ export interface ConvertResponse {
     withinLimit: boolean;
     quality: number;
     fps: number;
+    /** Animated: side (px) of the picture behind the 512 canvas (512 = full detail). */
+    detail?: number;
     frames: number;
     durationMs: number;
     attempts: number;

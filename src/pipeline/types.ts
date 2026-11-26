@@ -69,6 +69,8 @@ export interface ConvertResult {
       quality: number;
       /** 0 for static stickers. */
       fps: number;
+      /** Animated: side (px) of the picture behind the 512 canvas (512 = full detail). */
+      detail?: number;
       frames: number;
       durationMs: number;
       attempts: number;

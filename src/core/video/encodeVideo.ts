@@ -24,6 +24,12 @@ export interface EncodeVideoOptions {
   crop?: CropFrame;
   size?: number;
   /**
+   * Side (px) of the image the canvas is drawn from. Below `size`, the frame is
+   * framed at this size and scaled up: same 512 canvas, less detail, far fewer
+   * bytes (a sticker shows at ~190 px in the chat, so it's barely visible).
+   */
+  detail?: number;
+  /**
    * "input" (default): fast keyframe seek before decoding, right for videos.
    * "output": decode from the start, then trim. Required for animated WebP,
    * whose demuxer breaks with input seeking (libwebp_anim then fails).
@@ -41,8 +47,11 @@ export function buildVideoFilter(
   size: number,
   background?: StickerBackground,
   crop?: CropFrame,
+  detail = size,
 ): string {
-  return [`fps=${fps}`, ...buildFitFilter(fit, size, background, crop)].join(",");
+  if (detail >= size) return [`fps=${fps}`, ...buildFitFilter(fit, size, background, crop)].join(",");
+  const d = Math.max(16, Math.round(detail / 2) * 2);
+  return [`fps=${fps}`, ...buildFitFilter(fit, d, background, crop), `scale=${size}:${size}:flags=bicubic`].join(",");
 }
 
 /** Build the full ffmpeg arg list. Exported for unit testing. */
@@ -62,7 +71,8 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
     "-vf",
     // `loop` repeats the decoded frames (works for GIF and animated WebP; -stream_loop
     // hangs on the WebP decoder); the output -t then cuts it to the sound's length.
-    (opts.loop ? "loop=loop=-1:size=32767," : "") + buildVideoFilter(fit, fps, size, opts.background, opts.crop),
+    (opts.loop ? "loop=loop=-1:size=32767," : "") +
+      buildVideoFilter(fit, fps, size, opts.background, opts.crop, opts.detail),
     "-an",
     // Constant frame rate → uniform frame durations (variable ones get rejected by WhatsApp).
     "-fps_mode",

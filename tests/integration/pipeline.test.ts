@@ -174,6 +174,18 @@ describe("convertToSoundSticker", () => {
     expect(explicit.stats.segment.durationSec).toBe(2);
   });
 
+  it("fps standard: a busy 10 s clip stays at 14–15 fps under 500 KB (detail/quality give way, not fps)", async () => {
+    const busy = await makeVideo(dir, "busy10.mp4", { seconds: 10 });
+    const r = await convertToSoundSticker({ input: busy, outDir: dir, name: "busy10", durationSec: 10 });
+    expect(r.stats.sticker.fps).toBeGreaterThanOrEqual(14);
+    expect(r.stats.sticker.withinLimit).toBe(true);
+    expect(r.stats.sticker.bytes).toBeLessThanOrEqual(500 * 1024);
+    expect(r.warnings.join(" ")).not.toMatch(/bajó a .* fps/);
+    // Canvas is always 512×512, whatever the detail.
+    const info = inspectWebp(await readFile(r.webpPath));
+    expect([info.canvasWidth, info.canvasHeight]).toEqual([512, 512]);
+  });
+
   it("fullLength on a long video takes 10 s (what WhatsApp animates), says so; picture and sound match", async () => {
     const long = await makeVideo(dir, "long.mp4", { seconds: 14 });
     const r = await convertToSoundSticker({ input: long, outDir: dir, name: "long", fullLength: true });

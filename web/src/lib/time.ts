@@ -30,8 +30,9 @@ export function presetLabel(sec: number): string {
 }
 
 /**
- * Rough smoothness tier inside the 500 KB budget (from measured encodes:
- * ~15 fps up to 10 s, a few fps at 30 s, ≤ 1 fps for minutes).
+ * Rough smoothness tier inside the 500 KB budget. Up to 10 s the server keeps
+ * the 14–15 fps standard (it lowers detail/quality instead); longer clips may
+ * drop under it (measured: busy 15 s ≈ 13 fps, a few fps at 30 s+).
  */
 export type Smoothness = "fluid" | "reduced" | "slideshow";
 export function smoothnessFor(durationSec: number, hq: boolean): Smoothness {

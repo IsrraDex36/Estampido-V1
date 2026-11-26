@@ -92,6 +92,7 @@ export async function convertAnimated(
         crop: opts.crop,
         quality: req.quality,
         fps: req.fps,
+        detail: req.detail,
         seek: kind === "animated" ? "output" : "input",
         loop: stretch !== null,
         signal: opts.signal,
@@ -101,12 +102,14 @@ export async function convertAnimated(
     {
       durationSec: animSec,
       maxFps: Math.min(STICKER_LIMITS.defaultFps, maxFps),
+      standardFps: STICKER_LIMITS.standardFps,
+      minFps: STICKER_LIMITS.minFps,
       maxBytes: maxBytes - overhead,
     },
   ).finally(() => rm(probePath, { force: true }));
-  if (fitted.fps < 2) {
+  if (fitted.belowStandard) {
     warnings.push(
-      `Para entrar en ${kb(maxBytes)} quedó a ${fitted.fps} fps (calidad ${fitted.quality}). Usa «hq» o un clip más corto para más fluidez.`,
+      `Para entrar en ${kb(maxBytes)} bajó a ${fitted.fps} fps (el estándar es ${STICKER_LIMITS.standardFps}–${STICKER_LIMITS.defaultFps}). Para que se vea fluido, usa un tramo de ${STICKER_LIMITS.whatsappMaxAnimationSec} s o menos, o «hq».`,
     );
   }
   if (maxBytes > STICKER_LIMITS.maxAnimatedBytes) {
@@ -183,6 +186,7 @@ export async function convertAnimated(
         maxBytes,
         quality: fitted.quality,
         fps: fitted.fps,
+        detail: fitted.detail,
         frames: info.frames.length,
         durationMs: totalDurationMs(info),
         attempts: fitted.attempts,

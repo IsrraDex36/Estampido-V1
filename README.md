@@ -48,7 +48,7 @@ _Estampa + estampido._ Estampido genera **stickers con sonido nativos** de Whats
 ### Calidad
 
 - **Siempre dentro del límite de WhatsApp**: WebP de 512×512 y ≤ 500 KB (estáticos ≤ 100 KB), con frames uniformes. Hay un modo **Calidad alta** experimental de hasta 5 MB.
-- **Optimizador que prioriza los fps**: busca la máxima fluidez que cabe en el presupuesto (≈ 15 fps en 5 s y 8–11 fps en 10 s).
+- **Estándar de 14–15 fps**: hasta 10 s, si el sticker pesa se ajustan la calidad y la nitidez (el lienzo sigue siendo 512×512), nunca la fluidez. Solo los clips más largos bajan de 14 fps, con aviso.
 - **Audio robusto**: elige la pista correcta, recorta silencios, nivela el audio bajo (hasta +20 dB) y lo sincroniza con la imagen.
 
 ### Entrega y comunidad
@@ -201,7 +201,7 @@ flowchart TB
     API --> PIPE[Pipeline<br/>convertToSoundSticker]
     BOT --> PIPE
     CLI --> PIPE
-    PIPE --> CORE[Núcleo<br/>probe · video · audio · imagen · encuadre · optimizador fps · EXIF]
+    PIPE --> CORE[Núcleo<br/>probe · video · audio · imagen · encuadre · optimizador 14–15 fps · EXIF]
     CORE --> FF[(FFmpeg)]
     API -.control local.-> BOT
 ```

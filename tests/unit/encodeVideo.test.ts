@@ -72,4 +72,11 @@ describe("long-clip encoder settings", async () => {
     expect(encodeTimeoutMs(5)).toBe(120_000);
     expect(encodeTimeoutMs(180)).toBe(540_000);
   });
+  it("detail < size: frames at the smaller size then scales back up to the 512 canvas", () => {
+    const f = buildVideoFilter("pad", 15, 512, undefined, undefined, 384);
+    expect(f.startsWith("fps=15,")).toBe(true);
+    expect(f).toContain("384");
+    expect(f.endsWith("scale=512:512:flags=bicubic")).toBe(true);
+    expect(buildVideoFilter("pad", 15, 512, undefined, undefined, 512)).toBe(buildVideoFilter("pad", 15, 512));
+  });
 });
