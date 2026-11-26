@@ -12,7 +12,7 @@ const COPY = {
 } as const;
 
 /** Header status: skeleton while the first check runs; click → manage the WhatsApp link. */
-export function BotStatus() {
+export function BotStatus({ alwaysLabel = false }: { alwaysLabel?: boolean } = {}) {
   const status = useBotStatus();
   const link = useLink();
   const [open, setOpen] = useState(false);
@@ -36,14 +36,14 @@ export function BotStatus() {
             type="button"
             onClick={() => setOpen(true)}
             disabled={state !== "on"}
-            className="inline-flex h-8 items-center gap-2 rounded-full bg-muted px-3 text-[13px] font-medium transition-colors hover:bg-muted/70 disabled:cursor-default"
+            className="inline-flex h-8 max-w-full items-center gap-2 rounded-full bg-muted px-3 text-[13px] font-medium transition-colors hover:bg-muted/70 disabled:cursor-default"
           >
             <span
               role="status"
               aria-label={label}
               className={cn("size-2 rounded-full", state === "on" ? "bg-sound" : state === "linking" ? "bg-retro-a" : "bg-muted-foreground/40")}
             />
-            <span className="hidden sm:inline">{label}</span>
+            <span className={alwaysLabel ? "truncate" : "hidden sm:inline"}>{label}</span>
           </button>
         </TooltipTrigger>
         <TooltipContent>{hint}</TooltipContent>
