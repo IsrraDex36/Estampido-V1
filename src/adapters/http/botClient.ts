@@ -23,7 +23,7 @@ export interface BotClient {
   createLink(client: string): Promise<{ code: string; expiresAt: number }>;
   linkStatus(client: string): Promise<BotLinkStatus>;
   unlink(client: string): Promise<void>;
-  send(req: SendRequest): Promise<{ delivered: "native" | "sticker" }>;
+  send(req: SendRequest): Promise<{ delivered: "native" | "separate" | "sticker" }>;
   /** Bot linking progress (raw QR data / code / connected). */
   pairing(): Promise<BotPairing>;
   /** Watchdog report. */
@@ -117,7 +117,7 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
       return json<BotPairing>(await call("/pairing", { signal: AbortSignal.timeout(3_000) }));
     },
     async send(req) {
-      const body = await json<{ delivered?: "native" | "sticker" }>(
+      const body = await json<{ delivered?: "native" | "separate" | "sticker" }>(
         await call("/send", { method: "POST", body: JSON.stringify(req) }),
       );
       if (!body.delivered) throw new BotRequestError("Respuesta inválida del bot.", "bot_error", 502);

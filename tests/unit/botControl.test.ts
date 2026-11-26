@@ -46,6 +46,27 @@ describe("assertResultFile", () => {
   });
 });
 
+describe("assertResultFile: results + community folders", () => {
+  it("accepts community stickers/sounds; rejects other files there, wrong types and missing roots are skipped", async () => {
+    const community = join(base, "community");
+    await mkdir(join(community, "abc"), { recursive: true });
+    await writeFile(join(community, "abc", "sticker.webp"), "RIFF");
+    await writeFile(join(community, "abc", "sticker.ogg"), "OggS");
+    await writeFile(join(community, "index.json"), "[]");
+    const roots = [results, community, join(base, "does-not-exist")];
+    await expect(assertResultFile(join(community, "abc", "sticker.webp"), roots, /\.webp$/i)).resolves.toContain(
+      "sticker.webp",
+    );
+    await expect(assertResultFile(join(community, "abc", "sticker.ogg"), roots, /\.ogg$/i)).resolves.toContain(
+      "sticker.ogg",
+    );
+    await expect(assertResultFile(join(community, "index.json"), roots, /\.webp$/i)).rejects.toThrow(/type/);
+    await expect(assertResultFile(join(community, "abc", "sticker.webp"), roots, /\.ogg$/i)).rejects.toThrow(/type/);
+    await expect(assertResultFile(outside, roots)).rejects.toThrow(/outside/);
+    await expect(assertResultFile(join(community, "..", "secret.txt"), roots)).rejects.toThrow();
+  });
+});
+
 describe("control app", () => {
   const CLIENT = "c".repeat(64);
   const OTHER = "d".repeat(64);
@@ -111,6 +132,28 @@ describe("control app", () => {
     const nope = await post(app, "/send", { client: OTHER, webpPath: webp(), animated: true });
     expect(nope.status).toBe(409);
     expect(await nope.json()).toMatchObject({ code: "not_linked" });
+  });
+
+  it("community stickers can be sent (regression: «Archivo no permitido o inexistente»); other files can't", async () => {
+    const { sock, sent } = fakeSock();
+    const community = join(base, "community");
+    await mkdir(join(community, "abc"), { recursive: true });
+    await writeFile(join(community, "abc", "sticker.webp"), "RIFF");
+    await writeFile(join(community, "index.json"), "[]");
+    const app = createControlApp(handle(sock, await linked()), TOKEN, [results, community]);
+    const ok = await post(app, "/send", {
+      client: CLIENT,
+      webpPath: join(community, "abc", "sticker.webp"),
+      animated: false,
+    });
+    expect(ok.status).toBe(200);
+    expect(sent.map((x) => x.jid)).toEqual([USER]);
+    const bad = await post(app, "/send", { client: CLIENT, webpPath: join(community, "index.json"), animated: false });
+    expect(bad.status).toBe(403);
+    expect(((await bad.json()) as { error: string }).error).toMatch(/ya no está disponible/);
+    // Default roots = the real results + community folders (both processes share the env).
+    const { sendableRoots } = await import("../../src/adapters/bot/control.js");
+    expect(sendableRoots()).toHaveLength(2);
   });
 
   it("owner's local mode: unlinked + fallbackToSelf → the bot's own chat (never without the flag)", async () => {

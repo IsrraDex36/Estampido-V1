@@ -63,7 +63,13 @@ function SendCard({ result }: { result: ConvertResponse }) {
     gate(() =>
       send.mutate(result.id, {
         onSuccess: ({ delivered }) =>
-          notify.success(delivered === "native" ? "Enviado a tu chat con sonido" : "Enviado a tu chat"),
+          notify.success(
+            delivered === "native"
+              ? "Enviado a tu chat con sonido"
+              : delivered === "separate"
+                ? "Enviado a tu chat: sticker + nota de voz"
+                : "Enviado a tu chat",
+          ),
       }),
     );
 

@@ -105,7 +105,8 @@ export type WhatsAppLink =
 
 export interface SendToWhatsAppResponse {
   /** native = one sound sticker; sticker = plain sticker (result had no sound). */
-  delivered: "native" | "sticker";
+  /** native = sound sticker · separate = sticker + voice note (native failed) · sticker = no sound. */
+  delivered: "native" | "separate" | "sticker";
 }
 
 export interface ApiErrorBody {

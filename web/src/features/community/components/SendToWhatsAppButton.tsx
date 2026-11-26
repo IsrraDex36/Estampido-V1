@@ -23,7 +23,13 @@ export function SendToWhatsAppButton({ sticker, className }: { sticker: Communit
     gate(() =>
       send.mutate(sticker.id, {
         onSuccess: ({ delivered }) =>
-          notify.success(delivered === "native" ? `«${sticker.title}» llegó a tu chat con sonido` : `«${sticker.title}» llegó a tu chat`),
+          notify.success(
+            delivered === "native"
+              ? `«${sticker.title}» llegó a tu chat con sonido`
+              : delivered === "separate"
+                ? `«${sticker.title}» llegó a tu chat (sticker + nota de voz)`
+                : `«${sticker.title}» llegó a tu chat`,
+          ),
       }),
     );
 

@@ -7,7 +7,7 @@ import { jidNormalizedUser, type WASocket } from "baileys";
 import { Hono } from "hono";
 import { z } from "zod";
 import { STICKER_LIMITS } from "../../config/limits.js";
-import { controlFile, RESULTS_ROOT } from "../../config/paths.js";
+import { communityRoot, controlFile, RESULTS_ROOT } from "../../config/paths.js";
 import { RateLimiter } from "../../utils/rateLimit.js";
 import { jidDigits } from "./command.js";
 import type { PairingState } from "./connection.js";
@@ -22,7 +22,7 @@ import type { HealthReport } from "./watchdog.js";
  * - destination is ALWAYS the chat linked to that web client (a code the
  *   user sent from their own WhatsApp) — never an arbitrary number
  * - per-chat send limit
- * - only files inside the API results folder can be sent (realpath-checked)
+ * - only .webp/.ogg files inside the results or community folders can be sent (realpath-checked)
  */
 export interface BotHandle {
   current(): WASocket | null;
@@ -52,13 +52,30 @@ const sendSchema = z.object({
 });
 export type SendToSelfRequest = z.infer<typeof sendSchema>;
 export interface SendToSelfResponse {
-  delivered: "native" | "sticker";
+  delivered: "native" | "separate" | "sticker";
 }
 
-/** Resolve symlinks and require the file to live under RESULTS_ROOT. */
-export async function assertResultFile(path: string, root = RESULTS_ROOT): Promise<string> {
-  const [real, realRoot] = await Promise.all([realpath(path), realpath(root)]);
-  if (!real.startsWith(realRoot + sep)) throw new Error("path outside results folder");
+/**
+ * Folders the API may ask the bot to send from: fresh results (30 min) and
+ * the community library. Both processes resolve them from the same env.
+ */
+export const sendableRoots = (): string[] => [RESULTS_ROOT, communityRoot()];
+
+/**
+ * Resolve symlinks and require the file to live under one of `roots` (missing
+ * roots are skipped). Optional extension check: only stickers/sounds leave the box.
+ */
+export async function assertResultFile(
+  path: string,
+  roots: string | string[] = sendableRoots(),
+  ext?: RegExp,
+): Promise<string> {
+  if (ext && !ext.test(path)) throw new Error("file type not allowed");
+  const real = await realpath(path);
+  const realRoots = (await Promise.allSettled((Array.isArray(roots) ? roots : [roots]).map((r) => realpath(r))))
+    .filter((r): r is PromiseFulfilledResult<string> => r.status === "fulfilled")
+    .map((r) => r.value);
+  if (!realRoots.some((root) => real.startsWith(root + sep))) throw new Error("path outside the allowed folders");
   return real;
 }
 
@@ -68,7 +85,7 @@ const tokenMatches = (header: string | undefined, token: string): boolean => {
   return given.length === want.length && timingSafeEqual(given, want);
 };
 
-export function createControlApp(bot: BotHandle, token: string, resultsRoot = RESULTS_ROOT): Hono {
+export function createControlApp(bot: BotHandle, token: string, roots: string | string[] = sendableRoots()): Hono {
   const app = new Hono();
   app.use("*", async (c, next) => {
     if (!tokenMatches(c.req.header("authorization"), token)) return c.json({ error: "unauthorized" }, 401);
@@ -135,10 +152,11 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
     let webpPath: string;
     let audioPath: string | undefined;
     try {
-      webpPath = await assertResultFile(parsed.data.webpPath, resultsRoot);
-      if (parsed.data.audioPath) audioPath = await assertResultFile(parsed.data.audioPath, resultsRoot);
-    } catch {
-      return c.json({ error: "Archivo no permitido o inexistente." }, 403);
+      webpPath = await assertResultFile(parsed.data.webpPath, roots, /\.webp$/i);
+      if (parsed.data.audioPath) audioPath = await assertResultFile(parsed.data.audioPath, roots, /\.ogg$/i);
+    } catch (err) {
+      console.error("[control] archivo rechazado:", err instanceof Error ? err.message : err);
+      return c.json({ error: "El sticker ya no está disponible. Vuelve a crearlo o recarga la comunidad." }, 403);
     }
 
     const target =
@@ -150,13 +168,24 @@ export function createControlApp(bot: BotHandle, token: string, resultsRoot = RE
     }
     try {
       if (audioPath && parsed.data.audioDurationSec) {
-        await sendSoundSticker(sock, target, {
-          webpPath,
-          audioPath,
-          audioDurationSec: parsed.data.audioDurationSec,
-          animated: parsed.data.animated,
-        });
-        return c.json({ delivered: "native" } satisfies SendToSelfResponse);
+        try {
+          await sendSoundSticker(sock, target, {
+            webpPath,
+            audioPath,
+            audioDurationSec: parsed.data.audioDurationSec,
+            animated: parsed.data.animated,
+          });
+          return c.json({ delivered: "native" } satisfies SendToSelfResponse);
+        } catch (err) {
+          // Plan B (same as /saudio): the sticker + its sound as a voice note.
+          console.error(
+            "[control] envío nativo falló; mando sticker + nota de voz:",
+            err instanceof Error ? err.message : err,
+          );
+          await sock.sendMessage(target, { sticker: { url: webpPath } });
+          await sock.sendMessage(target, { audio: { url: audioPath }, mimetype: "audio/ogg; codecs=opus", ptt: true });
+          return c.json({ delivered: "separate" } satisfies SendToSelfResponse);
+        }
       }
       await sock.sendMessage(target, { sticker: { url: webpPath } });
       return c.json({ delivered: "sticker" } satisfies SendToSelfResponse);
