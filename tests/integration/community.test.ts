@@ -416,3 +416,44 @@ describe("publish: what to share", () => {
     expect(((await silentRemix.json()) as CommunitySticker).soundOrigin).toBeNull();
   });
 });
+
+describe("publishing quota is per account, not per IP", () => {
+  it("each account has its own quota; refused tries don't count; the owner has none", async () => {
+    const { rm: rmDir } = await import("node:fs/promises");
+    const { makeHarness } = await import("../helpers/apiHarness.js");
+    const { makeTempDir } = await import("../helpers/fixtures.js");
+    const d = await makeTempDir();
+    const hq = await makeHarness(d, undefined, {
+      publishQuota: { perHour: 2, perDay: 10 },
+      unlimitedHandles: ["caro"],
+    });
+    try {
+      await hq.signIn("ana", "ana");
+      await hq.signIn("beto", "beto");
+      await hq.signIn("caro", "caro");
+      // Same IP for everyone in tests: ana's quota never touches beto's.
+      await hq.publish("ana");
+      await hq.publish("ana");
+      const third = await hq.req("ana", "/api/community/stickers", {
+        method: "POST",
+        body: JSON.stringify({ resultId: await hq.makeResult(), category: "memes", ownsAudio: true }),
+      });
+      expect(third.status).toBe(429);
+      expect(third.headers.get("retry-after")).toBeTruthy();
+      expect(await third.json()).toMatchObject({ error: { code: "rate_limited" } });
+      await hq.publish("beto"); // unaffected
+      // An invalid publish doesn't burn quota.
+      const bad = await hq.req("beto", "/api/community/stickers", {
+        method: "POST",
+        body: JSON.stringify({ resultId: "nope" }),
+      });
+      expect(bad.status).toBe(400);
+      await hq.publish("beto");
+      // Owner: no per-account quota.
+      for (let i = 0; i < 4; i++) await hq.publish("caro");
+    } finally {
+      hq.close();
+      await rmDir(d, { recursive: true, force: true });
+    }
+  });
+});

@@ -20,7 +20,13 @@ import type { Backups } from "./backups.js";
 import { type BotClient, type BotPairing, BotRequestError, BotUnavailableError, createBotClient } from "./botClient.js";
 import { clientHash } from "./client.js";
 import { CommunityRepo } from "./community/repo.js";
-import { communityRoutes, type PublishGuard, toStickerDto } from "./community/routes.js";
+import {
+  communityRoutes,
+  DEFAULT_PUBLISH_QUOTA,
+  type PublishGuard,
+  type PublishQuota,
+  toStickerDto,
+} from "./community/routes.js";
 import {
   ADMIN_UNLINK_CONFIRM,
   ADMIN_WIPE_CONFIRM,
@@ -71,6 +77,10 @@ export interface AppDeps {
    * random secret; unset or short → the endpoint doesn't exist (404).
    */
   adminToken?: string;
+  /** Per-account publishing quota overrides (tests). */
+  publishQuota?: Partial<Pick<PublishQuota, "perHour" | "perDay">>;
+  /** Handles with no publishing quota (owner): SVA_UNLIMITED_HANDLES="isra,otro". */
+  unlimitedHandles?: string[];
   /** Daily database backups (production); /admin lists, runs and downloads them. */
   backups?: Backups;
   convert?: (opts: ConvertOptions) => Promise<ConvertResult>;
@@ -100,6 +110,7 @@ const fail = (code: string, message: string): ApiErrorBody => ({
 export type ApiApp = Hono<AppEnv, BlankSchema, "/api">;
 
 export function createApp(deps: AppDeps = {}): ApiApp {
+  const unlimitedHandles = new Set((deps.unlimitedHandles ?? []).map((h) => h.trim().toLowerCase()).filter(Boolean));
   const store = deps.store ?? new ResultStore();
   const bot = deps.bot ?? createBotClient();
   const convert = deps.convert ?? convertToSoundSticker;
@@ -139,7 +150,11 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     : undefined;
   app.route(
     "/community",
-    communityRoutes(communityRepo, store, { canPublish, isAdmin: (c) => adminDenied(c) === null }),
+    communityRoutes(communityRepo, store, {
+      canPublish,
+      isAdmin: (c) => adminDenied(c) === null,
+      publishQuota: { ...DEFAULT_PUBLISH_QUOTA, ...deps.publishQuota, unlimited: (h) => unlimitedHandles.has(h) },
+    }),
   );
   const social = new SocialRepo(communityRepo);
   app.route(

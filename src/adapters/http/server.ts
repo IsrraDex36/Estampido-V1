@@ -37,7 +37,9 @@ export const DEFAULT_LIMITS = {
   // Many people share one IP on mobile data (CGNAT): room for a crowd, still a cap.
   linkCode: { max: 30, windowMs: 10 * MIN },
   send: { max: 40, windowMs: 10 * MIN },
-  publish: { max: 10, windowMs: 60 * MIN },
+  // Backstop per IP only (mobile data puts many people behind one IP); the real
+  // limit is per account (community routes: 30/h, 150/day).
+  publish: { max: 120, windowMs: 60 * MIN },
   soundUse: { max: 60, windowMs: 10 * MIN },
   account: { max: 30, windowMs: 10 * MIN }, // sign in/out, profile edits, account deletion
   favorite: { max: 200, windowMs: 10 * MIN },

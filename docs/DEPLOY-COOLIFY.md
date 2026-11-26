@@ -29,15 +29,16 @@ push a `main` despliega solo (webhook de GitHub → Coolify).
 
 ## 3. Variables de entorno
 
-| Variable               | Valor / para qué                                                     |
-| ---------------------- | -------------------------------------------------------------------- |
-| `SVA_ADMIN_TOKEN`      | **Obligatoria.** Contraseña larga (16+). Habilita `/admin`.          |
-| `SVA_PUBLIC_URL`       | `https://estampido.isrradev.com` (SEO, vistas previas al compartir). |
-| `SVA_ALERT_WEBHOOK`    | `https://ntfy.sh/<tema-secreto>`: alertas al celular (app **ntfy**). |
-| `SVA_PAIRING_NUMBER`   | Opcional: `52…` para vincular con código en vez de QR.               |
-| `SVA_ALERT_WHATSAPP`   | `0` para no recibir alertas también en el chat del bot.              |
-| `SVA_LIMITS`           | Opcional: ajustar límites por IP (`convert=30/10m,…`).               |
-| `SVA_COMMUNITY_MAX_MB` | Tope de espacio de la comunidad (por defecto 2048).                  |
+| Variable                | Valor / para qué                                                     |
+| ----------------------- | -------------------------------------------------------------------- |
+| `SVA_ADMIN_TOKEN`       | **Obligatoria.** Contraseña larga (16+). Habilita `/admin`.          |
+| `SVA_PUBLIC_URL`        | `https://estampido.isrradev.com` (SEO, vistas previas al compartir). |
+| `SVA_ALERT_WEBHOOK`     | `https://ntfy.sh/<tema-secreto>`: alertas al celular (app **ntfy**). |
+| `SVA_PAIRING_NUMBER`    | Opcional: `52…` para vincular con código en vez de QR.               |
+| `SVA_ALERT_WHATSAPP`    | `0` para no recibir alertas también en el chat del bot.              |
+| `SVA_LIMITS`            | Opcional: ajustar límites por IP (`convert=30/10m,…`).               |
+| `SVA_COMMUNITY_MAX_MB`  | Tope de espacio de la comunidad (por defecto 2048).                  |
+| `SVA_UNLIMITED_HANDLES` | Tu usuario (p. ej. `isrra`): sin límite de publicaciones por cuenta. |
 
 Ya vienen en la imagen: `SVA_MODE=production`, `SVA_HOST=0.0.0.0`,
 `SVA_TRUST_PROXY=1` y las rutas en `/data`.

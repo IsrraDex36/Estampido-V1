@@ -5,6 +5,7 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { probe } from "../../../core/probe/probe.js";
 import { inspectWebp } from "../../../core/webp/inspect.js";
+import { RateLimiter } from "../../../utils/rateLimit.js";
 import { type AppEnv, viewerKey } from "../accounts/session.js";
 import {
   type ApiErrorBody,
@@ -92,6 +93,15 @@ const defaultTitle = (category: string, soundOnly = false) =>
 /** Decides if this request may publish (e.g. «needs a linked WhatsApp»). null = allowed. */
 export type PublishGuard = (c: Context<AppEnv>) => Promise<{ status: 403 | 503; body: ApiErrorBody } | null>;
 
+export interface PublishQuota {
+  perHour: number;
+  perDay: number;
+  /** Handles without a quota (the owner, via SVA_UNLIMITED_HANDLES). */
+  unlimited: (handle: string) => boolean;
+}
+
+export const DEFAULT_PUBLISH_QUOTA: PublishQuota = { perHour: 30, perDay: 150, unlimited: () => false };
+
 export function communityRoutes(
   repo: CommunityRepo,
   results: ResultStore,
@@ -99,9 +109,14 @@ export function communityRoutes(
     canPublish?: PublishGuard;
     /** The site owner (admin password) may see hidden stickers' files to review them. */
     isAdmin?: (c: Context<AppEnv>) => boolean;
+    /** Per-ACCOUNT publishing quota (a shared mobile IP must not limit a whole crowd). */
+    publishQuota?: PublishQuota;
   } = {},
 ): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+  const quota = opts.publishQuota ?? DEFAULT_PUBLISH_QUOTA;
+  const perHour = new RateLimiter(quota.perHour, 60 * 60_000);
+  const perDay = new RateLimiter(quota.perDay, 24 * 60 * 60_000);
 
   const list = async (query: Record<string, string>, onlySounds: boolean) => {
     const parsed = listSchema.safeParse(query);
@@ -136,6 +151,20 @@ export function communityRoutes(
   app.post("/stickers", async (c) => {
     const denied = opts.canPublish ? await opts.canPublish(c) : null;
     if (denied) return c.json(denied.body, denied.status);
+    // Per-account quota (checked now, counted only when it really publishes).
+    const user = c.get("user");
+    const limited = user && !quota.unlimited(user.handle) ? Math.max(perHour.peek(user.id), perDay.peek(user.id)) : 0;
+    if (limited > 0) {
+      const min = Math.ceil(limited / 60_000);
+      c.header("Retry-After", String(Math.ceil(limited / 1000)));
+      return c.json(
+        fail(
+          "rate_limited",
+          `Publicaste muchos seguidos. Podrás publicar otra vez en ${min < 60 ? `${min} min` : `${Math.ceil(min / 60)} h`}.`,
+        ),
+        429,
+      );
+    }
     const parsed = publishSchema.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return c.json(fail("bad_request", parsed.error.issues.map((i) => i.message).join(" ")), 400);
     const req = parsed.data;
@@ -185,6 +214,10 @@ export function communityRoutes(
       throw err;
     }
     // Re-read: the response carries the creator (joined from users).
+    if (user && !quota.unlimited(user.handle)) {
+      perHour.take(user.id);
+      perDay.take(user.id);
+    }
     return c.json(toStickerDto((await repo.get(item.id)) ?? item), 201);
   });
 

@@ -47,6 +47,8 @@ const backups = production
   : undefined;
 const api = createApp({
   backups,
+  // The owner publishes in batches: no per-account quota for these handles.
+  unlimitedHandles: process.env.SVA_UNLIMITED_HANDLES?.split(","),
   store,
   community,
   accounts,

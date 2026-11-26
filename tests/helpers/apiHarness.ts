@@ -1,7 +1,7 @@
 import { join } from "node:path";
 import { expect } from "vitest";
 import { AccountRepo } from "../../src/adapters/http/accounts/repo.js";
-import { createApp } from "../../src/adapters/http/app.js";
+import { type AppDeps, createApp } from "../../src/adapters/http/app.js";
 import { clientHash } from "../../src/adapters/http/client.js";
 import { CommunityRepo } from "../../src/adapters/http/community/repo.js";
 import type { CommunitySticker, Me } from "../../src/adapters/http/contract.js";
@@ -25,7 +25,7 @@ export const BROWSERS = {
 } as const;
 export type Browser = keyof typeof BROWSERS;
 
-export async function makeHarness(dir: string, start = Date.UTC(2026, 10, 25, 12)) {
+export async function makeHarness(dir: string, start = Date.UTC(2026, 10, 25, 12), extra: Partial<AppDeps> = {}) {
   const clock = { now: start };
   const results = new ResultStore(join(dir, "results"));
   const community = new CommunityRepo(join(dir, "community"), () => clock.now);
@@ -59,6 +59,7 @@ export async function makeHarness(dir: string, start = Date.UTC(2026, 10, 25, 12
     feedback: new FeedbackRepo(community, () => clock.now),
     publishRequiresLink: true,
     adminToken: ADMIN,
+    ...extra,
   });
 
   const headers = (b: Browser, cookie?: string, extra: Record<string, string> = {}) => ({
