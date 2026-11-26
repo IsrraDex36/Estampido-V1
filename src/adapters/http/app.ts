@@ -1,6 +1,7 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, rename, rm, stat } from "node:fs/promises";
+import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { type Context, Hono } from "hono";
 import type { BlankSchema } from "hono/types";
@@ -40,6 +41,7 @@ import { linkGreeting } from "./linkGreeting.js";
 import { ModerationRepo } from "./moderation/repo.js";
 import { moderationRoutes } from "./moderation/routes.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
+import { OgImages } from "./social/og.js";
 import { SocialRepo } from "./social/repo.js";
 import { socialRoutes } from "./social/routes.js";
 
@@ -146,7 +148,15 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       isFollowing: (a, b) => social.isFollowing(a, b),
     }),
   );
-  app.route("/", socialRoutes({ social, accounts, community: communityRepo }));
+  app.route(
+    "/",
+    socialRoutes({
+      social,
+      accounts,
+      community: communityRepo,
+      og: new OgImages(join(dirname(communityRepo.dbPath), "_og")),
+    }),
+  );
 
   // Conversions: admission-controlled queue, sync or background jobs.
   app.route("/", convertRoutes({ store, convert, queue: conversionQueue, registry: jobRegistry }));

@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { type Context, Hono } from "hono";
 import { z } from "zod";
 import type { AccountRepo, User } from "../accounts/repo.js";
@@ -15,6 +16,7 @@ import {
   type PackDetail,
   type PackSummary,
 } from "../contract.js";
+import type { OgImages } from "./og.js";
 import { PackError, type PackRow, type SocialRepo } from "./repo.js";
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });
@@ -50,11 +52,47 @@ export interface SocialRoutesDeps {
   social: SocialRepo;
   accounts: AccountRepo;
   community: CommunityRepo;
+  /** Link-preview cards for packs and creators (absent → those routes 404). */
+  og?: OgImages;
 }
 
 /** Follow creators («Siguiendo» feed) and packs (curated sticker lists). */
-export function socialRoutes({ social, accounts, community }: SocialRoutesDeps): Hono<AppEnv> {
+export function socialRoutes({ social, accounts, community, og }: SocialRoutesDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+
+  // ── link previews (og:image) ─────────────────────────────────────────────
+  /** The card for these stickers, or the site's default image when there are none. */
+  const card = async (c: Context<AppEnv>, key: string, ids: string[]) => {
+    const files = (await Promise.all(ids.map((id) => community.resolveFile(id, "sticker.webp"))))
+      .filter((f): f is NonNullable<typeof f> => f !== null)
+      .map((f) => f.path);
+    if (!og || files.length === 0) return c.redirect("/og-image.png", 302);
+    try {
+      const bytes = await readFile(await og.card(key, files));
+      return c.body(new Uint8Array(bytes), 200, {
+        "Content-Type": "image/png",
+        "Cache-Control": "public, max-age=3600, stale-while-revalidate=86400",
+      });
+    } catch (err) {
+      console.error("[og]", err);
+      return c.redirect("/og-image.png", 302);
+    }
+  };
+  app.get("/og/pack/:file", async (c) => {
+    const id = c.req.param("file").replace(/\.png$/, "");
+    const p = await social.pack(id);
+    if (!p) return c.redirect("/og-image.png", 302);
+    return card(c, `pack-${p.id}`, p.coverIds);
+  });
+  app.get("/og/creator/:file", async (c) => {
+    const handle = c.req
+      .param("file")
+      .replace(/\.png$/, "")
+      .toLowerCase();
+    const user = HANDLE_RE.test(handle) ? await accounts.byHandle(handle) : null;
+    if (!user || user.banned) return c.redirect("/og-image.png", 302);
+    return card(c, `creator-${user.handle}`, await social.creatorCoverIds(user.id));
+  });
   const needUser = (c: Context<AppEnv>): User | Response =>
     c.get("user") ?? c.json(fail("auth_required", "Entra con tu WhatsApp para continuar."), 401);
   const creator = async (c: Context<AppEnv>) => {

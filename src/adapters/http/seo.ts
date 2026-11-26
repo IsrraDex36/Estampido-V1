@@ -89,6 +89,9 @@ const PRIVATE_TITLES: Record<string, string> = {
 export interface DynamicSeo {
   title: string;
   description: string;
+  /** Own preview image (site path, e.g. /api/og/pack/<id>.png), else the site's. */
+  image?: string;
+  imageAlt?: string;
 }
 
 /** The <head> block for one path. Unknown and private paths get noindex. Pure. */
@@ -102,7 +105,8 @@ export function seoHead(
   const privateTitle = PRIVATE_TITLES[path];
   const meta = route ?? (privateTitle ? { ...NOT_FOUND, title: privateTitle } : NOT_FOUND);
   const url = `${origin}${path}`;
-  const image = `${origin}/og-image.png`;
+  const image = `${origin}${dynamic?.image ?? "/og-image.png"}`;
+  const imageAlt = dynamic?.imageAlt ?? "Estampido: stickers de WhatsApp con sonido";
   const lines = [
     `<title>${esc(meta.title)}</title>`,
     `<meta name="description" content="${esc(meta.description)}" />`,
@@ -114,7 +118,7 @@ export function seoHead(
     `<meta property="og:image" content="${esc(image)}" />`,
     `<meta property="og:image:width" content="1200" />`,
     `<meta property="og:image:height" content="630" />`,
-    `<meta property="og:image:alt" content="Estampido: stickers de WhatsApp con sonido" />`,
+    `<meta property="og:image:alt" content="${esc(imageAlt)}" />`,
     `<meta name="twitter:card" content="summary_large_image" />`,
     `<meta name="twitter:title" content="${esc(meta.title)}" />`,
     `<meta name="twitter:description" content="${esc(meta.description)}" />`,

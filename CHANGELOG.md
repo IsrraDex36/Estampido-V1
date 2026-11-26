@@ -13,6 +13,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Vista previa al compartir**: los enlaces de packs (`/p/:id`) y perfiles (`/u/:handle`) en WhatsApp/redes muestran su propio título, descripción e imagen con sus stickers (1200×630, generada una vez y cacheada).
+
 - **Monitoreo**: con `SVA_ALERT_WEBHOOK`, la web avisa (ntfy/Discord) si el bot se cae o WhatsApp queda desconectado más de 5 min, y cuando vuelve; el contenedor tiene `HEALTHCHECK` para que Coolify lo reinicie si la web deja de responder. Guía de monitor externo en `docs/DEPLOY-RAILWAY.md`.
 - **Desvincular bot desde /admin** (para cambiar de número sin tocar el teléfono viejo): confirmación escrita, cierra la sesión en WhatsApp y muestra el QR nuevo.
 

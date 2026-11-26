@@ -11,6 +11,7 @@ import { BotMonitor } from "./botMonitor.js";
 import { CommunityRepo } from "./community/repo.js";
 import { ResultStore } from "./resultStore.js";
 import { createServerApp, parseLimits } from "./server.js";
+import { SocialRepo } from "./social/repo.js";
 
 /**
  * API entry.
@@ -30,6 +31,7 @@ const store = new ResultStore();
 const maxMb = Number(process.env.SVA_COMMUNITY_MAX_MB ?? (production ? 2048 : 0)) || Number.POSITIVE_INFINITY;
 const community = new CommunityRepo(communityRoot(), Date.now, maxMb * 1024 * 1024);
 const accounts = new AccountRepo(community);
+const social = new SocialRepo(community);
 // Open (and migrate) the community database now, so a problem shows at boot.
 const stats = await community.stats();
 const purge = () =>
@@ -74,16 +76,30 @@ if (production) {
     publicUrl: process.env.SVA_PUBLIC_URL,
     googleVerification: process.env.SVA_GOOGLE_SITE_VERIFICATION,
     // Creator profiles get their own title/description (shared links, search).
+    // Creator profiles and packs get their own title/description/preview image (shared links, search).
     dynamicSeo: async (path) => {
+      const packId = /^\/p\/([0-9a-f-]{36})$/i.exec(path)?.[1];
+      if (packId) {
+        const p = await social.pack(packId.toLowerCase());
+        if (!p || p.count === 0) return null;
+        return {
+          title: `${p.name} · pack de @${p.owner.handle} en Estampido`,
+          description: `${p.count} ${p.count === 1 ? "sticker" : "stickers"} con sonido. Ábrelo y mándalos todos a tu WhatsApp en un toque.`,
+          image: `/api/og/pack/${p.id}.png?v=${p.updatedAt}`,
+          imageAlt: `Stickers del pack ${p.name}`,
+        };
+      }
       const handle = /^\/u\/([a-z0-9_]{3,20})$/i.exec(path)?.[1];
       const user = handle ? await accounts.byHandle(handle.toLowerCase()) : null;
-      if (!user) return null;
+      if (!user || user.banned) return null;
       const stats = await accounts.stats(user.id);
       return {
         title: `${user.displayName} (@${user.handle}) · Creador en Estampido`,
         description:
           user.bio ||
           `${stats.stickers} stickers con sonido de ${user.displayName} en Estampido. Escúchalos y mándalos a tu WhatsApp.`,
+        image: `/api/og/creator/${user.handle}.png?v=${stats.stickers}`,
+        imageAlt: `Stickers de ${user.displayName}`,
       };
     },
   }).fetch;

@@ -77,6 +77,19 @@ export class SocialRepo {
     ).map((r) => r.id);
   }
 
+  /** A creator's most used visible stickers (share-preview images). */
+  async creatorCoverIds(ownerId: string, limit = 4): Promise<string[]> {
+    const db = await this.db();
+    return (
+      db
+        .prepare(
+          `SELECT id FROM stickers WHERE owner_id = ? AND hidden = 0 AND listed = 1
+            ORDER BY uses DESC, created_at DESC LIMIT ?`,
+        )
+        .all(ownerId, limit) as { id: string }[]
+    ).map((r) => r.id);
+  }
+
   // ── packs ────────────────────────────────────────────────────────────────
   private packRows(db: DatabaseSync, where: string, ...args: (string | number)[]): PackRow[] {
     const rows = db
