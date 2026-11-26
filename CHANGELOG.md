@@ -13,6 +13,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Bot con ritmo humano** (`bot/humanize.ts`): marca como leído, muestra «escribiendo…» un tiempo proporcional al texto (con variación) y responde; separación aleatoria entre cualquier par de envíos (texto, stickers, notas de voz, ediciones de estado), sin intervalos fijos. Respuestas con **variantes redactadas a mano** (`bot/phrases.ts`) que no se repiten seguidas en un chat; el mensaje pre-escrito para vincular también varía por código. Sin caracteres aleatorios ni invisibles (rompen copiar/pegar y lectores de pantalla y parecen spam). `SVA_HUMANIZE=0` lo desactiva (pruebas).
+- **Ajustes en celular**: pestañas con ícono arriba (más aire para el texto), cambiar de pestaña deslizando el panel (con una vibración mínima donde se soporta; nunca sobre el recortador, el encuadre ni los sliders), pista «desliza» que se va tras usarla, y duraciones en una sola fila deslizable.
+
 - **Caja de comentarios**: «Enviar comentarios» en el footer y en el menú de cuenta (idea, problema u otro; contacto opcional; se adjunta la página y el dispositivo). Anti-spam con campo trampa, 5 por persona por hora y límite por IP. En `/admin`, buzón con filtros (nuevos, leídos, hechos), marcar y borrar.
 - **Tarjetas de la Comunidad más limpias en celular**: sin botón encima del sticker; una sola píldora en la esquina (▶ + duración corta, verde con ecualizador mientras suena); toda la imagen sigue siendo el área para tocar.
 - La guía («¿Cómo funciona?») vuelve al encabezado en celular; el cambio de tema pasa al footer ahí.

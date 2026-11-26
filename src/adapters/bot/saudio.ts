@@ -8,8 +8,10 @@ import { type ConvertResult, convertToSoundSticker, type ReplacementAudio } from
 import { RateLimiter } from "../../utils/rateLimit.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { parseSaudio, SAUDIO_USAGE, type SaudioCommand } from "./command.js";
+import { type Humanizer, humanizer, replyLikeHuman, say } from "./humanize.js";
 import { type Downloader, downloadLimited, mediaOf } from "./media.js";
 import { PendingAudioStore, senderKey } from "./pending.js";
+import { fill, PHRASES } from "./phrases.js";
 import { sendSoundSticker } from "./soundSticker.js";
 import { StatusMessage } from "./status.js";
 import { type Delivery, formatSummary } from "./summary.js";
@@ -23,6 +25,8 @@ export type SendMode = "native" | "fallback" | "both";
 export const BOT_TMP_PREFIX = "sva-bot-";
 
 export interface SaudioOptions {
+  /** Human-like pacing and wording (default: the process-wide one). */
+  humanizer?: Humanizer;
   download?: Downloader;
   metadata?: { packName?: string; publisher?: string };
   sendMode?: SendMode;
@@ -61,7 +65,12 @@ export function createSaudio(sock: WASocket, opts: SaudioOptions = {}) {
     void status?.set("⌛ Se acabó el tiempo para enviar el audio. Repite /saudio voz.");
   });
 
-  const reply = (to: WAMessage, text: string) => sock.sendMessage(to.key.remoteJid as string, { text }, { quoted: to });
+  const h = opts.humanizer ?? humanizer;
+  const reply = (to: WAMessage, text: string) =>
+    replyLikeHuman(sock, to.key.remoteJid as string, text, { quoted: to, read: to.key, h });
+  /** A variant of a status line for this chat. */
+  const line = (to: WAMessage, kind: "downloading" | "creating" | "receivingAudio" | "tooFast", values = {}) =>
+    fill(say(kind, to.key.remoteJid as string, PHRASES[kind], h), values);
   const react = (to: WAMessage, text: string) =>
     sock.sendMessage(to.key.remoteJid as string, { react: { text, key: to.key } });
 
@@ -81,7 +90,7 @@ export function createSaudio(sock: WASocket, opts: SaudioOptions = {}) {
       const { customAudio: _c, hq, ...segment } = cmd;
       const result = await jobs.run(
         async () => {
-          await status.set("⚙️ Creando tu sticker…");
+          await status.set(line(origin, "creating"));
           return convertToSoundSticker({
             input: inputPath,
             outDir: dir,
@@ -184,12 +193,12 @@ export function createSaudio(sock: WASocket, opts: SaudioOptions = {}) {
     const key = senderKey(msg.key);
     const waitMs = limiter?.take(key) ?? 0;
     if (waitMs > 0) {
-      await reply(msg, `Vas muy rápido 🙂 Espera ${Math.ceil(waitMs / 1000)} s y vuelve a intentarlo.`);
+      await reply(msg, line(msg, "tooFast", { s: Math.ceil(waitMs / 1000) }));
       return;
     }
 
-    const status = new StatusMessage(sock, msg);
-    await status.set(`⏳ Descargando ${media.label.toLowerCase()}…`);
+    const status = new StatusMessage(sock, msg, h);
+    await status.set(line(msg, "downloading", { what: media.label.toLowerCase() }));
     const dir = await mkdtemp(join(tmpdir(), BOT_TMP_PREFIX));
     let handedOff = false;
     try {
@@ -224,11 +233,11 @@ export function createSaudio(sock: WASocket, opts: SaudioOptions = {}) {
     const key = senderKey(msg.key);
     const job = pending.take(key);
     if (!job) return false;
-    const status = waitingStatus.get(key) ?? new StatusMessage(sock, job.origin);
+    const status = waitingStatus.get(key) ?? new StatusMessage(sock, job.origin, h);
     waitingStatus.delete(key);
 
     try {
-      await status.set("⏳ Recibiendo tu audio…");
+      await status.set(line(msg, "receivingAudio"));
       const audioPath = join(job.dir, "audio-input");
       await writeFile(
         audioPath,

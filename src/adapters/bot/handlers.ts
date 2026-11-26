@@ -3,9 +3,11 @@ import type { FitMode } from "../../config/limits.js";
 import { identityJid } from "./accountKey.js";
 import { saveCapture } from "./capture.js";
 import { isCancel } from "./command.js";
-import { HELP_TEXT, isHelp } from "./help.js";
+import { helpText, isHelp } from "./help.js";
+import { type Humanizer, humanizer, replyLikeHuman, say } from "./humanize.js";
 import { extractCode, type LinkStore } from "./links.js";
 import { savePackCapture } from "./packCapture.js";
+import { PHRASES, type PhraseKind } from "./phrases.js";
 import { takeRawFor } from "./rawCapture.js";
 import { describeChat, ignoreReason, isDirectChat, isFresh, SentIds, selfIdsOf, trackOwnSends } from "./routing.js";
 import { createSaudio, type SendMode } from "./saudio.js";
@@ -30,17 +32,19 @@ export interface BotConfig {
   links?: LinkStore;
   /** Delivery signals for the watchdog (message arrived / couldn't be decrypted). */
   onInbound?: (decrypted: boolean) => void;
+  /** Human-like pacing and wording (default: the process-wide one). */
+  humanizer?: Humanizer;
 }
 
 /** WebMessageInfo stub for «message arrived but couldn't be decrypted». */
 const CIPHERTEXT = proto.WebMessageInfo.StubType.CIPHERTEXT;
 
 const LINK_REPLY = {
-  ok: "✅ ¡Listo! Este chat quedó vinculado a Estampido: ya puedes enviarte stickers con sonido desde la web. Para desvincular, hazlo desde la web.",
-  expired: "⌛ Ese código caducó. Genera uno nuevo en la web y vuelve a enviarlo.",
-  unknown: "🤔 No reconozco ese código. Genera uno nuevo en la web.",
-  rate_limited: "⏳ Demasiados intentos. Espera unos minutos y genera un código nuevo.",
-} as const;
+  ok: "linkOk",
+  expired: "linkExpired",
+  unknown: "linkUnknown",
+  rate_limited: "linkRateLimited",
+} as const satisfies Record<string, PhraseKind>;
 
 function textOf(m: proto.IMessage | null | undefined): string | undefined {
   return (
@@ -49,6 +53,7 @@ function textOf(m: proto.IMessage | null | undefined): string | undefined {
 }
 
 export function registerHandlers(sock: WASocket, config: BotConfig): void {
+  const h = config.humanizer ?? humanizer;
   const sent = new SentIds();
   trackOwnSends(sock, sent);
   const saudio = createSaudio(sock, {
@@ -71,7 +76,8 @@ export function registerHandlers(sock: WASocket, config: BotConfig): void {
         try {
           const r = await config.links.redeem(code, jid, jid, identityJid(jid, alt ? jidNormalizedUser(alt) : null));
           console.log(`🔗 Código ${r.ok ? "aceptado" : `rechazado (${r.reason})`} · ${describeChat(jid, selfIds)}`);
-          await sock.sendMessage(jid, { text: LINK_REPLY[r.ok ? "ok" : r.reason] }, { quoted: msg });
+          const kind = LINK_REPLY[r.ok ? "ok" : r.reason];
+          await replyLikeHuman(sock, jid, say(kind, jid, PHRASES[kind], h), { quoted: msg, read: msg.key, h });
         } catch (err) {
           console.error("[link]", err);
         }
@@ -125,8 +131,10 @@ export function registerHandlers(sock: WASocket, config: BotConfig): void {
         const command = text?.trim().split(/\s+/)[0]?.toLowerCase();
         if (isHelp(text) || isCancel(text) || /^[/!.]saudio$/.test(command ?? ""))
           console.log(`→ ${command} en ${chat}`);
-        if (isHelp(text)) await sock.sendMessage(msg.key.remoteJid as string, { text: HELP_TEXT }, { quoted: msg });
-        else if (isCancel(text)) await saudio.onCancel(msg);
+        if (isHelp(text)) {
+          const chat = msg.key.remoteJid as string;
+          await replyLikeHuman(sock, chat, helpText(say("helpIntro", chat, PHRASES.helpIntro, h)), { quoted: msg, h });
+        } else if (isCancel(text)) await saudio.onCancel(msg);
         else if (text && /^[/!.]saudio\b/i.test(text.trim())) await saudio.onCommand(msg, text);
       } catch (err) {
         console.error("[bot]", err);

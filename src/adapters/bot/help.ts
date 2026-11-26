@@ -1,10 +1,8 @@
 import { INPUT_LIMITS, STICKER_LIMITS } from "../../config/limits.js";
 import { formatTime } from "../../utils/time.js";
 
-/** /ayuda text. */
-export const HELP_TEXT = [
-  "🔊 *Estampido* · haz ruido en el chat",
-  "",
+/** /ayuda body (everything after the intro line). */
+const HELP_BODY = [
   "Envía un video, GIF, imagen o sticker con */saudio* en el texto, o responde a uno con */saudio*.",
   "",
   "*Ejemplos*",
@@ -19,5 +17,11 @@ export const HELP_TEXT = [
   `Imágenes, GIF y stickers no traen sonido: te pediré una nota de voz (imágenes: máx. ${STICKER_LIMITS.maxImageAudioSec} s).`,
   `*/cancelar* detiene lo que esté en curso. Archivos de hasta ${INPUT_LIMITS.maxVideoBytes / 1024 / 1024} MB.`,
 ].join("\n");
+
+/** /ayuda with an intro line (varies, see phrases.ts helpIntro). */
+export const helpText = (intro = "🔊 *Estampido* · haz ruido en el chat"): string => `${intro}\n\n${HELP_BODY}`;
+
+/** Canonical /ayuda text. */
+export const HELP_TEXT = helpText();
 
 export const isHelp = (text: string | null | undefined): boolean => /^[/!.](ayuda|help)$/i.test((text ?? "").trim());

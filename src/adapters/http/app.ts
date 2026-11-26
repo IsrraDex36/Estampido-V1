@@ -39,6 +39,7 @@ import {
 } from "./contract.js";
 import { FeedbackRepo } from "./feedback/repo.js";
 import { feedbackRoutes } from "./feedback/routes.js";
+import { linkGreeting } from "./linkGreeting.js";
 import { ModerationRepo } from "./moderation/repo.js";
 import { moderationRoutes } from "./moderation/routes.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
@@ -80,7 +81,7 @@ const maskPhone = (jid: string): string => `…${(jid.split(/[:@]/)[0] ?? "").sl
 
 /** wa.me link that opens WhatsApp with the code pre-typed. */
 export const waLink = (botNumber: string | null | undefined, code: string): string | null =>
-  botNumber ? `https://wa.me/${botNumber}?text=${encodeURIComponent(`Hola Estampido 👋 mi código: ${code}`)}` : null;
+  botNumber ? `https://wa.me/${botNumber}?text=${encodeURIComponent(linkGreeting(code))}` : null;
 
 const fail = (code: string, message: string): ApiErrorBody => ({
   error: { code, message },

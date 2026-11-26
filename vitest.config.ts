@@ -20,5 +20,7 @@ export default defineConfig({
     include: ["tests/**/*.test.ts"],
     passWithNoTests: true,
     testTimeout: 30_000,
+    // Bot pacing off (no real waits; first phrase variant) — humanize.test.ts turns it on explicitly.
+    env: { SVA_HUMANIZE: "0" },
   },
 });

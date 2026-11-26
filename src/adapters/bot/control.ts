@@ -12,6 +12,7 @@ import { RateLimiter } from "../../utils/rateLimit.js";
 import { accountKeyFor, loadAccountSecret } from "./accountKey.js";
 import { jidDigits } from "./command.js";
 import type { PairingState } from "./connection.js";
+import { humanizer } from "./humanize.js";
 import { isClientHash, type LinkStore, maskJid } from "./links.js";
 import { sendSoundSticker } from "./soundSticker.js";
 import type { HealthReport } from "./watchdog.js";
@@ -182,6 +183,7 @@ export function createControlApp(
     try {
       if (audioPath && parsed.data.audioDurationSec) {
         try {
+          await humanizer.pacer.turn(); // shared gap with every other outgoing message
           await sendSoundSticker(sock, target, {
             webpPath,
             audioPath,
@@ -195,11 +197,14 @@ export function createControlApp(
             "[control] envío nativo falló; mando sticker + nota de voz:",
             err instanceof Error ? err.message : err,
           );
+          await humanizer.pacer.turn();
           await sock.sendMessage(target, { sticker: { url: webpPath } });
+          await humanizer.pacer.turn();
           await sock.sendMessage(target, { audio: { url: audioPath }, mimetype: "audio/ogg; codecs=opus", ptt: true });
           return c.json({ delivered: "separate" } satisfies SendToSelfResponse);
         }
       }
+      await humanizer.pacer.turn();
       await sock.sendMessage(target, { sticker: { url: webpPath } });
       return c.json({ delivered: "sticker" } satisfies SendToSelfResponse);
     } catch (err) {

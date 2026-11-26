@@ -227,7 +227,8 @@ function DurationCard() {
         </label>
       </div>
 
-      <div className="flex flex-wrap gap-1.5">
+      {/* Phones: one row that scrolls sideways (fades at the edge); wider: wraps. */}
+      <div className="-mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] max-sm:[mask-image:linear-gradient(to_right,black_85%,transparent)] sm:flex-wrap [&::-webkit-scrollbar]:hidden [&>*]:shrink-0 [&>*]:snap-start">
         {isImage && (
           <Chip active={durationSec === undefined} disabled={disabled} onClick={() => setDuration(undefined)}>
             Auto
