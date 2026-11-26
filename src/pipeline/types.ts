@@ -1,5 +1,6 @@
 import type { CropFrame, FitMode, StickerBackground } from "../config/limits.js";
 import type { VoiceEffect } from "../core/audio/voice.js";
+import type { FrameAdjust } from "../core/frame/adjust.js";
 import type { StickerMetadata, StickerMetadataInput } from "../core/metadata/stickerExif.js";
 import type { MediaKind } from "../core/probe/probe.js";
 
@@ -47,6 +48,8 @@ export interface ConvertOptions {
   fullLength?: boolean;
   /** Transparent PNG composited over the sticker (meme text); scaled to the canvas. */
   overlay?: string;
+  /** Color look and mirror for the picture. */
+  adjust?: FrameAdjust;
   /** Effect applied to the sticker's sound. */
   voice?: VoiceEffect;
   /** Cancels the whole conversion (kills running ffmpeg processes). */

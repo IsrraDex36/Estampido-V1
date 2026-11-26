@@ -34,7 +34,8 @@ export interface ServerOptions {
 const MIN = 60_000;
 export const DEFAULT_LIMITS = {
   convert: { max: 15, windowMs: 10 * MIN }, // CPU-heavy
-  linkCode: { max: 10, windowMs: 10 * MIN },
+  // Many people share one IP on mobile data (CGNAT): room for a crowd, still a cap.
+  linkCode: { max: 30, windowMs: 10 * MIN },
   send: { max: 40, windowMs: 10 * MIN },
   publish: { max: 10, windowMs: 60 * MIN },
   soundUse: { max: 60, windowMs: 10 * MIN },

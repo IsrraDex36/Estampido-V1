@@ -12,6 +12,7 @@ import { TextOptions } from "./options/TextOptions";
 import { SegmentControls } from "./segment/SegmentControls";
 import { useSegment } from "./segment/useSegment";
 import { SETTINGS_TABS, type TabId } from "./settingsTabList";
+import { LOOK_LABELS } from "../model/look";
 import { VOICE_LABELS } from "../model/voice";
 
 const CONTENT: Record<TabId, ReactNode> = {
@@ -37,6 +38,8 @@ function useTabSummaries(): { values: Record<TabId, string>; attention: Partial<
       audioName: st.audioFile?.name ?? null,
       community: Boolean(st.communitySound),
       voice: st.options.voice,
+      look: st.options.look,
+      flip: st.options.flip === true,
       textTop: st.text.top.trim(),
       textBottom: st.text.bottom.trim(),
     })),
@@ -62,7 +65,13 @@ function useTabSummaries(): { values: Record<TabId, string>; attention: Partial<
       time,
       sound: `${sound}${voiceLabel}`,
       text: textValue,
-      style: `${s.fit === "crop" ? "Llenar" : s.background === "blur" ? "Desenfoque" : s.background === "transparent" ? "Completo" : "Color"}${s.hq ? " · HQ" : ""}`,
+      style: [
+        s.look ? LOOK_LABELS[s.look] : s.fit === "crop" ? "Llenar" : s.background === "blur" ? "Desenfoque" : s.background === "transparent" ? "Completo" : "Color",
+        s.flip ? "Espejo" : null,
+        s.hq ? "HQ" : null,
+      ]
+        .filter(Boolean)
+        .join(" · "),
       pack: s.includeMetadata ? s.packName?.trim() || "Estampido" : "Sin datos",
     },
     attention: { sound: needsSound, style: s.hq },
@@ -124,7 +133,8 @@ const learned = () => {
 /** Apple-style segmented control: icon + name + current value; a dot marks tabs that need attention. */
 export function SettingsTabs() {
   const { values, attention, muted } = useTabSummaries();
-  const [tab, setTab] = useState<TabId>("time");
+  const tab = useConverterStore((s) => s.settingsTab);
+  const setTab = useConverterStore((s) => s.setSettingsTab);
   // The «desliza» hint shows until the first swipe, then never again.
   const [showHint, setShowHint] = useState(() => !learned());
   const swipe = useSwipeTabs(tab, setTab, () => {

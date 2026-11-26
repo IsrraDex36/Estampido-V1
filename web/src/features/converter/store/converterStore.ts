@@ -20,6 +20,11 @@ export interface ConverterState {
   /** communitySound at the moment the current result was made. */
   resultSoundOrigin: string | null;
   options: ConverterOptions;
+  /** Open settings tab (the result can jump straight to one). */
+  settingsTab: SettingsTabId;
+  setSettingsTab: (tab: SettingsTabId) => void;
+  /** What the current result was made with (shown on the result, not the live options). */
+  resultApplied: ResultApplied | null;
   /** Meme text drawn over the sticker (rendered to a PNG at convert time). */
   text: MemeText;
   status: ConverterStatus;
@@ -35,6 +40,15 @@ export interface ConverterState {
   /** Automatic retries after «busy» in a row (reset on success or a new file). */
   autoRetries: number;
   cancel: () => void;
+}
+
+export type SettingsTabId = "time" | "sound" | "style" | "text" | "pack";
+
+export interface ResultApplied {
+  text: boolean;
+  voice?: ConverterOptions["voice"];
+  look?: ConverterOptions["look"];
+  flip: boolean;
 }
 
 export interface CommunitySoundRef {
@@ -54,6 +68,9 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
   resultSoundOrigin: null,
   options: DEFAULT_OPTIONS,
   text: EMPTY_TEXT,
+  settingsTab: "time",
+  setSettingsTab: (settingsTab) => set({ settingsTab }),
+  resultApplied: null,
   status: { kind: "idle" },
 
   selectFile: (file) => {
@@ -129,6 +146,12 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
       if (controller.signal.aborted) return; // cancelled meanwhile: ignore late results
       set({
         status: { kind: "done", result },
+        resultApplied: {
+          text: overlay !== null,
+          voice: options.includeAudio && result.audio ? options.voice : undefined,
+          look: options.look,
+          flip: options.flip === true,
+        },
         resultSoundOrigin: audioFile ? (communitySound?.id ?? null) : null,
         autoRetries: 0,
       });

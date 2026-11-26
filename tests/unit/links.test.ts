@@ -15,9 +15,10 @@ async function store(now = () => 1_000) {
 }
 
 describe("link codes", () => {
-  it("format: EST- + 4 unambiguous chars; found inside a greeting, any case", () => {
-    expect(newCode()).toMatch(/^EST-[2-9A-HJKMNP-Z]{4}$/);
-    expect(extractCode("Hola Estampido, mi código es est-4k7q 🙂")).toBe("EST-4K7Q");
+  it("format: EST- + 5 unambiguous chars; found inside a greeting, any case", () => {
+    expect(newCode()).toMatch(/^EST-[2-9A-HJKMNP-Z]{5}$/);
+    expect(extractCode("Hola Estampido, mi código es est-4k7q9 🙂")).toBe("EST-4K7Q9");
+    expect(extractCode("EST-4K7Q")).toBeNull(); // too short
     expect(extractCode("EST-0OIL")).toBeNull(); // look-alikes never generated → never matched
     expect(extractCode("nada")).toBeNull();
   });
@@ -50,7 +51,7 @@ describe("link codes", () => {
 
   it("brute force: 5 attempts per sender per 10 min", async () => {
     const s = await store();
-    for (let i = 0; i < 5; i++) await s.redeem("EST-ZZZZ", "j", "attacker");
+    for (let i = 0; i < 5; i++) await s.redeem("EST-ZZZZZ", "j", "attacker");
     s.createCode(B);
     const { code } = s.createCode(A);
     expect(await s.redeem(code, "j", "attacker")).toEqual({ ok: false, reason: "rate_limited" });

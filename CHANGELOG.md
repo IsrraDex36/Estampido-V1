@@ -13,6 +13,18 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Texto estilo CapCut**: 8 tipografías (Clásica, Impacto, Cómic, Gordita, Póster, Plumón, Cursiva, Pixel; se cargan solo al abrir la pestaña), 4 estilos (Contorno, Sombra, Caja, Neón) y cualquier color (8 rápidos + selector libre) con contorno automático por contraste.
+- **Más efectos de voz**: Robot, Radio, Alien y Cueva (8 en total), todos conservan la duración exacta.
+- **Estilo**: filtros de color (B/N, Vivo, Retro, Frío, Cálido) con miniaturas en vivo y **Espejo**; la vista previa (también el encuadre arrastrable) refleja ambos.
+- **Resultado**: chips de lo aplicado (texto, voz, filtro, espejo) y «Ajusta y vuelve a crear» que abre directo la pestaña Texto, Voz, Estilo o Tramo.
+- **Archivo subido**: tarjeta con tipo, peso y «Cambiar clip»; arrastrar otro archivo encima lo reemplaza.
+- **Entrar con WhatsApp** rediseñado: mascota, beneficios, código en casillas grandes, barra de caducidad, pasos numerados y botón verde de WhatsApp; si falla, «Reintentar» en vez de error suelto.
+
+### Corregido
+
+- Si pedir el código de vinculación fallaba, el diálogo lo reintentaba en bucle sin pausa (justo cuando el servidor estaba ocupado). Ahora pide una vez y ofrece «Reintentar».
+- Códigos de vinculación bajo tráfico: tope de 5000 en espera (antes 500; al llenarse se descarta el más viejo en vez de rechazar), búsquedas O(1), códigos de 5 caracteres (28 M combinaciones) y límite por IP de 30/10 min para redes móviles compartidas.
+
 - **Eliminar tus stickers**: en el menú ⋯ de un sticker tuyo aparece «Eliminar» (con confirmación) en vez de «Reportar»; funciona en Tu espacio → Publicados, tu perfil, packs y el feed. Solo su dueño puede borrarlo (el servidor responde 404 a cualquier otro).
 
 - **Editor de texto (pestaña «Texto»)**: texto de meme arriba y/o abajo, tamaño, letra (Clásica/Pixel), 6 colores con contorno automático y MAYÚSCULAS; se ajusta solo a 3 líneas. La vista previa es el mismo dibujo que se sube (PNG transparente) y el servidor lo funde con ffmpeg en video, GIF e imagen.

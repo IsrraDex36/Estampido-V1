@@ -2,7 +2,7 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/adapters/http/app.js";
-import type { ConvertResponse } from "../../src/adapters/http/contract.js";
+import { type ConvertResponse, VOICE_EFFECTS } from "../../src/adapters/http/contract.js";
 import { ResultStore } from "../../src/adapters/http/resultStore.js";
 import { probe } from "../../src/core/probe/probe.js";
 import { ffmpegPath, run } from "../../src/utils/ffmpeg.js";
@@ -77,7 +77,29 @@ describe("editor (real ffmpeg)", () => {
     expect(res.status).toBe(200);
   });
 
-  it.each(["ardilla", "monstruo", "eco", "reversa"])("voice «%s» keeps the sound's length", async (voice) => {
+  it("black & white look and mirror reach the sticker", async () => {
+    const pixel = async (fields: Record<string, string>, x: number) => {
+      const { app, res } = await convert({ durationSec: "1", fit: "crop", ...fields });
+      expect(res.status).toBe(200);
+      const body = (await res.json()) as ConvertResponse;
+      const file = join(dir, `px-${Object.values(fields).join("-") || "plain"}.webp`);
+      await writeFile(file, Buffer.from(await (await app.request(body.sticker.url)).arrayBuffer()));
+      return firstFramePixel(file, x, 256);
+    };
+    const [r, g, b] = await pixel({ look: "bn" }, 256);
+    expect(Math.max(r, g, b) - Math.min(r, g, b)).toBeLessThan(12); // gray
+    // testsrc2's left and right edges differ: mirrored, the left becomes the old right.
+    const plainRight = await pixel({}, 500);
+    const flippedLeft = await pixel({ flip: "true" }, 12);
+    expect(
+      flippedLeft
+        .slice(0, 3)
+        .map((c, i) => Math.abs(c - (plainRight[i] ?? 0)))
+        .every((d) => d < 40),
+    ).toBe(true);
+  });
+
+  it.each([...VOICE_EFFECTS])("voice «%s» keeps the sound's length", async (voice) => {
     const { app, res } = await convert({ durationSec: "2", voice });
     expect(res.status).toBe(200);
     const body = (await res.json()) as ConvertResponse;
@@ -101,7 +123,7 @@ describe("editor (real ffmpeg)", () => {
       { overlay: new File([new Uint8Array(2 * 1024 * 1024 + 1)], "x.png", { type: "image/png" }) },
     );
     expect(huge.res.status).toBe(413);
-    const bad = await convert({ voice: "robot" });
+    const bad = await convert({ voice: "dragon" });
     expect(bad.res.status).toBe(400);
   });
 

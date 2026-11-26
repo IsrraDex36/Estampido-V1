@@ -1,4 +1,4 @@
-import { PlusIcon, XIcon } from "@/components/icons";
+import { GifIcon, ImageIcon, PlusIcon, SwapIcon, VideoIcon, XIcon } from "@/components/icons";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
 import { type DragEvent, useRef, useState } from "react";
@@ -23,6 +23,7 @@ export function MediaDropzone() {
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
 
+  const KindIcon = inputKind === "gif" ? GifIcon : inputKind === "image" ? ImageIcon : VideoIcon;
   const choose = (next: File | null) => {
     resetPlayback();
     const error = selectFile(next);
@@ -52,7 +53,22 @@ export function MediaDropzone() {
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0, scale: 0.985 }}
           transition={{ duration: 0.2, ease: [0.2, 0, 0, 1] }}
-          className="space-y-3"
+          className="relative space-y-3"
+          // Dropping another file on the preview replaces the clip (no need to find the button).
+          onDragOver={(e: DragEvent) => {
+            if (busy) return;
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={(e: DragEvent) => {
+            if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDragging(false);
+          }}
+          onDrop={(e: DragEvent) => {
+            e.preventDefault();
+            setDragging(false);
+            const dropped = e.dataTransfer.files[0];
+            if (dropped && !busy) choose(dropped);
+          }}
         >
           {inputKind === "video" ? (
             <VideoEditor url={previewUrl} />
@@ -61,22 +77,41 @@ export function MediaDropzone() {
               <SourceImage url={previewUrl} name={file.name} />
             </div>
           )}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 rounded-2xl bg-muted/50 p-2 pr-2.5 ring-1 ring-border/50">
+            <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-background text-muted-foreground ring-1 ring-border/60" aria-hidden>
+              <KindIcon className="size-5" />
+            </span>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-[15px] font-medium" title={file.name}>
+              <p className="truncate text-[14px] font-medium" title={file.name}>
                 {file.name}
               </p>
-              <p className="text-[13px] text-muted-foreground">
+              <p className="text-[12px] text-muted-foreground">
                 {KIND_LABEL[inputKind]} · {formatBytes(file.size)}
               </p>
             </div>
-            <Button variant="secondary" size="sm" className="rounded-full" disabled={busy} onClick={() => inputRef.current?.click()}>
-              Cambiar
+            <Button
+              variant="secondary"
+              className="h-9 shrink-0 rounded-full px-3.5"
+              disabled={busy}
+              onClick={() => inputRef.current?.click()}
+              title="Elegir otro video, GIF o imagen (o arrástralo encima)"
+            >
+              <SwapIcon className="size-4" />
+              <span>
+                Cambiar<span className="hidden sm:inline"> clip</span>
+              </span>
             </Button>
-            <Button variant="ghost" size="icon-sm" className="rounded-full" disabled={busy} onClick={() => choose(null)} aria-label="Quitar archivo">
+            <Button variant="ghost" size="icon-sm" className="shrink-0 rounded-full" disabled={busy} onClick={() => choose(null)} aria-label="Quitar archivo" title="Quitar">
               <XIcon />
             </Button>
           </div>
+          {dragging && (
+            <div className="pointer-events-none absolute inset-0 z-10 grid place-items-center rounded-2xl bg-background/80 shadow-[inset_0_0_0_2px_var(--sound)] backdrop-blur-sm">
+              <p className="flex items-center gap-2 text-[15px] font-semibold">
+                <SwapIcon className="size-5 text-sound" /> Suelta para cambiar el clip
+              </p>
+            </div>
+          )}
           {picker}
         </m.div>
       ) : (

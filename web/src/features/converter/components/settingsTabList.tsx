@@ -1,7 +1,9 @@
 import type { ReactNode } from "react";
 import { FrameIcon, PackIcon, TextIcon, TimerIcon, Volume2Icon } from "@/components/icons";
 
-export type TabId = "time" | "sound" | "style" | "text" | "pack";
+import type { SettingsTabId } from "../store/converterStore";
+
+export type TabId = SettingsTabId;
 
 export const SETTINGS_TABS: { value: TabId; label: string; icon: ReactNode }[] = [
   { value: "time", label: "Tiempo", icon: <TimerIcon /> },

@@ -2,14 +2,23 @@ import type { FitMode, StickerBackground } from "@contract";
 import { type CSSProperties, type PointerEvent, useEffect, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import { CENTERED, type CropFrame, cropStyle, panCrop, zoomCrop } from "../../model/crop";
+import { LOOK_CSS, type PreviewAdjust } from "../../model/look";
 
-/** Position/size of the media in the square, as the encoder will lay it out. */
-function mediaStyle(fit: FitMode, frame: CropFrame): { className: string; style?: CSSProperties } {
-  if (fit === "pad") return { className: "absolute inset-0 size-full object-contain" };
-  const s = cropStyle(frame);
+/**
+ * Position/size of the media in the square, as the encoder will lay it out.
+ * The server mirrors BEFORE cropping: mirrored, the element is placed at the
+ * opposite x and flipped in place, so the visible part matches the result.
+ */
+function mediaStyle(fit: FitMode, frame: CropFrame, adjust?: PreviewAdjust): { className: string; style?: CSSProperties } {
+  const look: CSSProperties = {
+    ...(adjust?.look ? { filter: LOOK_CSS[adjust.look] } : {}),
+    ...(adjust?.flip ? { transform: "scaleX(-1)" } : {}),
+  };
+  if (fit === "pad") return { className: "absolute inset-0 size-full object-contain", style: look };
+  const s = cropStyle(adjust?.flip ? { ...frame, x: 1 - frame.x } : frame);
   return {
     className: "absolute max-w-none object-cover",
-    style: { width: s.width, height: s.height, left: s.left, top: s.top, objectPosition: s.objectPosition },
+    style: { width: s.width, height: s.height, left: s.left, top: s.top, objectPosition: s.objectPosition, ...look },
   };
 }
 
@@ -17,6 +26,7 @@ function Canvas({
   fit,
   background,
   blurSrc,
+  blurFilter,
   className,
   children,
   ...rest
@@ -24,6 +34,8 @@ function Canvas({
   fit: FitMode;
   background: StickerBackground;
   blurSrc: string | null;
+  /** The look applies to the blurred bars too (the server filters before framing). */
+  blurFilter?: string;
   className?: string;
   children: React.ReactNode;
 } & Omit<React.ComponentProps<"span">, "children">) {
@@ -39,7 +51,12 @@ function Canvas({
       {...rest}
     >
       {fit === "pad" && background === "blur" && blurSrc && (
-        <img src={blurSrc} alt="" className="absolute inset-0 size-full scale-110 object-cover blur-lg brightness-95" />
+        <img
+          src={blurSrc}
+          alt=""
+          className="absolute inset-0 size-full scale-110 object-cover blur-lg brightness-95"
+          style={blurFilter ? { filter: `${blurFilter} blur(16px) brightness(0.95)` } : undefined}
+        />
       )}
       {children}
     </span>
@@ -52,17 +69,25 @@ export function StickerLook({
   fit,
   background,
   frame = CENTERED,
+  adjust,
   className,
 }: {
   still: string | null;
   fit: FitMode;
   background: StickerBackground;
   frame?: CropFrame;
+  adjust?: PreviewAdjust;
   className?: string;
 }) {
-  const m = mediaStyle(fit, frame);
+  const m = mediaStyle(fit, frame, adjust);
   return (
-    <Canvas fit={fit} background={background} blurSrc={still} className={cn("w-full rounded-xl", className)}>
+    <Canvas
+      fit={fit}
+      background={background}
+      blurSrc={still}
+      blurFilter={adjust?.look ? LOOK_CSS[adjust.look] : undefined}
+      className={cn("w-full rounded-xl", className)}
+    >
       {still ? (
         <img src={still} alt="" draggable={false} className={m.className} style={m.style} />
       ) : (
@@ -87,6 +112,7 @@ export function LiveSticker({
   background,
   frame = CENTERED,
   onFrame,
+  adjust,
   className,
 }: {
   src: string | null;
@@ -98,6 +124,8 @@ export function LiveSticker({
   background: StickerBackground;
   frame?: CropFrame;
   onFrame?: (frame: CropFrame) => void;
+  /** Color look + mirror (preview of the server filters). */
+  adjust?: PreviewAdjust;
   className?: string;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
@@ -136,7 +164,9 @@ export function LiveSticker({
       if (pinch.current.dist > 0) onFrame(zoomCrop(frame, pinch.current.zoom * (dist / pinch.current.dist)));
       return;
     }
-    if (box > 0) onFrame(panCrop(frame, e.clientX - prev.x, e.clientY - prev.y, aspect, box));
+    // Mirrored, the picture moves the other way on screen: invert the horizontal drag.
+    const dx = (e.clientX - prev.x) * (adjust?.flip ? -1 : 1);
+    if (box > 0) onFrame(panCrop(frame, dx, e.clientY - prev.y, aspect, box));
   };
   const onUp = (e: PointerEvent<HTMLSpanElement>) => {
     pointers.current.delete(e.pointerId);
@@ -144,7 +174,7 @@ export function LiveSticker({
     if (pointers.current.size === 0) setDragging(false);
   };
 
-  const m = mediaStyle(fit, frame);
+  const m = mediaStyle(fit, frame, adjust);
   const fallback = still ?? src;
 
   return (
@@ -153,6 +183,7 @@ export function LiveSticker({
       fit={fit}
       background={background}
       blurSrc={still ?? (!isVideo ? src : null)}
+      blurFilter={adjust?.look ? LOOK_CSS[adjust.look] : undefined}
       className={cn(
         "rounded-2xl shadow-[0_8px_24px_-8px_rgb(0_0_0/0.45)]",
         editable && "cursor-grab touch-none select-none active:cursor-grabbing",

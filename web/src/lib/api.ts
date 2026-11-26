@@ -73,6 +73,8 @@ function formFor({ media, audio, overlay }: ConvertFiles, fields: ConvertRequest
   if (audio && fields.includeAudio) form.set("audio", audio);
   if (overlay) form.set("overlay", overlay, "texto.png");
   if (fields.voice && fields.includeAudio) form.set("voice", fields.voice);
+  if (fields.look) form.set("look", fields.look);
+  if (fields.flip) form.set("flip", "true");
   form.set("startSec", String(fields.startSec));
   if (fields.durationSec !== undefined) form.set("durationSec", String(fields.durationSec));
   form.set("fit", fields.fit);

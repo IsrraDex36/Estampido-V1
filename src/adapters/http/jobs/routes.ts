@@ -394,6 +394,7 @@ async function prepare(
         background: o.background,
         overlay,
         voice: o.includeAudio ? o.voice : undefined,
+        adjust: o.look || o.flip ? { look: o.look, flip: o.flip } : undefined,
         crop:
           o.cropX !== undefined || o.cropY !== undefined || o.cropZoom !== undefined
             ? { x: o.cropX ?? 0.5, y: o.cropY ?? 0.5, zoom: o.cropZoom ?? 1 }

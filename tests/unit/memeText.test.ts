@@ -4,10 +4,14 @@ import {
   EMPTY_TEXT,
   fitCaption,
   hasText,
+  isHexColor,
+  luminance,
   MAX_LINES,
   MAX_TEXT_CHARS,
   outlineFor,
   renderMemeText,
+  TEXT_FONTS,
+  TEXT_STYLES,
   wrapLines,
 } from "../../web/src/features/converter/model/memeText.js";
 
@@ -61,5 +65,27 @@ describe("meme text layout", () => {
 
   it("no text → no overlay (nothing uploaded)", async () => {
     expect(await renderMemeText(EMPTY_TEXT)).toBeNull();
+  });
+});
+
+describe("free colors, fonts and styles", () => {
+  it("any #rrggbb is a valid color; junk is not", () => {
+    expect(isHexColor("#12aBef")).toBe(true);
+    for (const bad of ["#fff", "red", "#12345g", "12abef", "#12abef0"]) expect(isHexColor(bad), bad).toBe(false);
+  });
+
+  it("outline follows luminance for any custom color", () => {
+    expect(luminance("#ffffff")).toBeCloseTo(1, 3);
+    expect(luminance("#000000")).toBe(0);
+    expect(outlineFor("#1a1a40")).toBe("#ffffff"); // dark navy → light outline
+    expect(outlineFor("#7fffd4")).toBe("#000000"); // aquamarine → dark outline
+    expect(outlineFor("nope")).toBe("#000000");
+  });
+
+  it("8 typefaces with a family fallback, 4 styles", () => {
+    expect(Object.keys(TEXT_FONTS)).toHaveLength(8);
+    for (const f of Object.values(TEXT_FONTS)) expect(f.family).toMatch(/,/);
+    expect(Object.keys(TEXT_STYLES)).toEqual(["outline", "shadow", "box", "neon"]);
+    expect(EMPTY_TEXT.style).toBe("outline");
   });
 });

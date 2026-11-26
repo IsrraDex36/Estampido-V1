@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { VOICE_EFFECTS as API_VOICES } from "../../src/adapters/http/contract.js";
+import { COLOR_LOOKS as API_LOOKS, VOICE_EFFECTS as API_VOICES } from "../../src/adapters/http/contract.js";
 import { pngSize } from "../../src/adapters/http/jobs/routes.js";
 import { convertFieldsSchema } from "../../src/adapters/http/schema.js";
 import { buildAudioArgs } from "../../src/core/audio/encodeAudio.js";
 import { VOICE_EFFECTS, voiceFilters } from "../../src/core/audio/voice.js";
+import { adjustFilters, COLOR_LOOKS, lookFilters } from "../../src/core/frame/adjust.js";
 import { OVERLAY_OUT, overlayGraph } from "../../src/core/frame/overlay.js";
 import { buildImageArgs } from "../../src/core/image/encodeImage.js";
 import { buildVideoArgs } from "../../src/core/video/encodeVideo.js";
@@ -29,6 +30,8 @@ describe("voice effects", () => {
     expect(voiceFilters("reversa")).toEqual(["areverse"]);
     expect(voiceFilters("eco")[0]).toMatch(/^aecho=/);
     expect(voiceFilters(undefined)).toEqual([]);
+    // Every effect has filters (a missing case would silently do nothing).
+    for (const v of VOICE_EFFECTS) expect(voiceFilters(v).length, v).toBeGreaterThan(0);
   });
 
   it("audio args: effect after the alignment, limiter when an effect or gain is on", () => {
@@ -84,7 +87,7 @@ describe("request fields", () => {
   it("voice: one of the effects, or nothing", () => {
     expect(convertFieldsSchema.parse({ voice: "eco" }).voice).toBe("eco");
     expect(convertFieldsSchema.parse({}).voice).toBeUndefined();
-    expect(convertFieldsSchema.safeParse({ voice: "robot" }).success).toBe(false);
+    expect(convertFieldsSchema.safeParse({ voice: "dragon" }).success).toBe(false);
   });
 
   it("pngSize reads IHDR; anything else is rejected", () => {
@@ -98,5 +101,27 @@ describe("request fields", () => {
     const zero = png.slice();
     new DataView(zero.buffer).setUint32(16, 0);
     expect(pngSize(zero)).toBeNull();
+  });
+});
+
+describe("picture adjustments", () => {
+  it("API looks mirror the core; every look has filters; mirror first", () => {
+    expect([...API_LOOKS]).toEqual([...COLOR_LOOKS]);
+    for (const l of COLOR_LOOKS) expect(lookFilters(l).length, l).toBeGreaterThan(0);
+    expect(adjustFilters(undefined)).toEqual([]);
+    expect(adjustFilters({ flip: true, look: "bn" })).toEqual(["hflip", "hue=s=0"]);
+  });
+
+  it("go before framing in video and image chains (blurred bars match the picture)", () => {
+    const v = buildVideoArgs({ input: "i", output: "o", startSec: 0, durationSec: 1, adjust: { flip: true } });
+    expect(v[v.indexOf("-vf") + 1]).toMatch(/^hflip,fps=/);
+    const i = buildImageArgs({ input: "i", output: "o", adjust: { look: "vivo" } });
+    expect(i[i.indexOf("-vf") + 1]).toMatch(/^eq=saturation=1\.45/);
+  });
+
+  it("schema: look is one of the list, flip is a boolean", () => {
+    expect(convertFieldsSchema.parse({ look: "retro", flip: "true" })).toMatchObject({ look: "retro", flip: true });
+    expect(convertFieldsSchema.parse({}).flip).toBe(false);
+    expect(convertFieldsSchema.safeParse({ look: "sepia" }).success).toBe(false);
   });
 });

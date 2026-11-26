@@ -96,6 +96,7 @@ export async function convertAnimated(
         seek: kind === "animated" ? "output" : "input",
         loop: stretch !== null,
         overlay: opts.overlay,
+        adjust: opts.adjust,
         signal: opts.signal,
       });
       return (await stat(output)).size;

@@ -65,7 +65,7 @@ describe("bot: link codes", () => {
     await emit("120363000000000000@g.us", code);
     expect(await links.target(A)).toBeNull();
     expect(sent).toHaveLength(0);
-    await emit("5215599998888@s.whatsapp.net", "EST-ZZZZ");
+    await emit("5215599998888@s.whatsapp.net", "EST-ZZZZZ");
     expect(sent.at(-1)?.text).toMatch(/No reconozco/);
   });
 

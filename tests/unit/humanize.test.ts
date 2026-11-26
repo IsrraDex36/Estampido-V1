@@ -190,7 +190,8 @@ describe("link greeting (pre-typed message to link WhatsApp)", () => {
   it("varies between codes, stays stable for one code, and always carries a parseable code", () => {
     const codes = Array.from(
       { length: 200 },
-      (_, i) => `EST-${"ABCDEFGHJK"[i % 10]}${"MNPQRSTUVW"[(i * 7) % 10]}${"23456789"[i % 8]}${"XYZ2345"[(i * 3) % 7]}`,
+      (_, i) =>
+        `EST-${"ABCDEFGHJK"[i % 10]}${"MNPQRSTUVW"[(i * 7) % 10]}${"23456789"[i % 8]}${"XYZ2345"[(i * 3) % 7]}${"KMNP"[i % 4]}`,
     );
     const used = new Set(codes.map(linkGreeting));
     expect(new Set(codes.map((c) => linkGreeting(c).replace(c, "{code}"))).size).toBe(LINK_GREETINGS.length);

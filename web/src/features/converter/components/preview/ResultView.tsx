@@ -1,12 +1,24 @@
 import type { ConvertResponse } from "@contract";
 import * as m from "motion/react-m";
 import { type ReactNode, useEffect, useState } from "react";
-import { ArrowUpIcon, SparklesIcon, TimerIcon, TriangleAlertIcon, Volume2Icon, VolumeXIcon } from "@/components/icons";
-import { Button } from "@/components/ui/button";
+import {
+  ArrowUpIcon,
+  FrameIcon,
+  MicIcon,
+  SparklesIcon,
+  TextIcon,
+  TimerIcon,
+  TriangleAlertIcon,
+  Volume2Icon,
+  VolumeXIcon,
+} from "@/components/icons";
 import { formatBytes } from "@/lib/format";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useStickerPlayer } from "../../hooks/useStickerPlayer";
+import { LOOK_LABELS } from "../../model/look";
+import { VOICE_EMOJI, VOICE_LABELS } from "../../model/voice";
+import { type SettingsTabId, useConverterStore } from "../../store/converterStore";
 import { PlayerBar } from "./PlayerBar";
 import { ResultActions } from "./ResultActions";
 import { ResultDetails } from "./ResultDetails";
@@ -34,14 +46,7 @@ export function ResultView({ result }: { result: ConvertResponse }) {
         <div className="space-y-3">
           <ResultDetails result={result} />
           <Expiry expiresAt={result.expiresAt} />
-          <Button
-            variant="ghost"
-            className="w-full rounded-full text-muted-foreground"
-            onClick={() => document.getElementById("sec-01")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-          >
-            <ArrowUpIcon data-icon="inline-start" />
-            Hacer otro con otros ajustes
-          </Button>
+          <TweakAndRedo />
         </div>
       </m.div>
     </ResultLayout>
@@ -51,6 +56,14 @@ export function ResultView({ result }: { result: ConvertResponse }) {
 /** «¡Listo!» + the three facts people care about. */
 function Headline({ result }: { result: ConvertResponse }) {
   const { sticker, audio } = result;
+  const a = useConverterStore((s) => s.resultApplied);
+  // What you added on top (so it's clear it made it into the sticker).
+  const applied = [
+    a?.text ? "Con texto" : null,
+    a?.voice ? `${VOICE_EMOJI[a.voice]} ${VOICE_LABELS[a.voice]}` : null,
+    a?.look ? `Filtro ${LOOK_LABELS[a.look]}` : null,
+    a?.flip ? "Espejo" : null,
+  ].filter((x): x is string => x !== null);
   const chips: { key: string; label: ReactNode }[] = [
     {
       key: "sound",
@@ -79,6 +92,11 @@ function Headline({ result }: { result: ConvertResponse }) {
         ¡Tu sticker está listo!
       </m.p>
       <ul className="flex flex-wrap gap-1.5" aria-label="Resumen">
+        {applied.map((label) => (
+          <li key={label} className="flex items-center gap-1 rounded-full bg-sound/12 px-2.5 py-1 text-[12px] font-medium text-sound">
+            {label}
+          </li>
+        ))}
         {chips.map((c) => (
           <li key={c.key} className="flex items-center gap-1 rounded-full bg-muted/70 px-2.5 py-1 text-[12px] font-medium tabular-nums">
             {c.label}
@@ -115,5 +133,46 @@ function Expiry({ expiresAt }: { expiresAt: string }) {
       Disponible hasta las {new Date(end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
       <span className="tabular-nums">· {left > 0 ? `quedan ${left} min` : "a punto de borrarse"}</span>
     </p>
+  );
+}
+
+const TWEAKS: { tab: SettingsTabId; label: string; Icon: typeof TextIcon }[] = [
+  { tab: "text", label: "Texto", Icon: TextIcon },
+  { tab: "sound", label: "Voz", Icon: MicIcon },
+  { tab: "style", label: "Estilo", Icon: FrameIcon },
+  { tab: "time", label: "Tramo", Icon: TimerIcon },
+];
+
+/** «Ajusta y vuelve a crear»: opens the right settings tab and scrolls to it. */
+function TweakAndRedo() {
+  const setTab = useConverterStore((s) => s.setSettingsTab);
+  const go = (tab: SettingsTabId) => {
+    setTab(tab);
+    document.getElementById("sec-02")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  return (
+    <div className="space-y-2 rounded-2xl bg-muted/40 p-3">
+      <p className="text-[13px] font-medium">Ajusta y vuelve a crear</p>
+      <div className="grid grid-cols-4 gap-1.5">
+        {TWEAKS.map(({ tab, label, Icon }) => (
+          <button
+            key={tab}
+            type="button"
+            onClick={() => go(tab)}
+            className="flex flex-col items-center gap-1 rounded-xl bg-background/70 px-1 py-2 text-[12px] font-medium ring-1 ring-border/60 transition-colors hover:bg-background"
+          >
+            <Icon className="size-[18px] text-muted-foreground" />
+            {label}
+          </button>
+        ))}
+      </div>
+      <button
+        type="button"
+        onClick={() => document.getElementById("sec-01")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+        className="flex w-full items-center justify-center gap-1.5 pt-1 text-[12px] text-muted-foreground hover:text-foreground"
+      >
+        <ArrowUpIcon className="size-3.5" /> O usa otro clip
+      </button>
+    </div>
   );
 }

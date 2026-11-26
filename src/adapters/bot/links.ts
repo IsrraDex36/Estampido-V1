@@ -13,10 +13,17 @@ import { RateLimiter } from "../../utils/rateLimit.js";
 /** No look-alikes (0/O, 1/I/L) so codes survive being read aloud or retyped. */
 const ALPHABET = "23456789ABCDEFGHJKMNPQRSTUVWXYZ";
 export const CODE_TTL_MS = 10 * 60_000;
-const MAX_PENDING = 500;
+/**
+ * Codes waiting at once. Every «Entrar con WhatsApp» opens one for 10 min, so
+ * under traffic many are abandoned: at the cap the OLDEST is dropped (its
+ * owner just gets a new one) instead of refusing new people.
+ */
+export const MAX_PENDING = 5_000;
+/** 31^5 ≈ 28.6 M codes: guessing a live one stays < 0.02 % even with the cap full. */
+export const CODE_LENGTH = 5;
 
-/** Finds "EST-XXXX" anywhere in a message (the wa.me prefill adds a greeting). */
-const CODE_RE = new RegExp(`\\bEST-([${ALPHABET}]{4})\\b`, "i");
+/** Finds "EST-XXXXX" anywhere in a message (the wa.me prefill adds a greeting). */
+const CODE_RE = new RegExp(`\\bEST-([${ALPHABET}]{${CODE_LENGTH}})\\b`, "i");
 export const extractCode = (text: string | undefined | null): string | null => {
   const m = text?.match(CODE_RE);
   return m ? `EST-${(m[1] as string).toUpperCase()}` : null;
@@ -24,7 +31,7 @@ export const extractCode = (text: string | undefined | null): string | null => {
 
 export function newCode(rand: (max: number) => number = randomInt): string {
   let s = "";
-  for (let i = 0; i < 4; i++) s += ALPHABET[rand(ALPHABET.length)];
+  for (let i = 0; i < CODE_LENGTH; i++) s += ALPHABET[rand(ALPHABET.length)];
   return `EST-${s}`;
 }
 
@@ -56,7 +63,10 @@ export type RedeemResult = { ok: true; client: string } | { ok: false; reason: "
 export class LinkStore {
   private links: Record<string, Link> | null = null;
   /** Codes live in memory only: a restart just means "generate a new code". */
+  /** code → pending. Insertion order = creation order = expiry order (fixed TTL). */
   private readonly pending = new Map<string, Pending>();
+  /** client → its pending code: O(1) status/replace while many people poll. */
+  private readonly byClient = new Map<string, string>();
   private readonly attempts = new RateLimiter(5, 10 * 60_000);
   private queue: Promise<unknown> = Promise.resolve();
 
@@ -89,20 +99,42 @@ export class LinkStore {
     await rename(tmp, this.file);
   }
 
-  private sweep(): void {
-    const now = this.now();
-    for (const [code, p] of this.pending) if (p.expiresAt <= now) this.pending.delete(code);
+  private drop(code: string): void {
+    const p = this.pending.get(code);
+    if (!p) return;
+    this.pending.delete(code);
+    if (this.byClient.get(p.client) === code) this.byClient.delete(p.client);
   }
 
-  /** New code for a client (replaces its previous pending one). */
+  /** Expired codes sit at the front (expiry order): stop at the first live one. */
+  private sweep(): void {
+    const now = this.now();
+    for (const [code, p] of this.pending) {
+      if (p.expiresAt > now) break;
+      this.drop(code);
+    }
+  }
+
+  /** Codes waiting right now (for tests/metrics). */
+  get pendingCount(): number {
+    return this.pending.size;
+  }
+
+  /** New code for a client (replaces its previous pending one). Never refuses: at the cap, the oldest goes. */
   createCode(client: string): { code: string; expiresAt: number } {
     this.sweep();
-    for (const [code, p] of this.pending) if (p.client === client) this.pending.delete(code);
-    if (this.pending.size >= MAX_PENDING) throw new Error("Demasiados códigos pendientes; inténtalo en unos minutos.");
+    const previous = this.byClient.get(client);
+    if (previous) this.drop(previous);
+    while (this.pending.size >= MAX_PENDING) {
+      const oldest = this.pending.keys().next().value;
+      if (oldest === undefined) break;
+      this.drop(oldest);
+    }
     let code = newCode();
     while (this.pending.has(code)) code = newCode();
     const expiresAt = this.now() + CODE_TTL_MS;
     this.pending.set(code, { client, expiresAt });
+    this.byClient.set(client, code);
     return { code, expiresAt };
   }
 
@@ -112,7 +144,7 @@ export class LinkStore {
       if (this.attempts.take(sender, this.now()) > 0) return { ok: false, reason: "rate_limited" };
       const p = this.pending.get(code);
       if (!p) return { ok: false, reason: "unknown" };
-      this.pending.delete(code);
+      this.drop(code);
       if (p.expiresAt <= this.now()) return { ok: false, reason: "expired" };
       const links = {
         ...(await this.load()),
@@ -128,9 +160,9 @@ export class LinkStore {
     const link = (await this.load())[client];
     if (link) return { state: "linked", ...link };
     this.sweep();
-    for (const [code, p] of this.pending) {
-      if (p.client === client) return { state: "pending", code, expiresAt: p.expiresAt };
-    }
+    const code = this.byClient.get(client);
+    const p = code ? this.pending.get(code) : undefined;
+    if (code && p) return { state: "pending", code, expiresAt: p.expiresAt };
     return { state: "unlinked" };
   }
 
@@ -140,7 +172,8 @@ export class LinkStore {
 
   unlink(client: string): Promise<boolean> {
     return this.exclusive(async () => {
-      for (const [code, p] of this.pending) if (p.client === client) this.pending.delete(code);
+      const code = this.byClient.get(client);
+      if (code) this.drop(code);
       const links = await this.load();
       if (!(client in links)) return false;
       const { [client]: _gone, ...rest } = links;

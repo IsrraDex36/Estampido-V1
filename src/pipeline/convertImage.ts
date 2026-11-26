@@ -44,6 +44,7 @@ export async function convertImage(opts: ConvertOptions, source: MediaInfo): Pro
         background: opts.background,
         crop: opts.crop,
         overlay: opts.overlay,
+        adjust: opts.adjust,
         quality: a.quality,
         signal: opts.signal,
       }),

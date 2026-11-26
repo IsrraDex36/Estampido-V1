@@ -1,5 +1,11 @@
 import { z } from "zod";
-import { API_LIMITS, type ConvertRequestFields, type StickerBackground, VOICE_EFFECTS } from "./contract.js";
+import {
+  API_LIMITS,
+  COLOR_LOOKS,
+  type ConvertRequestFields,
+  type StickerBackground,
+  VOICE_EFFECTS,
+} from "./contract.js";
 
 const boolish = z
   .union([z.boolean(), z.enum(["true", "false", "1", "0", "on", "off"])])
@@ -35,4 +41,6 @@ export const convertFieldsSchema = z.object({
   publisher: z.string().max(128).optional(),
   emojis: z.string().max(64).optional(),
   voice: z.enum(VOICE_EFFECTS, { message: "Efecto de voz no válido." }).optional(),
+  look: z.enum(COLOR_LOOKS, { message: "Filtro no válido." }).optional(),
+  flip: boolish.default(false),
 }) satisfies z.ZodType<ConvertRequestFields, unknown>;

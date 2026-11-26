@@ -1,4 +1,4 @@
-import { API_LIMITS, type FitMode, type StickerBackground } from "@contract";
+import { API_LIMITS, COLOR_LOOKS, type ColorLook, type FitMode, type StickerBackground } from "@contract";
 import type { ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { CheckIcon, HandIcon, PlusIcon, SearchIcon as MagnifyingIcon } from "@/components/icons";
@@ -8,6 +8,7 @@ import { CENTERED, type CropFrame, isCentered, MAX_ZOOM, zoomCrop } from "../../
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { useClipStill } from "../../hooks/useClipStill";
+import { LOOK_LABELS } from "../../model/look";
 import { selectBusy, useConverterStore } from "../../store/converterStore";
 import { GroupedList, SwitchListRow } from "../ui/GroupedList";
 import { LiveSticker, StickerLook } from "./StickerLook";
@@ -30,8 +31,10 @@ const COLORS: { value: `#${string}`; label: string }[] = [
 const isPreset = (bg: StickerBackground) => bg === "transparent" || bg === "blur" || COLORS.some((c) => c.value === bg);
 
 export function StyleOptions() {
-  const { fit, background, hq, kind, previewUrl, cropX, cropY, cropZoom, disabled, update } = useConverterStore(
+  const { fit, background, hq, kind, previewUrl, cropX, cropY, cropZoom, look, flip, disabled, update } = useConverterStore(
     useShallow((s) => ({
+      look: s.options.look,
+      flip: s.options.flip === true,
       previewUrl: s.previewUrl,
       cropX: s.options.cropX,
       cropY: s.options.cropY,
@@ -50,6 +53,7 @@ export function StyleOptions() {
   const custom = !isPreset(background);
   const frame: CropFrame = { x: cropX ?? 0.5, y: cropY ?? 0.5, zoom: cropZoom ?? 1 };
   const setFrame = (f: CropFrame) => update({ cropX: f.x, cropY: f.y, cropZoom: f.zoom });
+  const adjust = { look, flip };
 
   return (
     <div className="space-y-5">
@@ -65,6 +69,7 @@ export function StyleOptions() {
             background={background}
             frame={frame}
             onFrame={disabled ? undefined : setFrame}
+            adjust={adjust}
             className="size-44 sm:size-40 lg:size-44"
           />
           <figcaption className="text-[12px] text-muted-foreground">
@@ -91,7 +96,7 @@ export function StyleOptions() {
               value={f.value}
               className="h-auto items-center justify-start gap-3 rounded-2xl bg-muted/60 p-2.5 text-left ring-0 data-[state=on]:bg-muted data-[state=on]:shadow-[inset_0_0_0_2px_var(--foreground)]"
             >
-              <StickerLook still={still} fit={f.value} background={background} frame={frame} className="size-11 w-11 shrink-0 rounded-lg" />
+              <StickerLook still={still} fit={f.value} background={background} frame={frame} adjust={adjust} className="size-11 w-11 shrink-0 rounded-lg" />
               <span className="min-w-0">
                 <span className="block text-[15px] font-medium">{f.title}</span>
                 <span className="block text-[12px] font-normal whitespace-normal text-muted-foreground">{f.detail}</span>
@@ -175,6 +180,60 @@ export function StyleOptions() {
           </label>
         </div>
       </fieldset>
+
+      <fieldset className="space-y-3" disabled={disabled}>
+        <legend className="flex w-full items-baseline justify-between gap-3">
+          <span className="text-[15px] font-medium">Filtro</span>
+          <span className="text-[13px] text-muted-foreground">{look ? LOOK_LABELS[look] : "Original"}</span>
+        </legend>
+        <div
+          role="radiogroup"
+          aria-label="Filtro de color"
+          data-no-swipe
+          className="-mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        >
+          {([undefined, ...COLOR_LOOKS] as (ColorLook | undefined)[]).map((l) => {
+            const on = look === l;
+            return (
+              // biome-ignore lint/a11y/useSemanticElements: thumbnails styled as radio buttons
+              <button
+                key={l ?? "none"}
+                type="button"
+                role="radio"
+                aria-checked={on}
+                onClick={() => update({ look: l })}
+                className="flex w-16 shrink-0 snap-start flex-col items-center gap-1 outline-none"
+              >
+                <StickerLook
+                  still={still}
+                  fit={fit}
+                  background={background}
+                  frame={frame}
+                  adjust={{ look: l, flip }}
+                  className={cn(
+                    "size-16 rounded-2xl ring-offset-2 ring-offset-background transition-shadow",
+                    on ? "ring-2 ring-foreground" : "ring-1 ring-border",
+                  )}
+                />
+                <span className={cn("text-[12px]", on ? "font-semibold" : "text-muted-foreground")}>
+                  {l ? LOOK_LABELS[l] : "Original"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      <GroupedList>
+        <SwitchListRow
+          id="flip"
+          title="Espejo"
+          detail="Voltea la imagen de izquierda a derecha."
+          checked={flip}
+          disabled={disabled}
+          onCheckedChange={(v) => update({ flip: v })}
+        />
+      </GroupedList>
 
       {kind !== "image" && (
         <GroupedList>

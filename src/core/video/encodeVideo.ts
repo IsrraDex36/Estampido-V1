@@ -6,6 +6,7 @@ import {
   type StickerBackground,
 } from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
+import { adjustFilters, type FrameAdjust } from "../frame/adjust.js";
 import { buildFitFilter } from "../frame/fit.js";
 import { OVERLAY_OUT, overlayGraph } from "../frame/overlay.js";
 
@@ -40,6 +41,8 @@ export interface EncodeVideoOptions {
   loop?: boolean;
   /** Transparent PNG drawn over every frame (meme text), any size: scaled to the canvas. */
   overlay?: string;
+  /** Color look and mirror, applied before framing. */
+  adjust?: FrameAdjust;
   signal?: AbortSignal;
 }
 
@@ -68,6 +71,9 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
   // hangs on the WebP decoder); the output -t then cuts it to the sound's length.
   const chain =
     (opts.loop ? "loop=loop=-1:size=32767," : "") +
+    adjustFilters(opts.adjust)
+      .map((f) => `${f},`)
+      .join("") +
     buildVideoFilter(fit, fps, size, opts.background, opts.crop, opts.detail);
   const overlay = opts.overlay ? ["-i", opts.overlay] : [];
 

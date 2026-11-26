@@ -7,8 +7,11 @@ export type FitMode = "pad" | "crop";
 export type StickerBackground = "transparent" | "blur" | `#${string}`;
 export type MediaKind = "video" | "animated" | "image";
 /** Voice effects for the sound (mirrors core/audio/voice.ts, asserted by tests). */
-export const VOICE_EFFECTS = ["ardilla", "monstruo", "eco", "reversa"] as const;
+export const VOICE_EFFECTS = ["ardilla", "monstruo", "robot", "radio", "alien", "cueva", "eco", "reversa"] as const;
 export type VoiceEffect = (typeof VOICE_EFFECTS)[number];
+/** Picture color filters (mirrors core/frame/adjust.ts, asserted by tests). */
+export const COLOR_LOOKS = ["bn", "vivo", "retro", "frio", "calido"] as const;
+export type ColorLook = (typeof COLOR_LOOKS)[number];
 
 /** Multipart: `media` (video, GIF or image; legacy name `video`) + optional `audio`. */
 export interface ConvertRequestFields {
@@ -38,6 +41,10 @@ export interface ConvertRequestFields {
   emojis?: string;
   /** Effect on the sticker's sound. */
   voice?: VoiceEffect;
+  /** Color filter for the picture. */
+  look?: ColorLook;
+  /** Mirror the picture horizontally. */
+  flip?: boolean;
 }
 
 export interface StickerMetadataView {

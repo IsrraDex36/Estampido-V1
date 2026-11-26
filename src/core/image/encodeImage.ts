@@ -6,6 +6,7 @@ import {
   type StickerBackground,
 } from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
+import { adjustFilters, type FrameAdjust } from "../frame/adjust.js";
 import { buildFitFilter } from "../frame/fit.js";
 import { OVERLAY_OUT, overlayGraph } from "../frame/overlay.js";
 import type { EncodeAttempt } from "../optimize/fitToSize.js";
@@ -21,6 +22,7 @@ export interface EncodeImageOptions {
   size?: number;
   /** Transparent PNG drawn over the picture (meme text). */
   overlay?: string;
+  adjust?: FrameAdjust;
   signal?: AbortSignal;
 }
 
@@ -33,7 +35,10 @@ export const STATIC_LADDER: readonly EncodeAttempt[] = [80, 70, 60, 50, 40, 30, 
 /** Still image → static 512×512 WebP (first frame only). */
 export function buildImageArgs(opts: EncodeImageOptions): string[] {
   const size = opts.size ?? STICKER_LIMITS.size;
-  const chain = buildFitFilter(opts.fit ?? DEFAULT_FIT, size, opts.background, opts.crop).join(",");
+  const chain = [
+    ...adjustFilters(opts.adjust),
+    ...buildFitFilter(opts.fit ?? DEFAULT_FIT, size, opts.background, opts.crop),
+  ].join(",");
   return [
     "-hide_banner",
     "-v",

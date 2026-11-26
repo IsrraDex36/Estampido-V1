@@ -89,6 +89,8 @@ export function useCreateLink() {
   return useMutation<WhatsAppLink, Error, void>({
     mutationKey: ["whatsapp", "link"],
     mutationFn: () => createWhatsAppLink(),
+    // The dialog shows the failure inline with «Reintentar» (no toast on top).
+    meta: { errorMessage: false },
     onSuccess: (link) => qc.setQueryData(queryKeys.bot.link, link),
   });
 }
