@@ -28,7 +28,8 @@
     "cli": "tsx src/adapters/cli/index.ts",
     "test:e2e": "npm --prefix web run build && vitest run --config vitest.e2e.config.ts",
     "start": "tsx scripts/start.ts",
-    "start:public": "tsx scripts/start.ts --tunnel"
+    "start:public": "tsx scripts/start.ts --tunnel",
+    "loadtest": "node scripts/loadtest.mjs"
   },
   "dependencies": {
     "@hono/node-server": "^2.1.11",

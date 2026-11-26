@@ -134,6 +134,10 @@ describe("converter store", () => {
     const s = useConverterStore.getState();
     s.selectFile(file("a.mp4", "video/mp4"));
     await s.convert();
-    expect(useConverterStore.getState().status).toEqual({ kind: "error", message: "El inicio está fuera del video." });
+    // The error card gets the message plus a code to explain it and offer a next step.
+    expect(useConverterStore.getState().status).toEqual({
+      kind: "error",
+      error: { message: "El inicio está fuera del video.", code: "internal", status: 0 },
+    });
   });
 });

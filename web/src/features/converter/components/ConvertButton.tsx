@@ -1,17 +1,21 @@
-import { CircleAlertIcon } from "@/components/icons";
+import { useQuery } from "@tanstack/react-query";
 import { useShallow } from "zustand/react/shallow";
+import { TimerIcon } from "@/components/icons";
+import { getQueueInfo } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { selectBusy, useConverterStore } from "../store/converterStore";
+import { ConvertErrorCard } from "./ConvertErrorCard";
 
 const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform);
 
 /** Primary call to action + conversion error. */
 export function ConvertButton() {
-  const { hasFile, busy, error, convert } = useConverterStore(
+  const { hasFile, busy, error, attempt, convert } = useConverterStore(
     useShallow((s) => ({
       hasFile: Boolean(s.file),
       busy: selectBusy(s),
-      error: s.status.kind === "error" ? s.status.message : null,
+      error: s.status.kind === "error" ? s.status.error : null,
+      attempt: s.attempt,
       convert: s.convert,
     })),
   );
@@ -29,12 +33,27 @@ export function ConvertButton() {
           </kbd>
         )}
       </Button>
-      {error && (
-        <p role="alert" className="flex items-start gap-2 text-[13px] leading-snug text-destructive">
-          <CircleAlertIcon className="mt-0.5 size-4 shrink-0" />
-          {error}
-        </p>
-      )}
+      {error ? <ConvertErrorCard key={attempt} failure={error} /> : <QueueHint enabled={hasFile && !busy} />}
     </div>
+  );
+}
+
+/** «There's a line right now» before pressing Create (checked every 15 s while a file is ready). */
+function QueueHint({ enabled }: { enabled: boolean }) {
+  const q = useQuery({
+    queryKey: ["converter", "queue"],
+    queryFn: ({ signal }) => getQueueInfo(signal),
+    enabled,
+    refetchInterval: 15_000,
+    staleTime: 10_000,
+    meta: { errorMessage: false },
+  });
+  const info = q.data;
+  if (!enabled || !info || info.etaSec < 10) return null;
+  return (
+    <p className="flex items-center justify-center gap-1.5 text-[12px] text-muted-foreground" role="status">
+      <TimerIcon className="size-3.5 text-retro-a" />
+      {info.full ? "Mucha demanda ahora: si la fila está llena, reintentamos por ti." : `Hay fila: espera aprox. ${info.etaSec} s.`}
+    </p>
   );
 }

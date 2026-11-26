@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
+import { setPriority } from "node:os";
 import { CancelledError } from "../core/errors.js";
 
 /** Homebrew's keg-only build ships libwebp; the plain `ffmpeg` formula does not. */
@@ -37,6 +38,9 @@ export class CommandError extends Error {
  * Run a binary without a shell (args are never interpolated into a command
  * string). Rejects with the tail of stderr on non-zero exit or timeout.
  */
+/** 0 (normal) … 19 (lowest). */
+const FFMPEG_NICE = Math.min(19, Math.max(0, Number(process.env.SVA_FFMPEG_NICE ?? 10) || 0));
+
 export function run(
   bin: string,
   args: readonly string[],
@@ -45,6 +49,15 @@ export function run(
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new CancelledError());
     const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    // Lower CPU priority: under load the web and the API stay snappy while
+    // conversions share what's left (SVA_FFMPEG_NICE=0 to disable).
+    if (child.pid && FFMPEG_NICE > 0) {
+      try {
+        setPriority(child.pid, FFMPEG_NICE);
+      } catch {
+        // not permitted / not supported: run at normal priority
+      }
+    }
     // Cancellation kills the process right away (no orphaned ffmpeg burning CPU).
     let cancelled = false;
     const onAbort = () => {

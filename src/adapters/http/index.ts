@@ -1,4 +1,5 @@
 import { existsSync } from "node:fs";
+import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { communityRoot } from "../../config/paths.js";
@@ -20,6 +21,8 @@ const production = process.env.SVA_MODE === "production";
 const flag = (v: string | undefined, def: boolean) => (v === undefined ? def : /^(1|true|yes|si|sí)$/i.test(v));
 
 const port = Number(process.env.PORT ?? 8787);
+/** Positive integer from an env var, else undefined. */
+const num = (v: string | undefined) => (v && /^\d+$/.test(v) && Number(v) > 0 ? Number(v) : undefined);
 const store = new ResultStore();
 const maxMb = Number(process.env.SVA_COMMUNITY_MAX_MB ?? (production ? 2048 : 0)) || Number.POSITIVE_INFINITY;
 const community = new CommunityRepo(communityRoot(), Date.now, maxMb * 1024 * 1024);
@@ -43,6 +46,11 @@ const api = createApp({
   ownerSelfSend: flag(process.env.SVA_OWNER_SELF_SEND, !production),
   // /admin: link the bot from the browser (QR / code). Off unless a long secret is set.
   adminToken: process.env.SVA_ADMIN_TOKEN,
+  // Conversion queue: ≈ one FFmpeg per core (more only slows each one down).
+  maxConcurrent: num(process.env.SVA_MAX_CONCURRENT) ?? Math.min(4, Math.max(1, availableParallelism())),
+  maxQueue: num(process.env.SVA_MAX_QUEUE) ?? 20,
+  maxWaitSec: num(process.env.SVA_MAX_WAIT_SEC) ?? 150,
+  jobTimeoutSec: num(process.env.SVA_JOB_TIMEOUT_SEC) ?? 180,
 });
 
 let fetch = api.fetch;

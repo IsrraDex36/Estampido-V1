@@ -19,6 +19,19 @@ export type ConverterStatus =
   | { kind: "idle" }
   | { kind: "ready" }
   | { kind: "uploading"; progress: number }
-  | { kind: "processing" }
+  /** Waiting in the server's line. */
+  | { kind: "queued"; position: number; etaSec: number }
+  /** Converting: seconds so far / typical total (0 = unknown yet). */
+  | { kind: "processing"; elapsedSec?: number; expectedSec?: number }
   | { kind: "done"; result: ConvertResponse }
-  | { kind: "error"; message: string };
+  | { kind: "error"; error: ConvertFailure };
+
+/** A failed conversion, with what the card needs to explain it. */
+export interface ConvertFailure {
+  message: string;
+  /** API error code (busy, timeout, too_large…) or local (network, invalid). */
+  code: string;
+  /** HTTP status (0 = no response). */
+  status: number;
+  retryAfterSec?: number;
+}

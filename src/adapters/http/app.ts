@@ -1,21 +1,16 @@
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { readFile, rename, rm, stat } from "node:fs/promises";
 import { Readable } from "node:stream";
 import { type Context, Hono } from "hono";
-import { bodyLimit } from "hono/body-limit";
 import type { BlankSchema } from "hono/types";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import QRCode from "qrcode";
 import { communityRoot } from "../../config/paths.js";
-import { CancelledError, UserInputError } from "../../core/errors.js";
 import { probe } from "../../core/probe/probe.js";
 import { buildWhatsAppMp4 } from "../../core/video/whatsappMp4.js";
 import { inspectWebp } from "../../core/webp/inspect.js";
-import { whatsappIssues } from "../../core/whatsappCompat.js";
 import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
-import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { AccountRepo } from "./accounts/repo.js";
 import { accountRoutes } from "./accounts/routes.js";
@@ -29,21 +24,21 @@ import {
   type AdminCommunity,
   type AdminHealth,
   type AdminPairing,
-  API_LIMITS,
   type ApiErrorBody,
   CLIENT_HEADER,
-  type ConvertResponse,
   type SendToWhatsAppResponse,
   type WhatsAppLink,
   type WhatsAppStatus,
 } from "./contract.js";
 import { FeedbackRepo } from "./feedback/repo.js";
 import { feedbackRoutes } from "./feedback/routes.js";
+import { ConversionQueue } from "./jobs/queue.js";
+import { JobRegistry } from "./jobs/registry.js";
+import { convertRoutes } from "./jobs/routes.js";
 import { linkGreeting } from "./linkGreeting.js";
 import { ModerationRepo } from "./moderation/repo.js";
 import { moderationRoutes } from "./moderation/routes.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
-import { convertFieldsSchema } from "./schema.js";
 
 export interface AppDeps {
   bot?: BotClient;
@@ -72,6 +67,12 @@ export interface AppDeps {
   convert?: (opts: ConvertOptions) => Promise<ConvertResult>;
   maxConcurrent?: number;
   maxQueue?: number;
+  /** Refuse new conversions when the estimated wait exceeds this (s). */
+  maxWaitSec?: number;
+  /** Abort a conversion running longer than this (s). */
+  jobTimeoutSec?: number;
+  /** Inject a queue (tests). */
+  queue?: ConversionQueue;
 }
 
 export { clientHash } from "./client.js";
@@ -93,8 +94,17 @@ export function createApp(deps: AppDeps = {}): ApiApp {
   const store = deps.store ?? new ResultStore();
   const bot = deps.bot ?? createBotClient();
   const convert = deps.convert ?? convertToSoundSticker;
-  const jobs = new Semaphore(deps.maxConcurrent ?? 2);
-  const maxQueue = deps.maxQueue ?? 10;
+  const conversionQueue =
+    deps.queue ??
+    new ConversionQueue({
+      concurrency: deps.maxConcurrent ?? 2,
+      maxQueued: deps.maxQueue ?? 20,
+      maxWaitSec: deps.maxWaitSec ?? 150,
+      jobTimeoutSec: deps.jobTimeoutSec ?? 180,
+    });
+  const jobRegistry = new JobRegistry();
+  /** WhatsApp-MP4 exports: short, but CPU too — one at a time, apart from the sticker queue. */
+  const mp4Jobs = new Semaphore(1);
 
   const app = new Hono<AppEnv>().basePath("/api");
 
@@ -124,132 +134,8 @@ export function createApp(deps: AppDeps = {}): ApiApp {
   );
   app.route("/", accountRoutes({ accounts, community: communityRepo, bot, cookie }));
 
-  app.post(
-    "/convert",
-    bodyLimit({
-      maxSize: API_LIMITS.maxUploadBytes + API_LIMITS.maxAudioBytes + 64 * 1024,
-      onError: (c) =>
-        c.json(fail("too_large", `El archivo supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`), 413),
-    }),
-    async (c) => {
-      if (jobs.pending >= maxQueue) return c.json(fail("busy", "Servidor ocupado, intenta en un momento."), 503);
-
-      const body = await c.req.parseBody();
-      const file = body.media ?? body.video;
-      if (!(file instanceof File)) return c.json(fail("missing_file", "Falta el archivo (campo 'media')."), 400);
-      if (!/^(video|image)\//.test(file.type)) {
-        return c.json(
-          fail("bad_type", `Tipo no soportado: ${file.type || "desconocido"}. Sube un video, GIF o imagen.`),
-          415,
-        );
-      }
-
-      if (file.size > API_LIMITS.maxUploadBytes) {
-        return c.json(fail("too_large", `El archivo supera ${API_LIMITS.maxUploadBytes / 1024 / 1024} MB.`), 413);
-      }
-
-      // Optional replacement audio: any audio, or a video whose sound we reuse.
-      const audioFile = body.audio instanceof File && body.audio.size > 0 ? body.audio : null;
-      if (audioFile) {
-        if (!/^(audio|video)\//.test(audioFile.type)) {
-          return c.json(fail("bad_type", `Audio no soportado: ${audioFile.type || "desconocido"}.`), 415);
-        }
-        if (audioFile.size > API_LIMITS.maxAudioBytes) {
-          return c.json(fail("too_large", `El audio supera ${API_LIMITS.maxAudioBytes / 1024 / 1024} MB.`), 413);
-        }
-      }
-
-      const parsed = convertFieldsSchema.safeParse(body);
-      if (!parsed.success) {
-        const msg = parsed.error.issues.map((i) => i.message).join(" ");
-        return c.json(fail("bad_options", msg), 400);
-      }
-      const opts = parsed.data;
-
-      const job = await store.create();
-      try {
-        // Stored under a fixed name: the client filename is never used in a path.
-        const input = join(job.dir, "input");
-        await writeFile(input, Buffer.from(await file.arrayBuffer()));
-        let audioPath: string | undefined;
-        if (audioFile && opts.includeAudio) {
-          audioPath = join(job.dir, "audio-input");
-          await writeFile(audioPath, Buffer.from(await audioFile.arrayBuffer()));
-        }
-
-        // Fires when the client disconnects (e.g. "Cancelar" in the web):
-        // leaves the queue or kills the running ffmpeg.
-        const signal = c.req.raw.signal;
-        const result = await jobs.run(
-          () =>
-            convert({
-              signal,
-              input,
-              outDir: job.dir,
-              name: "sticker",
-              startSec: opts.startSec,
-              durationSec: opts.durationSec,
-              maxBytes: opts.hq ? API_LIMITS.maxExperimentalKb * 1024 : undefined,
-              fit: opts.fit,
-              background: opts.background,
-              crop:
-                opts.cropX !== undefined || opts.cropY !== undefined || opts.cropZoom !== undefined
-                  ? { x: opts.cropX ?? 0.5, y: opts.cropY ?? 0.5, zoom: opts.cropZoom ?? 1 }
-                  : undefined,
-              audio: !opts.includeAudio
-                ? "none"
-                : audioPath
-                  ? { file: audioPath, startSec: opts.audioStartSec, durationSec: opts.audioDurationSec }
-                  : "source",
-              metadata: opts.includeMetadata
-                ? {
-                    packName: opts.packName,
-                    publisher: opts.publisher,
-                    emojis: opts.emojis ? opts.emojis.split(",") : undefined,
-                  }
-                : false,
-            }),
-          { signal },
-        );
-
-        const s = result.stats;
-        const issues = whatsappIssues({
-          animated: s.sticker.animated,
-          animationSec: s.sticker.animated ? s.sticker.durationMs / 1000 : 0,
-          audioSec: s.audio ? s.audio.durationSec : null,
-          bytes: s.sticker.bytes,
-        });
-        const response: ConvertResponse = {
-          id: job.id,
-          whatsapp: { ok: issues.length === 0, issues },
-          kind: result.kind,
-          sticker: { url: `/api/results/${job.id}/sticker.webp`, ...s.sticker },
-          audio: s.audio ? { url: `/api/results/${job.id}/sticker.ogg`, ...s.audio } : null,
-          source: s.source,
-          segment: s.segment,
-          warnings: result.warnings,
-          elapsedMs: s.elapsedMs,
-          expiresAt: job.expiresAt.toISOString(),
-        };
-        return c.json(response);
-      } catch (err) {
-        await store.remove(job.id);
-        if (err instanceof CancelledError) {
-          // Client is gone; nobody reads this. 499 = "client closed request".
-          return c.body(null, 499 as never);
-        }
-        if (err instanceof UserInputError) {
-          return c.json(fail("unprocessable", err.message), 422);
-        }
-        if (err instanceof CommandError) {
-          console.error("[convert]", err.message);
-          return c.json(fail("unprocessable", "No se pudo procesar el archivo. ¿Es un video válido?"), 422);
-        }
-        console.error("[convert]", err);
-        return c.json(fail("internal", "Error interno al convertir."), 500);
-      }
-    },
-  );
+  // Conversions: admission-controlled queue, sync or background jobs.
+  app.route("/", convertRoutes({ store, convert, queue: conversionQueue, registry: jobRegistry }));
 
   app.get("/whatsapp/status", async (c) =>
     c.json({ ...(await bot.status()), selfSend: deps.ownerSelfSend === true } satisfies WhatsAppStatus),
@@ -478,7 +364,7 @@ export function createApp(deps: AppDeps = {}): ApiApp {
         // Registered synchronously (no await before the set): concurrent requests share one build.
         const oggPath = store.resolve(id, "sticker.ogg") as string;
         const tmp = `${mp4Path}.${randomUUID()}.part.mp4`;
-        build = jobs
+        build = mp4Jobs
           .run(async () => {
             const hasAudio = Boolean(await stat(oggPath).catch(() => null));
             await buildWhatsAppMp4({

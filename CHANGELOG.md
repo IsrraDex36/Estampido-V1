@@ -13,6 +13,10 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Cola de conversiones para mucha gente a la vez** (`http/jobs/`): pedir lugar antes de subir (un «ocupado» no gasta datos ni corta subidas), un sticker a la vez por persona, fila con tope que cuenta las subidas en curso, rechazo con `Retry-After` cuando la espera estimada es larga, tiempo estimado con promedio móvil, tope de 180 s por sticker, cancelación que libera el lugar y FFmpeg con prioridad baja para que la web siga rápida. Trabajos en segundo plano (`202` + seguimiento) en vez de conexiones abiertas minutos.
+- **Tarjetas de error que explican y ofrecen el siguiente paso** (ocupado con reintento automático y cuenta regresiva, archivo pesado o no compatible, tardó demasiado → «Probar con 5 s», conexión, error nuestro → «Contarnos qué pasó»), con el código HTTP para soporte. Vista «En la fila · #N · espera aprox.», barra de avance aproximada y aviso previo «Hay fila».
+- `npm run loadtest`: prueba de carga real (N personas a la vez, reintentos como la web, tiempos p50/p95 y respuesta de la web durante la carga).
+
 - **Calentamiento de número nuevo** (`bot/volume.ts`): el bot recuerda desde cuándo usa cada número (`/data/bot-age.json`) y empieza con límites bajos (6/min y 40/h el día 1) que suben durante un mes (40/min y 600/h). El ritmo se alarga solo cuando sube el volumen y, en un límite, espera en vez de mandar en ráfaga. `/admin` muestra mensajes enviados (1 h / 24 h) y el día de calentamiento.
 - **Menos mensajes de estado**: las ediciones de `/saudio` se agrupan (mínimo 2.5 s entre ediciones; solo sale el texto más reciente) y, con carga, se omiten las intermedias (cola, «creando…»); el primero y el final siempre llegan. Las alertas al dueño también comparten el ritmo.
 

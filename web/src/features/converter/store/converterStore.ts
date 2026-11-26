@@ -25,7 +25,11 @@ export interface ConverterState {
   selectFile: (file: File | null) => string | null;
   selectAudioFile: (file: File | null, origin?: CommunitySoundRef) => string | null;
   updateOptions: (patch: Partial<ConverterOptions>) => void;
-  convert: () => Promise<void>;
+  convert: (opts?: { auto?: boolean }) => Promise<void>;
+  /** Conversions started (keys the error card so each failure starts fresh). */
+  attempt: number;
+  /** Automatic retries after «busy» in a row (reset on success or a new file). */
+  autoRetries: number;
   cancel: () => void;
 }
 
@@ -52,7 +56,7 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
     if (file) {
       const error = validateFile(file);
       if (error) {
-        set({ status: { kind: "error", message: error } });
+        set({ status: { kind: "error", error: { message: error, code: "invalid_file", status: 0 } } });
         return error;
       }
     }
@@ -95,9 +99,13 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
 
   updateOptions: (patch) => set((s) => ({ options: { ...s.options, ...patch } })),
 
-  convert: async () => {
+  attempt: 0,
+  autoRetries: 0,
+
+  convert: async ({ auto = false } = {}) => {
     const { file, audioFile, options, communitySound } = get();
     if (!file) return;
+    set((s) => ({ attempt: s.attempt + 1, autoRetries: auto ? s.autoRetries + 1 : 0 }));
     inflight?.abort();
     const controller = new AbortController();
     inflight = controller;
@@ -106,14 +114,27 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
       const result = await convertVideo({ media: file, audio: audioFile }, options, {
         signal: controller.signal,
         onUploadProgress: (progress) => set({ status: { kind: "uploading", progress } }),
-        onProcessing: () => set({ status: { kind: "processing" } }),
+        onQueued: (position, etaSec) => set({ status: { kind: "queued", position, etaSec } }),
+        onProcessing: (elapsedSec, expectedSec) => set({ status: { kind: "processing", elapsedSec, expectedSec } }),
       });
       if (controller.signal.aborted) return; // cancelled meanwhile: ignore late results
-      set({ status: { kind: "done", result }, resultSoundOrigin: audioFile ? (communitySound?.id ?? null) : null });
+      set({
+        status: { kind: "done", result },
+        resultSoundOrigin: audioFile ? (communitySound?.id ?? null) : null,
+        autoRetries: 0,
+      });
     } catch (err) {
       // Cancelled (or superseded): never let a late failure overwrite the state.
       if (controller.signal.aborted || (err instanceof ApiError && err.code === "aborted")) return;
-      set({ status: { kind: "error", message: err instanceof Error ? err.message : "Error desconocido." } });
+      set({
+        status: {
+          kind: "error",
+          error:
+            err instanceof ApiError
+              ? { message: err.message, code: err.code, status: err.status, retryAfterSec: err.retryAfterSec }
+              : { message: err instanceof Error ? err.message : "Error desconocido.", code: "internal", status: 0 },
+        },
+      });
     } finally {
       if (inflight === controller) inflight = null;
     }
@@ -126,5 +147,6 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
 }));
 
 /** Derived selectors (keep components free of status-shape logic). */
-export const selectBusy = (s: ConverterState) => s.status.kind === "uploading" || s.status.kind === "processing";
+export const selectBusy = (s: ConverterState) =>
+  s.status.kind === "uploading" || s.status.kind === "queued" || s.status.kind === "processing";
 export const selectResult = (s: ConverterState) => (s.status.kind === "done" ? s.status.result : null);

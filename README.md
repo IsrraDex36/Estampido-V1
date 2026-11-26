@@ -177,17 +177,18 @@ Un **solo contenedor Docker** sirve la web, la API y el bot, con un volumen pers
 
 <br />
 
-| Variable                                                | Para qué                                                                            |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `SVA_ADMIN_TOKEN`                                       | Contraseña de `/admin` (vincular el bot por QR o código, ver su salud)              |
-| `SVA_PAIRING_NUMBER`                                    | Número del bot; vincula con código en lugar de QR                                   |
-| `SVA_PUBLIC_URL`                                        | Dominio canónico para SEO (canonical, Open Graph, sitemap)                          |
-| `SVA_GOOGLE_SITE_VERIFICATION`                          | Token de Google Search Console                                                      |
-| `SVA_ALERT_WEBHOOK`                                     | Alertas del vigilante (ntfy o Discord); `SVA_ALERT_WHATSAPP=0` las apaga en el chat |
-| `SVA_LIMITS`                                            | Límites por IP, p. ej. `convert=100/5m,send=200/10m`                                |
-| `SVA_ALLOWED` · `SVA_RATE_PER_MIN`                      | Quién puede usar `/saudio` y cuántas veces por minuto                               |
-| `SVA_PACK` · `SVA_AUTHOR` · `SVA_FIT` · `SVA_SEND_MODE` | Valores por defecto del bot (`native`, `fallback` o `both`)                         |
-| `FFMPEG_PATH` · `FFPROBE_PATH`                          | Rutas de FFmpeg si no están en el `PATH`                                            |
+| Variable                                                                                                | Para qué                                                                                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SVA_ADMIN_TOKEN`                                                                                       | Contraseña de `/admin` (vincular el bot por QR o código, ver su salud)                                                                                                                          |
+| `SVA_PAIRING_NUMBER`                                                                                    | Número del bot; vincula con código en lugar de QR                                                                                                                                               |
+| `SVA_PUBLIC_URL`                                                                                        | Dominio canónico para SEO (canonical, Open Graph, sitemap)                                                                                                                                      |
+| `SVA_GOOGLE_SITE_VERIFICATION`                                                                          | Token de Google Search Console                                                                                                                                                                  |
+| `SVA_ALERT_WEBHOOK`                                                                                     | Alertas del vigilante (ntfy o Discord); `SVA_ALERT_WHATSAPP=0` las apaga en el chat                                                                                                             |
+| `SVA_LIMITS`                                                                                            | Límites por IP, p. ej. `convert=100/5m,send=200/10m`                                                                                                                                            |
+| `SVA_ALLOWED` · `SVA_RATE_PER_MIN`                                                                      | Quién puede usar `/saudio` y cuántas veces por minuto                                                                                                                                           |
+| `SVA_MAX_CONCURRENT` · `SVA_MAX_QUEUE` · `SVA_MAX_WAIT_SEC` · `SVA_JOB_TIMEOUT_SEC` · `SVA_FFMPEG_NICE` | Cola de conversiones: simultáneas (por defecto, núcleos hasta 4), lugares en fila (20), espera máxima antes de responder «ocupado» (150 s), tope por sticker (180 s) y prioridad de FFmpeg (10) |
+| `SVA_PACK` · `SVA_AUTHOR` · `SVA_FIT` · `SVA_SEND_MODE`                                                 | Valores por defecto del bot (`native`, `fallback` o `both`)                                                                                                                                     |
+| `FFMPEG_PATH` · `FFPROBE_PATH`                                                                          | Rutas de FFmpeg si no están en el `PATH`                                                                                                                                                        |
 
 En la imagen Docker ya vienen fijadas `SVA_MODE=production`, `SVA_HOST=0.0.0.0`, `SVA_TRUST_PROXY=1` y las rutas en `/data`.
 

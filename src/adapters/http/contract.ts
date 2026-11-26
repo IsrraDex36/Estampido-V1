@@ -435,3 +435,60 @@ export interface AdminFeedback {
   /** Unread count (badge). */
   unread: number;
 }
+
+// ── Conversion jobs (queue) ────────────────────────────────────────────────
+
+/** Error codes the web turns into a helpful card (see web ConvertErrorCard). */
+export type ConvertErrorCode =
+  | "busy" // 503: the line is full — Retry-After says when to come back
+  | "one_at_a_time" // 429: this browser already has a sticker in progress
+  | "timeout" // 504: took too long (very long or heavy clip)
+  | "upload_failed" // 400: the upload was cut off
+  | "too_large" // 413
+  | "bad_type" // 415
+  | "missing_file" // 400
+  | "bad_options" // 400
+  | "unprocessable" // 422: the file couldn't be read / converted
+  | "expired" // 404: the job is gone (server restarted or >30 min)
+  | "internal" // 500
+  | "network" // client side: no connection
+  | "aborted"; // client side: cancelled
+
+/** POST /api/convert/slot: a place in line, BEFORE uploading (send it as SLOT_HEADER). */
+export interface ConvertSlot {
+  slot: string;
+  /** Seconds it'd wait now before starting. */
+  etaSec: number;
+  /** Use it within this time or the place is given to someone else. */
+  expiresInSec: number;
+}
+export const SLOT_HEADER = "x-estampido-slot";
+
+/** 202 from POST /api/convert?async=1 */
+export interface ConvertJobAccepted {
+  jobId: string;
+  /** 1-based place in line; 0 = starting now. */
+  position: number;
+  etaSec: number;
+}
+
+/** GET /api/jobs/:id */
+export type ConvertJobStatus =
+  | { state: "queued"; position: number; etaSec: number }
+  | { state: "running"; elapsedSec: number; expectedSec: number }
+  | { state: "done"; result: ConvertResponse }
+  | { state: "failed"; error: { code: ConvertErrorCode; message: string; status: number; retryAfterSec?: number } }
+  | { state: "cancelled" };
+
+/** GET /api/queue: how busy the converter is right now. */
+export interface QueueInfo {
+  active: number;
+  waiting: number;
+  concurrency: number;
+  /** Seconds a new sticker would wait before starting. */
+  etaSec: number;
+  /** Typical seconds per sticker lately. */
+  avgJobSec: number;
+  /** New stickers are being turned away right now. */
+  full: boolean;
+}
