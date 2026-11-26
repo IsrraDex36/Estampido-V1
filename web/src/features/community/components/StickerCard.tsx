@@ -7,6 +7,7 @@ import {
   FlagIcon,
   MoreHorizontalIcon,
   PackIcon,
+  Trash2Icon,
   PauseIcon,
   PlayIcon,
   Share2Icon,
@@ -34,6 +35,7 @@ import { useMe, useToggleFavorite } from "@/features/account/api";
 import { useFavorites } from "../store/favoritesStore";
 import { previewTime, usePreview, usePreviewMode } from "../store/previewStore";
 import { SyncedSticker } from "@/components/SyncedSticker";
+import { DeleteStickerDialog } from "./DeleteStickerDialog";
 import { ReportDialog } from "./ReportDialog";
 import { AddToPackDialog } from "@/features/social/AddToPackDialog";
 import { LinkDialog } from "@/features/bot/LinkDialog";
@@ -211,6 +213,7 @@ function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [packOpen, setPackOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const meQuery = useMe();
   const me = meQuery.data;
   // Only «signed out» once we know: while the session loads, the pack dialog opens (it asks if needed).
@@ -240,17 +243,24 @@ function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
               <DownloadIcon className="size-4" /> Descargar
             </a>
           </DropdownMenuItem>
-          {!mine && (
-            <>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => setReportOpen(true)} className="text-destructive">
-                <FlagIcon className="size-4" /> Reportar
-              </DropdownMenuItem>
-            </>
+          <DropdownMenuSeparator />
+          {/* Yours → delete it; someone else's → report it. Never both. */}
+          {mine ? (
+            <DropdownMenuItem onSelect={() => setDeleteOpen(true)} className="text-destructive">
+              <Trash2Icon className="size-4" /> Eliminar
+            </DropdownMenuItem>
+          ) : (
+            <DropdownMenuItem onSelect={() => setReportOpen(true)} className="text-destructive">
+              <FlagIcon className="size-4" /> Reportar
+            </DropdownMenuItem>
           )}
         </DropdownMenuContent>
       </DropdownMenu>
-      <ReportDialog stickerId={sticker.id} title={sticker.title} open={reportOpen} onOpenChange={setReportOpen} />
+      {mine ? (
+        <DeleteStickerDialog sticker={sticker} open={deleteOpen} onOpenChange={setDeleteOpen} />
+      ) : (
+        <ReportDialog stickerId={sticker.id} title={sticker.title} open={reportOpen} onOpenChange={setReportOpen} />
+      )}
       {!signedOut && <AddToPackDialog stickerId={sticker.id} title={sticker.title} open={packOpen} onOpenChange={setPackOpen} />}
       {signedOut && linkOpen && <LinkDialog open={linkOpen} onOpenChange={setLinkOpen} />}
     </>

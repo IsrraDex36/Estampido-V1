@@ -13,6 +13,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Eliminar tus stickers**: en el menú ⋯ de un sticker tuyo aparece «Eliminar» (con confirmación) en vez de «Reportar»; funciona en Tu espacio → Publicados, tu perfil, packs y el feed. Solo su dueño puede borrarlo (el servidor responde 404 a cualquier otro).
+
 - **Editor de texto (pestaña «Texto»)**: texto de meme arriba y/o abajo, tamaño, letra (Clásica/Pixel), 6 colores con contorno automático y MAYÚSCULAS; se ajusta solo a 3 líneas. La vista previa es el mismo dibujo que se sube (PNG transparente) y el servidor lo funde con ffmpeg en video, GIF e imagen.
 - **Efectos de voz**: Ardilla, Monstruo, Eco y Reversa en la pestaña Sonido; mantienen la duración exacta del sonido (sincronizado con la imagen).
 

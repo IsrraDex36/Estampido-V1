@@ -12,6 +12,8 @@ interface FavoritesState {
   toggleSticker: (s: CommunitySticker) => void;
   toggleSound: (s: CommunitySound) => void;
   addPublished: (s: CommunitySticker) => void;
+  /** A sticker that no longer exists (its owner deleted it): drop every local copy. */
+  forgetSticker: (id: string) => void;
   /** Signed in: the account's saved lists replace the device ones. */
   replaceSaved: (stickers: CommunitySticker[], sounds: CommunitySound[]) => void;
   /** Signed out: nothing of the account stays on a shared device. */
@@ -59,6 +61,12 @@ export const useFavorites = create<FavoritesState>()(
       toggleSound: (s) =>
         set((st) => ({ sounds: s.id in st.sounds ? withoutItem(st.sounds, s.id) : withItem(st.sounds, s.id, s) })),
       addPublished: (s) => set((st) => ({ published: withItem(st.published, s.id, s) })),
+      forgetSticker: (id) =>
+        set((st) => {
+          const { [id]: _saved, ...stickers } = st.stickers;
+          const { [id]: _pub, ...published } = st.published;
+          return { stickers, published };
+        }),
       replaceSaved: (stickers, sounds) =>
         set({
           stickers: Object.fromEntries(stickers.slice(0, MAX_SAVED).map((s) => [s.id, s])),

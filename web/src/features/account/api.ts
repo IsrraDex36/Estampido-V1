@@ -128,6 +128,7 @@ export function useDeleteMySticker() {
     mutationKey: ["account", "sticker", "delete"],
     mutationFn: deleteMySticker,
     meta: { successMessage: "Sticker borrado." },
+    onSuccess: (_r, id) => useFavorites.getState().forgetSticker(id),
     onSettled: () => {
       void qc.invalidateQueries({ queryKey: queryKeys.account.all });
       void qc.invalidateQueries({ queryKey: queryKeys.community.all });
