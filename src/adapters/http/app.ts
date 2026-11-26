@@ -48,6 +48,7 @@ import { linkGreeting } from "./linkGreeting.js";
 import { ModerationRepo } from "./moderation/repo.js";
 import { moderationRoutes } from "./moderation/routes.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
+import { normalizeHandle, SettingsRepo } from "./settings.js";
 import { OgImages } from "./social/og.js";
 import { stampForPack } from "./social/packStamp.js";
 import { SocialRepo } from "./social/repo.js";
@@ -110,7 +111,9 @@ const fail = (code: string, message: string): ApiErrorBody => ({
 export type ApiApp = Hono<AppEnv, BlankSchema, "/api">;
 
 export function createApp(deps: AppDeps = {}): ApiApp {
-  const unlimitedHandles = new Set((deps.unlimitedHandles ?? []).map((h) => h.trim().toLowerCase()).filter(Boolean));
+  const unlimitedHandles = new Set(
+    (deps.unlimitedHandles ?? []).map((h) => normalizeHandle(h)).filter((h): h is string => h !== null),
+  );
   const store = deps.store ?? new ResultStore();
   const bot = deps.bot ?? createBotClient();
   const convert = deps.convert ?? convertToSoundSticker;
@@ -132,6 +135,7 @@ export function createApp(deps: AppDeps = {}): ApiApp {
 
   // Accounts: every request knows its user; cookie writes must be same-origin.
   const communityRepo = deps.community ?? new CommunityRepo(communityRoot());
+  const settings = new SettingsRepo(communityRepo);
   const accounts = deps.accounts ?? new AccountRepo(communityRepo);
   const cookie = sessionCookie(deps.secureCookies ?? false);
   app.use("*", sessionMiddleware(accounts, cookie));
@@ -153,7 +157,12 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     communityRoutes(communityRepo, store, {
       canPublish,
       isAdmin: (c) => adminDenied(c) === null,
-      publishQuota: { ...DEFAULT_PUBLISH_QUOTA, ...deps.publishQuota, unlimited: (h) => unlimitedHandles.has(h) },
+      publishQuota: {
+        ...DEFAULT_PUBLISH_QUOTA,
+        ...deps.publishQuota,
+        // From SVA_UNLIMITED_HANDLES or set in /admin.
+        unlimited: async (h) => unlimitedHandles.has(h) || (await settings.isUnlimited(h)),
+      },
     }),
   );
   const social = new SocialRepo(communityRepo);
@@ -207,6 +216,38 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     c.header("Cache-Control", "no-store");
     return null;
   };
+
+  // ── owner settings ─────────────────────────────────────────────────────────
+  /** Handles without a publishing quota, and whether each one exists. */
+  const unlimitedView = async () => {
+    const saved = await settings.unlimitedHandles();
+    return {
+      items: await Promise.all(
+        saved.map(async (handle) => ({ handle, exists: (await accounts.byHandle(handle)) !== null })),
+      ),
+      fromEnv: [...unlimitedHandles],
+    };
+  };
+  app.get("/admin/settings/unlimited", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    return c.json(await unlimitedView());
+  });
+  app.put("/admin/settings/unlimited", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    const body = (await c.req.json().catch(() => null)) as { handles?: unknown } | null;
+    if (!Array.isArray(body?.handles) || !body.handles.every((h) => typeof h === "string")) {
+      return c.json(fail("bad_request", "Manda una lista de usuarios."), 400);
+    }
+    const bad = (body.handles as string[]).filter((h) => normalizeHandle(h) === null);
+    if (bad.length) {
+      return c.json(fail("bad_request", `«${bad[0]}» no es un usuario válido (3–20 letras, números o _).`), 400);
+    }
+    await settings.setUnlimitedHandles(body.handles as string[]);
+    console.log("[admin] usuarios sin límite actualizados");
+    return c.json(await unlimitedView());
+  });
 
   // ── backups (owner) ────────────────────────────────────────────────────────
   app.get("/admin/backups", async (c) => {

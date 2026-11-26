@@ -8,6 +8,7 @@ import { BackupsAdmin } from "./BackupsAdmin";
 import { CommunityAdmin } from "./CommunityAdmin";
 import { FeedbackAdmin } from "./FeedbackAdmin";
 import { ReportsAdmin } from "./ReportsAdmin";
+import { UnlimitedAdmin } from "./UnlimitedAdmin";
 
 const KEY = "estampido-admin";
 const readToken = () => {
@@ -92,6 +93,7 @@ export function AdminPage() {
           <Status data={pairing.data} loading={pairing.isPending} token={token} onUnlinked={() => void pairing.refetch()} />
           <HealthPanel token={token} />
           <BackupsAdmin token={token} />
+          <UnlimitedAdmin token={token} />
           <ReportsAdmin token={token} />
           <FeedbackAdmin token={token} />
           <CommunityAdmin token={token} />

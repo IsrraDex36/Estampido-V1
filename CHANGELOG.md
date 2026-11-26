@@ -19,6 +19,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **«Sin límite de publicaciones» en /admin**: escribe tu @ (o el de alguien de confianza) y esa cuenta ya no tiene el límite de 30/h y 150/día. Se guarda en la base (sobrevive a los despliegues).
+
 - **Respaldos diarios de la base** (`/data/backups`, 7 diarios + 4 semanales, copia consistente con `VACUUM INTO` y comprimida); en `/admin`: «Respaldar ahora» y «Descargar último».
 - **Guía de despliegue actual** (`docs/DEPLOY-COOLIFY.md`) y README al día con todo lo nuevo.
 

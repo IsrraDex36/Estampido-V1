@@ -457,3 +457,46 @@ describe("publishing quota is per account, not per IP", () => {
     }
   });
 });
+
+describe("owner sets unlimited users from /admin", () => {
+  it("normalizes «@Handle», validates, persists, and lifts the quota for that account only", async () => {
+    const { rm: rmDir } = await import("node:fs/promises");
+    const { makeHarness } = await import("../helpers/apiHarness.js");
+    const { makeTempDir } = await import("../helpers/fixtures.js");
+    const { normalizeHandle } = await import("../../src/adapters/http/settings.js");
+    expect(normalizeHandle(" @Isrra ")).toBe("isrra");
+    expect(normalizeHandle("no válido!")).toBeNull();
+    const d = await makeTempDir();
+    const hq = await makeHarness(d, undefined, { publishQuota: { perHour: 1, perDay: 10 } });
+    try {
+      await hq.signIn("ana", "ana");
+      await hq.signIn("beto", "beto");
+      const put = (handles: unknown) =>
+        hq.admin("/api/admin/settings/unlimited", { method: "PUT", body: JSON.stringify({ handles }) });
+      expect((await hq.app.request("/api/admin/settings/unlimited")).status).toBe(401);
+      expect((await put(["ok", "mal usuario!"])).status).toBe(400);
+      const saved = await (await put(["@Ana", "ana", "fantasma"])).json();
+      expect(saved).toMatchObject({
+        items: [
+          { handle: "ana", exists: true },
+          { handle: "fantasma", exists: false },
+        ],
+      });
+      expect(await (await hq.admin("/api/admin/settings/unlimited")).json()).toMatchObject({
+        items: [{ handle: "ana" }, { handle: "fantasma" }],
+      });
+      for (let i = 0; i < 3; i++) await hq.publish("ana"); // no quota
+      await hq.publish("beto");
+      const r = await hq.req("beto", "/api/community/stickers", {
+        method: "POST",
+        body: JSON.stringify({ resultId: await hq.makeResult(), category: "memes", ownsAudio: true }),
+      });
+      expect(r.status).toBe(429); // beto still has the quota
+      await put([]); // removed → back to normal
+      expect((await (await hq.admin("/api/admin/settings/unlimited")).json()).items).toEqual([]);
+    } finally {
+      hq.close();
+      await rmDir(d, { recursive: true, force: true });
+    }
+  });
+});

@@ -97,7 +97,7 @@ export interface PublishQuota {
   perHour: number;
   perDay: number;
   /** Handles without a quota (the owner, via SVA_UNLIMITED_HANDLES). */
-  unlimited: (handle: string) => boolean;
+  unlimited: (handle: string) => boolean | Promise<boolean>;
 }
 
 export const DEFAULT_PUBLISH_QUOTA: PublishQuota = { perHour: 30, perDay: 150, unlimited: () => false };
@@ -153,7 +153,8 @@ export function communityRoutes(
     if (denied) return c.json(denied.body, denied.status);
     // Per-account quota (checked now, counted only when it really publishes).
     const user = c.get("user");
-    const limited = user && !quota.unlimited(user.handle) ? Math.max(perHour.peek(user.id), perDay.peek(user.id)) : 0;
+    const free = user ? await quota.unlimited(user.handle) : true;
+    const limited = user && !free ? Math.max(perHour.peek(user.id), perDay.peek(user.id)) : 0;
     if (limited > 0) {
       const min = Math.ceil(limited / 60_000);
       c.header("Retry-After", String(Math.ceil(limited / 1000)));
@@ -214,7 +215,7 @@ export function communityRoutes(
       throw err;
     }
     // Re-read: the response carries the creator (joined from users).
-    if (user && !quota.unlimited(user.handle)) {
+    if (user && !free) {
       perHour.take(user.id);
       perDay.take(user.id);
     }

@@ -174,6 +174,11 @@ export const MIGRATIONS: readonly string[] = [
      PRIMARY KEY (pack_id, sticker_id)
    ) STRICT, WITHOUT ROWID;
    CREATE INDEX pack_items_sticker ON pack_items (sticker_id);`,
+  // 6 — owner settings edited from /admin (e.g. handles without a publishing quota)
+  `CREATE TABLE settings (
+     key   TEXT PRIMARY KEY,
+     value TEXT NOT NULL
+   ) STRICT, WITHOUT ROWID;`,
 ];
 
 export function openCommunityDb(path: string): DatabaseSync {
