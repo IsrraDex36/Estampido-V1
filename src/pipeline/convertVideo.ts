@@ -40,11 +40,15 @@ export async function convertAnimated(
   const replacement = typeof audioMode === "object" ? await validateReplacement(audioMode, opts.signal) : null;
   const { metadata, exif, overhead } = prepareMetadata(opts.metadata);
 
-  const max = STICKER_LIMITS.maxDurationSec;
+  // «Whole video» (no duration given) = as much as WhatsApp animates (10 s), not 3 min:
+  // longer stickers freeze in the chat while their sound keeps going.
+  const max = STICKER_LIMITS.whatsappMaxAnimationSec;
   const fullLength = opts.fullLength === true && opts.durationSec === undefined;
   const segment = resolveSegment(source.durationSec, opts.startSec, fullLength ? max : opts.durationSec);
   if (fullLength && kind === "video" && source.durationSec - (opts.startSec ?? 0) > max + 0.05) {
-    warnings.push(`El video es más largo que el máximo: se usaron ${max} s desde el inicio.`);
+    warnings.push(
+      `Se usaron ${max} s desde el inicio (lo que WhatsApp anima). Para otro tramo, indica inicio y duración.`,
+    );
   }
   if (kind === "video" && opts.durationSec !== undefined && segment.durationSec < opts.durationSec) {
     warnings.push(`Duración recortada a ${segment.durationSec.toFixed(2)} s (fin del video).`);
@@ -53,6 +57,25 @@ export async function convertAnimated(
   // Never upsample: duplicated frames get merged by libwebp_anim into uneven
   // frame durations (e.g. 10 fps GIF at 15 fps → 67/133 ms).
   const maxFps = source.fps > 0 ? Math.max(1, Math.floor(source.fps)) : Number.POSITIVE_INFINITY;
+
+  // Sound length decided up front: a looping source (GIF/animated WebP) is
+  // stretched to it, so picture and sound start and end together in WhatsApp
+  // instead of drifting on every loop (up to the 10 s WhatsApp animates).
+  const loops = kind === "animated" || opts.loops === true;
+  const soundStart = typeof audioMode === "object" ? (audioMode.startSec ?? 0) : 0;
+  const soundSec =
+    replacement && typeof audioMode === "object"
+      ? Math.min(
+          loops ? (opts.durationSec ?? (fullLength ? max : STICKER_LIMITS.defaultDurationSec)) : segment.durationSec,
+          audioMode.durationSec ?? Number.POSITIVE_INFINITY,
+          availableAfter(replacement, soundStart),
+        )
+      : null;
+  const stretch =
+    kind === "animated" && soundSec !== null && soundSec > segment.durationSec + 0.05
+      ? Math.min(soundSec, STICKER_LIMITS.whatsappMaxAnimationSec)
+      : null;
+  const animSec = stretch ?? segment.durationSec;
 
   const webpPath = join(opts.outDir, `${name}.webp`);
   const probePath = join(opts.outDir, `${name}.probe.webp`);
@@ -70,12 +93,13 @@ export async function convertAnimated(
         quality: req.quality,
         fps: req.fps,
         seek: kind === "animated" ? "output" : "input",
+        loop: stretch !== null,
         signal: opts.signal,
       });
       return (await stat(output)).size;
     },
     {
-      durationSec: segment.durationSec,
+      durationSec: animSec,
       maxFps: Math.min(STICKER_LIMITS.defaultFps, maxFps),
       maxBytes: maxBytes - overhead,
     },
@@ -98,14 +122,9 @@ export async function convertAnimated(
 
   let audioPath: string | undefined;
   let audioStats: ConvertResult["stats"]["audio"];
-  if (replacement && typeof audioMode === "object") {
-    const start = audioMode.startSec ?? 0;
-    // Animated sources loop, so their sound isn't bound to the animation length.
-    const loops = kind === "animated" || opts.loops === true;
-    const wanted = loops
-      ? (opts.durationSec ?? (fullLength ? max : STICKER_LIMITS.defaultDurationSec))
-      : segment.durationSec;
-    const duration = Math.min(wanted, audioMode.durationSec ?? wanted, availableAfter(replacement, start));
+  if (replacement && typeof audioMode === "object" && soundSec !== null) {
+    const start = soundStart;
+    const duration = soundSec;
     const sound = await extractSound(
       opts.outDir,
       name,

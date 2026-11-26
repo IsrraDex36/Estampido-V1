@@ -1,3 +1,4 @@
+import { whatsappIssues } from "../../core/whatsappCompat.js";
 import type { ConvertResult } from "../../pipeline/convert.js";
 import { formatTime } from "../../utils/time.js";
 
@@ -20,6 +21,12 @@ export function formatSummary(result: ConvertResult, delivery: Delivery): string
     `✔ Listo · ${DELIVERY[delivery]}`,
     `${(s.bytes / 1024).toFixed(0)} KB · ${shape} · calidad ${s.quality}${sound}`,
     ...result.warnings.map((w) => `⚠️ ${w}`),
+    ...whatsappIssues({
+      animated: s.animated,
+      animationSec: s.animated ? s.durationMs / 1000 : 0,
+      audioSec: a ? a.durationSec : null,
+      bytes: s.bytes,
+    }).map((w) => `⚠️ ${w}`),
   ];
   return lines.join("\n");
 }

@@ -109,14 +109,14 @@ Para el envío a WhatsApp también hace falta el bot: `npm run bot`, que la prim
 
 Envía o responde un video, GIF, imagen o sticker con:
 
-| Comando                | Qué hace                                 |
-| ---------------------- | ---------------------------------------- |
-| `/saudio`              | Video completo, hasta 3 min              |
-| `/saudio 0:12 5`       | Desde 0:12, durante 5 s                  |
-| `/saudio pad` / `crop` | Encuadre con bordes o recortado          |
-| `/saudio voz`          | Usa la siguiente nota de voz como sonido |
-| `/saudio hq`           | Calidad alta, hasta 5 MB (experimental)  |
-| `/cancelar` · `/ayuda` | Detiene lo que esté en curso · ayuda     |
+| Comando                | Qué hace                                  |
+| ---------------------- | ----------------------------------------- |
+| `/saudio`              | Los primeros 10 s (lo que WhatsApp anima) |
+| `/saudio 0:12 5`       | Desde 0:12, durante 5 s                   |
+| `/saudio pad` / `crop` | Encuadre con bordes o recortado           |
+| `/saudio voz`          | Usa la siguiente nota de voz como sonido  |
+| `/saudio hq`           | Calidad alta, hasta 5 MB (experimental)   |
+| `/cancelar` · `/ayuda` | Detiene lo que esté en curso · ayuda      |
 
 Muestra el progreso en un solo mensaje que se va editando, dice tu posición en la cola y limita los usos por persona.
 

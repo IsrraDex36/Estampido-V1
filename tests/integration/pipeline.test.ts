@@ -173,6 +173,15 @@ describe("convertToSoundSticker", () => {
     });
     expect(explicit.stats.segment.durationSec).toBe(2);
   });
+
+  it("fullLength on a long video takes 10 s (what WhatsApp animates), says so; picture and sound match", async () => {
+    const long = await makeVideo(dir, "long.mp4", { seconds: 14 });
+    const r = await convertToSoundSticker({ input: long, outDir: dir, name: "long", fullLength: true });
+    expect(r.stats.segment.durationSec).toBeCloseTo(10, 1);
+    expect(r.warnings.join(" ")).toMatch(/Se usaron 10 s desde el inicio \(lo que WhatsApp anima\)/);
+    const sound = (await probe(r.audioPath as string)).durationSec;
+    expect(Math.abs(r.stats.sticker.durationMs / 1000 - sound)).toBeLessThan(0.1);
+  });
 });
 
 describe("pipeline cancellation", () => {

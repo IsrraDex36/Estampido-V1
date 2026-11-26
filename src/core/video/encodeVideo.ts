@@ -29,6 +29,8 @@ export interface EncodeVideoOptions {
    * whose demuxer breaks with input seeking (libwebp_anim then fails).
    */
   seek?: "input" | "output";
+  /** Repeat the input until `durationSec` (a short GIF stretched to its sound's length). */
+  loop?: boolean;
   signal?: AbortSignal;
 }
 
@@ -58,7 +60,9 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
     "-y",
     ...(opts.seek === "output" ? ["-i", opts.input, ...trim] : [...trim, "-i", opts.input]),
     "-vf",
-    buildVideoFilter(fit, fps, size, opts.background, opts.crop),
+    // `loop` repeats the decoded frames (works for GIF and animated WebP; -stream_loop
+    // hangs on the WebP decoder); the output -t then cuts it to the sound's length.
+    (opts.loop ? "loop=loop=-1:size=32767," : "") + buildVideoFilter(fit, fps, size, opts.background, opts.crop),
     "-an",
     // Constant frame rate → uniform frame durations (variable ones get rejected by WhatsApp).
     "-fps_mode",

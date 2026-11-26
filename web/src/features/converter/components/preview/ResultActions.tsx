@@ -7,6 +7,7 @@ import {
   Loader2Icon,
   SendIcon,
   Share2Icon,
+  TriangleAlertIcon,
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
@@ -98,6 +99,16 @@ function SendCard({ result }: { result: ConvertResponse }) {
       <div className="min-w-0 flex-1">
         <p className="text-[15px] leading-tight font-semibold">{sent ? "¡Enviado a WhatsApp!" : "Mándalo a WhatsApp"}</p>
         <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{subtitle}</p>
+        {!sent && result.whatsapp && !result.whatsapp.ok && (
+          <ul role="note" className="mt-2 space-y-1 rounded-xl bg-retro-a/10 p-2.5 text-[12px] leading-snug">
+            {result.whatsapp.issues.map((issue) => (
+              <li key={issue} className="flex gap-2">
+                <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-retro-a" weight="fill" />
+                {issue}
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
       {connected || bot === undefined ? (
         <Button

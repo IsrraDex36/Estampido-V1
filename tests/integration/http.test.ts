@@ -69,6 +69,18 @@ describe("HTTP end-to-end (real ffmpeg)", () => {
     expect((await app.request("/api/results/00000000-0000-0000-0000-000000000000/whatsapp.mp4")).status).toBe(404);
   });
 
+  it("every conversion reports its WhatsApp compatibility", async () => {
+    const app = createApp({ store: new ResultStore(join(dir, "results")), bot: noBot });
+    const conv = async (durationSec: string) => {
+      const fd = new FormData();
+      fd.set("video", new File([await readFile(inputPath)], "clip.mp4", { type: "video/mp4" }));
+      fd.set("durationSec", durationSec);
+      return (await (await app.request("/api/convert", { method: "POST", body: fd })).json()) as ConvertResponse;
+    };
+    const short = await conv("5");
+    expect(short.whatsapp).toEqual({ ok: true, issues: [] });
+  });
+
   it("422 for corrupt video", async () => {
     const app = createApp({ store: new ResultStore(join(dir, "results")), bot: noBot });
     const fd = new FormData();

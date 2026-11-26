@@ -21,6 +21,12 @@ export const STICKER_LIMITS = {
   maxDurationSec: 180,
   /** Max audio length for image-based sound stickers. */
   maxImageAudioSec: 10,
+  /**
+   * Longest animation WhatsApp plays (official sticker guide: total ≤ 10 s; it
+   * then stops on the first frame). Longer clips still convert, but freeze in
+   * the chat while their sound keeps going.
+   */
+  whatsappMaxAnimationSec: 10,
   /** Default and minimum frame rate for animated output. */
   defaultFps: 15,
   minFps: 10,

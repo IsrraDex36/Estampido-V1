@@ -2,6 +2,20 @@
 
 Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 
+## [Sin publicar]
+
+### Corregido
+
+- **Sincronía imagen–sonido en WhatsApp:** un GIF o WebP animado con un sonido más largo ahora se estira (repitiéndose sin saltos) hasta durar lo mismo que el sonido, en lugar de desfasarse en cada vuelta. Hasta 10 s.
+- `/saudio` sin duración toma los primeros **10 s** (lo que WhatsApp anima), no 3 minutos.
+- La duración de los WebP animados se mide desde sus cuadros (ffprobe informa 0 s).
+- En la web, imagen y audio van juntos al reproducir, pausar y continuar (Comunidad y Resultado).
+
+### Agregado
+
+- Chequeo de **compatibilidad con WhatsApp** en cada resultado (animación > 10 s, sonido más largo que la animación, peso > 500 KB): aviso antes de enviar, en la pestaña Tiempo y en la respuesta del bot.
+- Enviar stickers de la Comunidad a tu WhatsApp; elegir qué publicar (sticker con sonido, solo sticker o solo sonido).
+
 ## [0.1.0] — 2026-11-25
 
 Primera versión pública.

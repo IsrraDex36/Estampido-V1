@@ -2,8 +2,9 @@ import { readFile, rm } from "node:fs/promises";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { UserInputError } from "../../src/core/errors.js";
 import { probe } from "../../src/core/probe/probe.js";
-import { inspectWebp } from "../../src/core/webp/inspect.js";
+import { inspectWebp, totalDurationMs } from "../../src/core/webp/inspect.js";
 import { convertToSoundSticker } from "../../src/pipeline/convert.js";
+import { ffmpegPath, run } from "../../src/utils/ffmpeg.js";
 import {
   firstFramePixel,
   makeAnimatedWebp,
@@ -38,6 +39,14 @@ afterAll(async () => {
 });
 
 const audioSec = async (p?: string) => (await probe(p as string)).durationSec;
+/** md5 of every decoded frame of an animated WebP (to compare loop repeats). */
+async function frameHashes(webp: string): Promise<string[]> {
+  const { stdout } = await run(ffmpegPath(), ["-v", "error", "-c:v", "webp_anim", "-i", webp, "-f", "framemd5", "-"]);
+  return stdout
+    .split("\n")
+    .filter((l) => l && !l.startsWith("#"))
+    .map((l) => l.split(",").at(-1)?.trim() ?? "");
+}
 
 describe("image + audio", () => {
   it("static WebP ≤ 100 KB with EXIF, transparency kept, full 3 s sound", async () => {
@@ -98,13 +107,19 @@ describe("GIF / animated WebP", () => {
     expect(Math.max(...durations) - Math.min(...durations)).toBeLessThanOrEqual(1);
   });
 
-  it("GIF + longer sound: animation 2 s loops, sound 5 s", async () => {
+  it("GIF + longer sound: the animation is stretched to the sound (5 s) and loops seamlessly", async () => {
     const r = await convertToSoundSticker({ input: gif, outDir: dir, name: "gifvoz", audio: { file: tone15 } });
-    expect(r.stats.sticker.durationMs).toBeLessThanOrEqual(2100);
-    expect(await audioSec(r.audioPath)).toBeCloseTo(5, 0);
+    const anim = totalDurationMs(inspectWebp(await readFile(r.webpPath)));
+    const sound = await audioSec(r.audioPath);
+    expect(sound).toBeCloseTo(5, 0);
+    expect(Math.abs(anim / 1000 - sound)).toBeLessThan(0.1); // picture and sound end together
+    // The 2 s GIF repeats inside the sticker: frame k and k + one loop look the same.
+    const hashes = await frameHashes(r.webpPath);
+    const perLoop = hashes.length / (anim / 2000);
+    expect(hashes[1]).toBe(hashes[1 + Math.round(perLoop)]);
   });
 
-  it("GIF + fullLength: uses the whole replacement sound (15 s), animation still 2 s", async () => {
+  it("GIF + whole sound: capped at the 10 s WhatsApp animates; animation stretched to match", async () => {
     const r = await convertToSoundSticker({
       input: gif,
       outDir: dir,
@@ -112,14 +127,26 @@ describe("GIF / animated WebP", () => {
       audio: { file: tone15 },
       fullLength: true,
     });
-    expect(r.stats.sticker.durationMs).toBeLessThanOrEqual(2100);
-    expect(await audioSec(r.audioPath)).toBeCloseTo(15, 0);
+    expect(await audioSec(r.audioPath)).toBeCloseTo(10, 0);
+    expect(totalDurationMs(inspectWebp(await readFile(r.webpPath)))).toBeGreaterThan(9900);
+  });
+
+  it("GIF + shorter sound: the animation keeps its own length", async () => {
+    const r = await convertToSoundSticker({
+      input: gif,
+      outDir: dir,
+      name: "gifshort",
+      audio: { file: tone3 },
+      durationSec: 1,
+    });
+    expect(totalDurationMs(inspectWebp(await readFile(r.webpPath)))).toBeLessThanOrEqual(2100);
   });
 
   it("animated WebP input is supported", async () => {
     const r = await convertToSoundSticker({ input: awebp, outDir: dir, name: "awebp", audio: { file: tone3 } });
     expect(r.kind).toBe("animated");
-    expect(r.stats.sticker).toMatchObject({ fps: 10, frames: 20 }); // 2 s @ 10 fps source, not upsampled
+    // 2 s @ 10 fps source (not upsampled), stretched to its 3 s sound (ffprobe can't time WebP: measured from frames).
+    expect(r.stats.sticker).toMatchObject({ fps: 10, frames: 30 });
     expect(await audioSec(r.audioPath)).toBeCloseTo(3, 0);
   });
 

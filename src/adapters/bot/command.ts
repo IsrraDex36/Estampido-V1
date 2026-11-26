@@ -13,7 +13,7 @@ export interface SaudioCommand {
 }
 
 export const SAUDIO_USAGE =
-  "Uso: /saudio [inicio] [duración] [crop|pad] [voz] [hq] — con un video, GIF, imagen o sticker (o respondiendo a uno). Sin duración = completo (máx. 3 min).";
+  "Uso: /saudio [inicio] [duración] [crop|pad] [voz] [hq] — con un video, GIF, imagen o sticker (o respondiendo a uno). Sin duración = 10 s (lo que WhatsApp anima).";
 
 /**
  * Parse `/saudio [start] [duration] [crop|pad] [voz]` (also `!saudio`, `.saudio`).

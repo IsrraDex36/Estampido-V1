@@ -1,5 +1,13 @@
 import type { ReactNode } from "react";
-import { ArrowRightToLineIcon, AudioWaveformIcon, ImageIcon, MinusIcon, PlusIcon, TimerIcon } from "@/components/icons";
+import {
+  ArrowRightToLineIcon,
+  AudioWaveformIcon,
+  ImageIcon,
+  MinusIcon,
+  PlusIcon,
+  TimerIcon,
+  TriangleAlertIcon,
+} from "@/components/icons";
 import { TimeInput } from "@/components/time-input";
 import { Button } from "@/components/ui/button";
 import { formatTime, presetLabel, type Smoothness } from "@/lib/time";
@@ -8,6 +16,9 @@ import { useFrameAt } from "../../hooks/useFrameAt";
 import { useConverterStore } from "../../store/converterStore";
 import { usePlaybackStore } from "../../store/playbackStore";
 import { useSegment } from "./useSegment";
+
+/** Same as the server's STICKER_LIMITS.whatsappMaxAnimationSec (official sticker guide). */
+const WHATSAPP_MAX_ANIMATION_SEC = 10;
 
 /**
  * «Tiempo»: start and end as frame cards with fine ±0.1 s steppers, the
@@ -20,6 +31,7 @@ export function SegmentControls() {
       {seg.isImage ? <ImageIntro /> : <Edges />}
       <DurationCard />
       {!seg.isImage && <SmoothnessMeter />}
+      {!seg.isImage && <WhatsAppLengthNote />}
       <ClippedNote />
     </div>
   );
@@ -284,6 +296,31 @@ function SmoothnessMeter() {
           Calidad alta
         </Button>
       )}
+    </div>
+  );
+}
+
+/** WhatsApp animates up to 10 s (official sticker guide); longer freezes in the chat. */
+function WhatsAppLengthNote() {
+  const { effective, requested, isImage, disabled, setDuration } = useSegment();
+  const len = effective ?? requested;
+  if (isImage || len === undefined || len <= WHATSAPP_MAX_ANIMATION_SEC + 0.05) return null;
+  return (
+    <div role="note" className="flex items-start gap-3 rounded-2xl bg-retro-a/10 px-4 py-3 text-[13px] leading-snug">
+      <TriangleAlertIcon className="mt-0.5 size-4 shrink-0 text-retro-a" weight="fill" />
+      <p className="min-w-0 flex-1">
+        <b>WhatsApp anima hasta {WHATSAPP_MAX_ANIMATION_SEC} s.</b> Con {formatTime(len)}, en el chat la imagen se quedará
+        quieta mientras suena. Sirve para descargar; para enviar, mejor 5–10 s.{" "}
+        <Button
+          variant="link"
+          size="xs"
+          className="h-auto p-0 align-baseline"
+          disabled={disabled}
+          onClick={() => setDuration(WHATSAPP_MAX_ANIMATION_SEC)}
+        >
+          Usar {WHATSAPP_MAX_ANIMATION_SEC} s
+        </Button>
+      </p>
     </div>
   );
 }

@@ -12,6 +12,7 @@ import { CancelledError, UserInputError } from "../../core/errors.js";
 import { probe } from "../../core/probe/probe.js";
 import { buildWhatsAppMp4 } from "../../core/video/whatsappMp4.js";
 import { inspectWebp } from "../../core/webp/inspect.js";
+import { whatsappIssues } from "../../core/whatsappCompat.js";
 import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
 import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
@@ -191,8 +192,15 @@ export function createApp(deps: AppDeps = {}): Hono {
         );
 
         const s = result.stats;
+        const issues = whatsappIssues({
+          animated: s.sticker.animated,
+          animationSec: s.sticker.animated ? s.sticker.durationMs / 1000 : 0,
+          audioSec: s.audio ? s.audio.durationSec : null,
+          bytes: s.sticker.bytes,
+        });
         const response: ConvertResponse = {
           id: job.id,
+          whatsapp: { ok: issues.length === 0, issues },
           kind: result.kind,
           sticker: { url: `/api/results/${job.id}/sticker.webp`, ...s.sticker },
           audio: s.audio ? { url: `/api/results/${job.id}/sticker.ogg`, ...s.audio } : null,

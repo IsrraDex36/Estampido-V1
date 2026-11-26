@@ -1,7 +1,7 @@
 import type { ConvertResponse } from "@contract";
 import * as m from "motion/react-m";
 import { type ReactNode, useEffect, useState } from "react";
-import { ArrowUpIcon, SparklesIcon, TimerIcon, Volume2Icon, VolumeXIcon } from "@/components/icons";
+import { ArrowUpIcon, SparklesIcon, TimerIcon, TriangleAlertIcon, Volume2Icon, VolumeXIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { formatBytes } from "@/lib/format";
 import { formatTime } from "@/lib/time";
@@ -84,8 +84,10 @@ function Headline({ result }: { result: ConvertResponse }) {
             {c.label}
           </li>
         ))}
-        {!sticker.withinLimit && (
-          <li className="rounded-full bg-destructive/15 px-2.5 py-1 text-[12px] font-medium text-destructive">Supera 500 KB</li>
+        {result.whatsapp && !result.whatsapp.ok && (
+          <li className="flex items-center gap-1 rounded-full bg-retro-a/15 px-2.5 py-1 text-[12px] font-medium text-retro-a">
+            <TriangleAlertIcon className="size-3.5" weight="fill" /> Revisa antes de enviar
+          </li>
         )}
       </ul>
     </div>

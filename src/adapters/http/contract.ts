@@ -44,6 +44,8 @@ export interface StickerMetadataView {
 
 export interface ConvertResponse {
   id: string;
+  /** Will it play right in WhatsApp? `issues` explain why not (Spanish, user-facing). */
+  whatsapp: { ok: boolean; issues: string[] };
   kind: MediaKind;
   sticker: {
     url: string;
