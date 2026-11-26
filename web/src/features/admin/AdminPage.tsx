@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 import { CircleCheckIcon, Loader2Icon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ApiError, readJson } from "@/lib/api";
+import { CommunityAdmin } from "./CommunityAdmin";
 
 const KEY = "estampido-admin";
 const readToken = () => {
@@ -87,6 +88,7 @@ export function AdminPage() {
         <div className="mt-8 space-y-5">
           <Status data={pairing.data} loading={pairing.isPending} />
           <HealthPanel token={token} />
+          <CommunityAdmin token={token} />
           <Button variant="ghost" size="sm" className="rounded-full" onClick={logout}>
             Salir
           </Button>

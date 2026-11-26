@@ -166,6 +166,35 @@ export class CommunityRepo {
     });
   }
 
+  /** Owner moderation: delete one sticker (index entry + files). false if it doesn't exist. */
+  remove(id: string): Promise<boolean> {
+    return this.exclusive(async () => {
+      if (!isCommunityId(id)) return false;
+      const items = await this.load();
+      if (!items.some((s) => s.id === id)) return false;
+      const next = items.filter((s) => s.id !== id);
+      await this.persist(next); // index first: a crash leaves orphan files, never a broken entry
+      this.items = next;
+      await rm(join(this.root, id), { recursive: true, force: true });
+      return true;
+    });
+  }
+
+  /** Owner moderation: delete every sticker. Returns how many were removed. */
+  clear(): Promise<number> {
+    return this.exclusive(async () => {
+      const items = await this.load();
+      await this.persist([]);
+      this.items = [];
+      await Promise.all(
+        items
+          .filter((s) => isCommunityId(s.id))
+          .map((s) => rm(join(this.root, s.id), { recursive: true, force: true })),
+      );
+      return items.length;
+    });
+  }
+
   /** Absolute path of a servable file that exists, else null. */
   async resolveFile(id: string, file: string): Promise<{ path: string; size: number } | null> {
     if (!isCommunityId(id) || !(file in COMMUNITY_FILES)) return null;

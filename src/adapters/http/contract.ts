@@ -239,6 +239,15 @@ export type AdminPairing =
   | { state: "connected"; phone: string };
 
 /** /api/admin/health — watchdog report (token-protected). */
+/** Owner moderation view of the community (every sticker, newest first; includes «solo el sonido»). */
+export interface AdminCommunity {
+  items: (CommunitySticker & { sends: number })[];
+  usedBytes: number;
+}
+
+/** DELETE /api/admin/community body: must say exactly this to wipe everything. */
+export const ADMIN_WIPE_CONFIRM = "BORRAR TODO";
+
 export interface AdminHealth {
   status: "ok" | "degraded" | "down" | "unlinked" | "starting" | "offline";
   since: number | null;

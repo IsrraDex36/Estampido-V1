@@ -18,8 +18,10 @@ import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
 import { type BotClient, type BotPairing, BotRequestError, BotUnavailableError, createBotClient } from "./botClient.js";
 import { CommunityRepo } from "./community/repo.js";
-import { communityRoutes, type PublishGuard } from "./community/routes.js";
+import { communityRoutes, type PublishGuard, toStickerDto } from "./community/routes.js";
 import {
+  ADMIN_WIPE_CONFIRM,
+  type AdminCommunity,
   type AdminHealth,
   type AdminPairing,
   API_LIMITS,
@@ -275,6 +277,38 @@ export function createApp(deps: AppDeps = {}): Hono {
         problems: ["El bot no está corriendo."],
       } satisfies AdminHealth);
     }
+  });
+
+  // ── Owner: community moderation ──────────────────────────────────────────
+  app.get("/admin/community", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    const all = [...(await communityRepo.list())].sort((a, b) => b.createdAt - a.createdAt);
+    return c.json({
+      items: all.map((s) => ({ ...toStickerDto(s), sends: s.sends ?? 0 })),
+      usedBytes: await communityRepo.usedBytes(),
+    } satisfies AdminCommunity);
+  });
+
+  app.delete("/admin/community/stickers/:id", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    const id = c.req.param("id");
+    if (!(await communityRepo.remove(id))) return c.json(fail("not_found", "Ese sticker ya no existe."), 404);
+    console.log(`[admin] sticker de la comunidad borrado: ${id}`);
+    return c.json({ removed: 1 });
+  });
+
+  app.delete("/admin/community", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    const body = (await c.req.json().catch(() => null)) as { confirm?: string } | null;
+    if (body?.confirm !== ADMIN_WIPE_CONFIRM) {
+      return c.json(fail("confirm_required", `Escribe «${ADMIN_WIPE_CONFIRM}» para confirmar.`), 400);
+    }
+    const removed = await communityRepo.clear();
+    console.log(`[admin] comunidad vaciada: ${removed} stickers borrados`);
+    return c.json({ removed });
   });
 
   app.get("/admin/pairing", async (c) => {
