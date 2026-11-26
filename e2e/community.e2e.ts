@@ -40,7 +40,7 @@ describe("Community (real browser, real API)", () => {
     const { page, problems } = await openPage(browser, url);
     await makeSticker(page);
 
-    // Publish: category is required; audio rights checkbox gates the submit.
+    // Publish: category is required; then title/tags and publish (no rights checkbox).
     await clickButtonWithText(page, "Publicar");
     await bodyHas(page, "Publicar en la comunidad");
     const submit = async () => {
@@ -50,8 +50,7 @@ describe("Community (real browser, real API)", () => {
     expect(await (await submit())?.evaluate((b) => (b as HTMLButtonElement).disabled)).toBe(true);
     await clickButtonWithText(page, "Memes", '[role="dialog"] button');
     await page.type('[role="dialog"] input:not([type])', "Prueba e2e");
-    expect(await (await submit())?.evaluate((b) => (b as HTMLButtonElement).disabled)).toBe(true);
-    await page.click('[role="dialog"] input[type="checkbox"]');
+    expect(await page.$('[role="dialog"] input[type="checkbox"]')).toBeNull();
     await (await submit())?.click();
     await bodyHas(page, "Publicado");
 

@@ -12,7 +12,7 @@ export type PublishOutcome = { published: number; failed: number; stopped?: stri
  */
 export async function publishMany(
   items: readonly CollectionItem[],
-  req: { category: CommunityCategory; tags: string[]; ownsAudio: boolean },
+  req: { category: CommunityCategory; tags: string[] },
   publish: (req: PublishRequest) => Promise<CommunitySticker>,
   onProgress: (done: number) => void,
 ): Promise<PublishOutcome> {
@@ -20,7 +20,7 @@ export async function publishMany(
   let failed = 0;
   for (const [i, item] of items.entries()) {
     try {
-      await publish({ resultId: item.id, category: req.category, tags: req.tags, ownsAudio: req.ownsAudio, share: "both" });
+      await publish({ resultId: item.id, category: req.category, tags: req.tags, share: "both" });
       published++;
     } catch (err) {
       failed++;

@@ -64,12 +64,9 @@ afterAll(() => rm(dir, { recursive: true, force: true }));
 describe("community API", () => {
   let soundId = "";
 
-  it("publish: validates category and audio rights, copies files", async () => {
+  it("publish: validates category (no audio-rights checkbox), copies files", async () => {
     const id = await fakeResult();
     expect((await post("/stickers", { resultId: id })).status).toBe(400); // no category
-    const noRights = await post("/stickers", { resultId: id, category: "memes" });
-    expect(noRights.status).toBe(400);
-    expect(((await noRights.json()) as { error: { code: string } }).error.code).toBe("audio_rights");
 
     const ok = await post("/stickers", {
       resultId: id,
@@ -371,12 +368,11 @@ describe("publish: what to share", () => {
     expect(sounds.items.map((x) => x.id)).not.toContain(s.id);
   });
 
-  it("«solo el sonido»: needs rights, appears under Sonidos but not in the sticker feed", async () => {
+  it("«solo el sonido»: appears under Sonidos but not in the sticker feed", async () => {
     const repo = new CommunityRepo(join(dir, "share-sound"));
     const a = createApp({ store: results, bot: noBot, community: repo });
     const id = await fakeResult(true);
-    expect((await pub(a, { resultId: id, share: "sound", category: "memes" })).status).toBe(400); // rights
-    const res = await pub(a, { resultId: id, share: "sound", category: "memes", ownsAudio: true });
+    const res = await pub(a, { resultId: id, share: "sound", category: "memes" });
     expect(res.status).toBe(201);
     const s = (await res.json()) as CommunitySticker;
     expect(s.listed).toBe(false);

@@ -52,6 +52,7 @@ const publishSchema = z.object({
   category: z.enum(categoryIds, { message: "Elige una categoría." }),
   title: z.string().trim().max(COMMUNITY_LIMITS.maxTitle).optional(),
   tags: z.array(tag).max(COMMUNITY_LIMITS.maxTags).optional(),
+  /** Accepted for older clients; no longer required. */
   ownsAudio: z.boolean().optional(),
   soundOrigin: z.string().nullish(),
 });
@@ -190,9 +191,6 @@ export function communityRoutes(
     }
     if (req.share === "sound" && origin) {
       return c.json(fail("duplicate_sound", "Ese sonido ya está en la comunidad. Publícalo como sticker."), 400);
-    }
-    if (shareSound && !origin && req.ownsAudio !== true) {
-      return c.json(fail("audio_rights", "Confirma que el audio es tuyo o que tienes permiso."), 400);
     }
 
     let item: StoredSticker;

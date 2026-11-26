@@ -22,20 +22,18 @@ export function BatchPublishDialog({
   onOpenChange: (v: boolean) => void;
 }) {
   const qc = useQueryClient();
-  const ids = { tags: useId(), owns: useId() };
+  const ids = { tags: useId() };
   const [category, setCategory] = useState<CommunityCategory | null>(null);
   const [tags, setTags] = useState("");
-  const [owns, setOwns] = useState(false);
   const [done, setDone] = useState<number | null>(null);
-  const withSound = items.some((i) => i.audioUrl);
   const busy = done !== null;
-  const canSubmit = category !== null && (!withSound || owns) && !busy;
+  const canSubmit = category !== null && !busy;
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (!category) return;
     setDone(0);
-    const r = await publishMany(items, { category, tags: parseTags(tags), ownsAudio: owns }, publishSticker, setDone);
+    const r = await publishMany(items, { category, tags: parseTags(tags) }, publishSticker, setDone);
     setDone(null);
     void qc.invalidateQueries({ queryKey: queryKeys.community.all });
     if (r.published === items.length) notify.success(`${r.published} stickers publicados en la comunidad`);
@@ -49,7 +47,7 @@ export function BatchPublishDialog({
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Publicar {items.length} stickers</DialogTitle>
-          <DialogDescription>Misma categoría y etiquetas para todos. Puedes editarlos después en tu cuenta.</DialogDescription>
+          <DialogDescription>Misma categoría y etiquetas para todos.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div role="radiogroup" aria-label="Categoría" className="flex flex-wrap gap-1.5">
@@ -86,12 +84,6 @@ export function BatchPublishDialog({
               className="h-10 w-full rounded-xl bg-muted/60 px-3 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
-          {withSound && (
-            <label htmlFor={ids.owns} className="flex items-start gap-3 rounded-2xl bg-muted/50 p-3 text-[13px]">
-              <input id={ids.owns} type="checkbox" checked={owns} disabled={busy} onChange={(e) => setOwns(e.target.checked)} className="mt-0.5 size-4" />
-              <span>Los sonidos son míos o tengo permiso para compartirlos.</span>
-            </label>
-          )}
           {busy && (
             <div className="space-y-1.5" role="status">
               <p className="text-[13px] tabular-nums">

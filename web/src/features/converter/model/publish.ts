@@ -40,9 +40,6 @@ export function shareOptions({ hasAudio, fromCommunity }: PublishContext): Recor
 export const defaultShare = (ctx: PublishContext): PublishShare => (ctx.hasAudio ? "both" : "sticker");
 
 /** Publishing your own sound needs the rights checkbox; silent or community sounds don't. Pure. */
-export const needsAudioRights = (share: PublishShare, { hasAudio, fromCommunity }: PublishContext): boolean =>
-  hasAudio && !fromCommunity && share !== "sticker";
-
 /**
  * «Publicar en la comunidad» form rules — the same limits the API enforces
  * (src/adapters/http/community/routes.ts), so the server rarely has to say no.
@@ -71,14 +68,10 @@ export function publishFormSchema(ctx: PublishContext) {
         const bad = tags.find((t) => !COMMUNITY_TAG_RE.test(t));
         if (bad) issue.addIssue({ code: "custom", message: `«${bad}»: usa solo letras, números, - y _.` });
       }),
-      owns: z.boolean(),
     })
     .superRefine((v, issue) => {
       const blocked = shareOptions(ctx)[v.share];
       if (blocked) issue.addIssue({ code: "custom", path: ["share"], message: blocked });
-      if (needsAudioRights(v.share, ctx) && !v.owns) {
-        issue.addIssue({ code: "custom", path: ["owns"], message: "Confirma que el audio es tuyo o que tienes permiso." });
-      }
     });
 }
 

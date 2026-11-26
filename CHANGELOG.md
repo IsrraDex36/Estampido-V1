@@ -6,6 +6,12 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- La fila de **Filtro** se salía del panel de ajustes en escritorio; ahora se queda dentro, se desliza y se desvanece a la derecha.
+
+### Cambiado
+
+- **Publicar sin la casilla de derechos del audio**: solo categoría, título, etiquetas y publicar (en uno y en varios). El servidor ya no la exige.
+
 - Con texto + audio + archivo al límite, la subida podía rebasar el tope por no contar la capa de texto.
 - Dependencias de la web: `npm audit` en 0.
 

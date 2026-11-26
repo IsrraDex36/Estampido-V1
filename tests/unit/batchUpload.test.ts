@@ -79,7 +79,7 @@ describe("publish several from the collection", () => {
     createdAt: 0,
     expiresAt: 0,
   }));
-  const req = { category: "memes" as const, tags: ["risa"], ownsAudio: true };
+  const req = { category: "memes" as const, tags: ["risa"] };
 
   it("one after another, same category/tags for all, progress reported", async () => {
     const publish = vi.fn(async () => ({}) as never);
@@ -90,7 +90,6 @@ describe("publish several from the collection", () => {
     expect(publish.mock.calls[0]?.[0]).toMatchObject({
       category: "memes",
       tags: ["risa"],
-      ownsAudio: true,
       share: "both",
     });
     expect(progress).toEqual([1, 2, 3]);

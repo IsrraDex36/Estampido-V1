@@ -135,7 +135,7 @@ export function StyleOptions() {
         </div>
       )}
 
-      <fieldset className="space-y-3" disabled={disabled}>
+      <fieldset className="min-w-0 space-y-3" disabled={disabled}>
         <legend className="flex w-full items-baseline justify-between gap-3">
           <span className="text-[15px] font-medium">Fondo</span>
           <span className="text-[13px] text-muted-foreground">
@@ -181,7 +181,7 @@ export function StyleOptions() {
         </div>
       </fieldset>
 
-      <fieldset className="space-y-3" disabled={disabled}>
+      <fieldset className="min-w-0 space-y-3" disabled={disabled}>
         <legend className="flex w-full items-baseline justify-between gap-3">
           <span className="text-[15px] font-medium">Filtro</span>
           <span className="text-[13px] text-muted-foreground">{look ? LOOK_LABELS[look] : "Original"}</span>
@@ -190,7 +190,8 @@ export function StyleOptions() {
           role="radiogroup"
           aria-label="Filtro de color"
           data-no-swipe
-          className="-mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+          // Fade at the right edge: there are more looks to swipe to.
+          className="-mx-1 flex snap-x gap-2.5 overflow-x-auto px-1 pb-1 [mask-image:linear-gradient(to_right,black_88%,transparent)] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         >
           {([undefined, ...COLOR_LOOKS] as (ColorLook | undefined)[]).map((l) => {
             const on = look === l;

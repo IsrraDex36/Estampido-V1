@@ -29,7 +29,6 @@ import { useFavorites } from "@/features/community/store/favoritesStore";
 import { cn } from "@/lib/utils";
 import {
   defaultShare,
-  needsAudioRights,
   type PublishContext,
   type PublishFormValues,
   parseTags,
@@ -46,7 +45,7 @@ export function PublishForm({ result, onDone }: { result: ConvertResponse; onDon
   const addPublished = useFavorites((s) => s.addPublished);
   const publish = usePublish();
   const [, navigate] = useLocation();
-  const ids = { title: useId(), tags: useId(), owns: useId(), category: useId() };
+  const ids = { title: useId(), tags: useId(), category: useId() };
   const ctx: PublishContext = { hasAudio: result.audio !== null, fromCommunity: Boolean(soundOrigin) };
   const { gate, dialog } = useLinkGate({ needsAccount: true });
 
@@ -60,13 +59,12 @@ export function PublishForm({ result, onDone }: { result: ConvertResponse; onDon
   } = useForm<PublishFormValues>({
     resolver: zodResolver(publishFormSchema(ctx)),
     mode: "onChange",
-    defaultValues: { share: defaultShare(ctx), category: undefined, title: "", tags: "", owns: false },
+    defaultValues: { share: defaultShare(ctx), category: undefined, title: "", tags: "" },
   });
   const [title = "", tagsRaw = "", share = defaultShare(ctx), category] = useWatch({
     control,
     name: ["title", "tags", "share", "category"],
   });
-  const needsRights = needsAudioRights(share, ctx);
   const tagPreview = splitTags(tagsRaw).slice(0, COMMUNITY_LIMITS.maxTags);
 
   const doPublish = async (values: PublishFormValues, retried = false) => {
@@ -77,7 +75,6 @@ export function PublishForm({ result, onDone }: { result: ConvertResponse; onDon
         category: values.category as CommunityCategory,
         title: values.title.trim() || undefined,
         tags: parseTags(values.tags),
-        ownsAudio: needsRights ? values.owns : undefined,
         soundOrigin: values.share === "sticker" ? null : soundOrigin,
       });
       addPublished(sticker);
@@ -214,25 +211,7 @@ export function PublishForm({ result, onDone }: { result: ConvertResponse; onDon
           </div>
         </div>
 
-        {needsRights ? (
-          <div className="space-y-1.5">
-            <label htmlFor={ids.owns} className="flex items-start gap-3 rounded-2xl bg-muted/50 p-3 text-[13px]">
-              <input
-                id={ids.owns}
-                type="checkbox"
-                {...register("owns")}
-                aria-invalid={Boolean(errors.owns)}
-                aria-describedby={errors.owns ? `${ids.owns}-err` : undefined}
-                className="mt-0.5 size-4 accent-[var(--sound)]"
-              />
-              <span>
-                El audio es mío o tengo permiso para compartirlo.
-                <span className="block text-muted-foreground">Sin esto no se puede publicar un sticker con sonido.</span>
-              </span>
-            </label>
-            <FieldError id={`${ids.owns}-err`} message={errors.owns?.message} />
-          </div>
-        ) : soundOrigin && share !== "sticker" ? (
+        {soundOrigin && share !== "sticker" ? (
           <p className="rounded-2xl bg-muted/50 p-3 text-[13px] text-muted-foreground">
             Usa un sonido de la comunidad: quedará enlazado a su origen.
           </p>
