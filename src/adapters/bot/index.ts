@@ -2,6 +2,7 @@ import { resolve } from "node:path";
 import type { WASocket } from "baileys";
 import type { FitMode } from "../../config/limits.js";
 import { authDir, linksFile } from "../../config/paths.js";
+import { loadAccountSecret } from "./accountKey.js";
 import { consoleSink, fanOut, probeLinkedDevice, webhookSink, whatsappSink } from "./alerts.js";
 import { jidDigits } from "./command.js";
 import { connect, type PairingState } from "./connection.js";
@@ -12,6 +13,7 @@ import { LinkStore } from "./links.js";
 import { installRawCapture } from "./rawCapture.js";
 import type { SendMode } from "./saudio.js";
 import { BOT_TMP_PREFIX } from "./saudio.js";
+import { SelfSessions, sealKeyFrom } from "./selfSession.js";
 import { wipeSession } from "./session.js";
 import { installRawEncode } from "./soundSticker.js";
 import { cleanupTempDirs } from "./tempCleanup.js";
@@ -144,7 +146,10 @@ await connect({
 
 // "Enviar a mi WhatsApp" from the web goes through this localhost-only endpoint.
 const live = () => (current && (current.ws as { isOpen?: boolean }).isOpen !== false ? current : null);
+// «Tu propio WhatsApp»: sessions sealed with a key derived from the persistent account secret.
+const self = new SelfSessions({ sealKey: sealKeyFrom(await loadAccountSecret()) });
 const control = await startControlServer({
+  self,
   current: live,
   links: () => linksFor(live()),
   pairing: () => pairing,

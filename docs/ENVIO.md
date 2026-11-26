@@ -48,3 +48,29 @@ Web: «Enviar a mi WhatsApp»
 | **S4. Respaldo oficial**       | WhatsApp Cloud API: sticker + audio aparte, ventana de 24 h, 1 000 mensajes al mes gratis por número. Entra si Baileys cae                                                              |
 | **S5. Datos y cuentas**        | Postgres o Turso para vínculos y comunidad; iniciar sesión con este mismo código (cuentas → favoritos sincronizados)                                                                    |
 | **S6. Operación**              | Métricas (envíos, fallos, bloqueos), moderación, aviso de privacidad y términos                                                                                                         |
+
+## «Tu propio WhatsApp» (envío a tu chat «Tú»)
+
+Desde noviembre 2026 los botones «Enviar a mi WhatsApp» usan **el WhatsApp de
+cada persona** como dispositivo vinculado, y el sticker va a **su propio chat
+«Tú»**. Así ningún número de Estampido le escribe a muchas personas (el patrón
+que lleva a baneos).
+
+- **Vincular**: la persona escribe su número (solo para pedir el código) y lo
+  teclea en WhatsApp → Dispositivos vinculados → Vincular con número de
+  teléfono. En computadora también puede escanear un QR.
+- **Sesión**: el bot la sella con AES-256-GCM (llave derivada de
+  `/data/account.secret`, que nunca sale del servidor) y se la entrega al
+  navegador, que la guarda en `localStorage`. **El servidor no guarda ninguna
+  sesión.** Cada envío trae la sesión, el bot la abre en memoria, se conecta,
+  manda al chat propio, cierra y devuelve la sesión actualizada.
+- **Privacidad**: sin historial (`shouldSyncHistoryMessage: () => false`), sin
+  consultas iniciales, sin manejadores de mensajes; nada se escribe a disco.
+- **Packs y colección**: todos los stickers en **una sola conexión**.
+- **Desvincular**: «Desvincular mi WhatsApp» (cierra sesión en WhatsApp y borra
+  la copia del navegador) o desde el teléfono.
+- Funciona aunque el número del bot esté desconectado (solo necesita que el
+  proceso del bot esté corriendo). El bot sigue sirviendo para «Entrar con
+  WhatsApp» (cuentas).
+- Si `account.secret` cambia, todas las sesiones dejan de abrirse y cada
+  persona debe vincular otra vez.

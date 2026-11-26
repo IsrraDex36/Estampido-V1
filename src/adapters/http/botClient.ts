@@ -29,6 +29,16 @@ export interface BotClient {
   pairing(): Promise<BotPairing>;
   /** Log the bot's WhatsApp out → new QR (owner). */
   unlinkBot?(): Promise<void>;
+  /**
+   * «Tu propio WhatsApp» calls, relayed as-is (status + JSON): the web route
+   * turns them into user-facing answers. Long timeout: linking/sending opens
+   * a WhatsApp connection.
+   */
+  self?(
+    path: string,
+    body?: unknown,
+    method?: "GET" | "POST",
+  ): Promise<{ status: number; body: Record<string, unknown> }>;
   /** Watchdog report. */
   health(): Promise<Omit<AdminHealth, "status"> & { status: Exclude<AdminHealth["status"], "offline"> }>;
 }
@@ -128,6 +138,21 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
     },
     async pairing() {
       return json<BotPairing>(await call("/pairing", { signal: AbortSignal.timeout(3_000) }));
+    },
+    async self(path, body, method = "POST") {
+      const ctl = await readControl(file);
+      if (!ctl) throw new BotUnavailableError();
+      try {
+        const res = await fetch(`http://127.0.0.1:${ctl.port}/self${path}`, {
+          method,
+          headers: { authorization: `Bearer ${ctl.token}`, "content-type": "application/json" },
+          ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+          signal: AbortSignal.timeout(200_000),
+        });
+        return { status: res.status, body: (await res.json().catch(() => ({}))) as Record<string, unknown> };
+      } catch {
+        throw new BotUnavailableError();
+      }
     },
     async unlinkBot() {
       await json(await call("/admin/unlink", { method: "POST", signal: AbortSignal.timeout(15_000) }));

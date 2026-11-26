@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useBotStatus, useSendToWhatsApp } from "@/features/bot/api";
+import { useBotStatus } from "@/features/bot/api";
 import { LinkDialog } from "@/features/bot/LinkDialog";
 import { useLinkGate } from "@/features/bot/useLinkGate";
 import { toItem, useCollectionStore } from "@/features/collection/collectionStore";
@@ -28,6 +28,8 @@ import { canShareFiles, shareSticker } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { ActionTile } from "./ActionTile";
 import { CreateInWhatsApp, WhatsAppCreatorDialog } from "./CreateInWhatsApp";
+import { unlinkSelf } from "@/features/self/endpoints";
+import { useSelfSend } from "@/features/self/useSelfSend";
 import { PublishButton } from "./PublishButton";
 
 /** WhatsApp card (primary, never a dead end) + publish / collection / download tiles. */
@@ -53,29 +55,17 @@ export function ResultActions({ result }: { result: ConvertResponse }) {
  */
 function SendCard({ result }: { result: ConvertResponse }) {
   const bot = useBotStatus();
-  const send = useSendToWhatsApp();
-  const { gate, linked, phone, dialog } = useLinkGate();
-  const connected = bot?.connected === true;
-  const direct = connected && (linked || bot?.selfSend === true);
-  const mine = send.variables === result.id;
-  const sending = mine && send.isPending;
-  const sent = mine && send.isSuccess;
+  // Your own WhatsApp (linked device) sends to your own «Tú» chat: no shared number involved.
+  const self = useSelfSend();
+  const connected = bot?.available === true;
+  const direct = self.linked;
+  const sending = self.sending;
+  const sent = self.sent;
   const share = canShareFiles();
   const [creatorOpen, setCreatorOpen] = useState(false);
+  const { dialog } = useLinkGate();
 
-  const doSend = () =>
-    gate(() =>
-      send.mutate(result.id, {
-        onSuccess: ({ delivered }) =>
-          notify.success(
-            delivered === "native"
-              ? "Enviado a tu chat con sonido"
-              : delivered === "separate"
-                ? "Enviado a tu chat: sticker + nota de voz"
-                : "Enviado a tu chat",
-          ),
-      }),
-    );
+  const doSend = () => self.send({ results: [result.id] }, "Tu sticker");
 
   const subtitle =
     bot === undefined
@@ -83,10 +73,10 @@ function SendCard({ result }: { result: ConvertResponse }) {
       : !connected
         ? "El envío directo está en pausa. Para que llegue con sonido, créalo en WhatsApp con nuestro video (Android, WhatsApp Beta)."
         : sent
-          ? "Llegó a tu chat. Mantenlo presionado → Añadir a favoritos ⭐ para usarlo y reenviarlo siempre."
+          ? "Llegó a tu chat «Tú». Mantenlo presionado → Añadir a favoritos ⭐ para usarlo y reenviarlo siempre."
           : direct
-            ? `Llega a tu chat${phone ? ` ${phone}` : ""} como sticker con sonido.`
-            : "Primero vincula tu número (una sola vez, 10 segundos).";
+            ? "Llega a tu chat «Tú» con sonido, desde tu propio WhatsApp."
+            : "Conecta tu WhatsApp una vez y te lo mandas a ti mismo, con sonido.";
 
   return (
     <div
@@ -107,6 +97,19 @@ function SendCard({ result }: { result: ConvertResponse }) {
       <div className="min-w-0 flex-1">
         <p className="text-[15px] leading-tight font-semibold">{sent ? "¡Enviado a WhatsApp!" : "Mándalo a WhatsApp"}</p>
         <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{subtitle}</p>
+        {direct && (
+          <button
+            type="button"
+            className="mt-1 text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            onClick={() => {
+              if (window.confirm("¿Quitar tu WhatsApp de Estampido? Se borra la sesión de este navegador y el dispositivo de tu teléfono.")) {
+                void unlinkSelf().then(() => notify.success("Listo: tu WhatsApp ya no está vinculado."));
+              }
+            }}
+          >
+            Desvincular mi WhatsApp
+          </button>
+        )}
         {!sent && result.whatsapp && !result.whatsapp.ok && (
           <ul role="note" className="mt-2 space-y-1 rounded-xl bg-retro-a/10 p-2.5 text-[12px] leading-snug">
             {result.whatsapp.issues.map((issue) => (
@@ -132,7 +135,7 @@ function SendCard({ result }: { result: ConvertResponse }) {
           ) : (
             <SendIcon data-icon="inline-start" weight="fill" />
           )}
-          {sending ? "Enviando…" : sent ? "Enviar otra vez" : direct ? "Enviar a mi WhatsApp" : "Vincular y enviar"}
+          {sending ? "Enviando…" : sent ? "Enviar otra vez" : direct ? "Enviar a mi WhatsApp" : "Conectar y enviar"}
         </Button>
       ) : (
         // Paused: the only way to keep the sound without the bot is WhatsApp's own creator.

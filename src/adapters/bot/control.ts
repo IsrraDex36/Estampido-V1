@@ -4,7 +4,7 @@ import { type AddressInfo, createServer, type Server } from "node:net";
 import { sep } from "node:path";
 import { serve } from "@hono/node-server";
 import { jidNormalizedUser, type WASocket } from "baileys";
-import { Hono } from "hono";
+import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { STICKER_LIMITS } from "../../config/limits.js";
 import { communityRoot, controlFile, RESULTS_ROOT } from "../../config/paths.js";
@@ -14,6 +14,7 @@ import { jidDigits } from "./command.js";
 import type { PairingState } from "./connection.js";
 import { humanizer } from "./humanize.js";
 import { isClientHash, type LinkStore, maskJid } from "./links.js";
+import { type SelfSessions, SessionError } from "./selfSession.js";
 import { sendSoundSticker } from "./soundSticker.js";
 import type { HealthReport } from "./watchdog.js";
 
@@ -36,6 +37,8 @@ export interface BotHandle {
   health?(): HealthReport;
   /** Log the bot's WhatsApp out and start a fresh pairing (owner, from /admin). */
   unlinkBot?(): Promise<void>;
+  /** «Tu propio WhatsApp»: per-person linked device, sends only to the person's own chat. */
+  self?: SelfSessions;
 }
 
 export const SENDS_PER_MINUTE = 10;
@@ -117,6 +120,77 @@ export function createControlApp(
   app.get("/health", (c) => (bot.health ? c.json(bot.health()) : c.json({ error: "sin vigilante" }, 404)));
 
   app.get("/pairing", (c) => c.json(bot.pairing?.() ?? ({ kind: "waiting" } satisfies PairingState)));
+
+  // ── «Tu propio WhatsApp» (self sessions; work even while the bot number is offline) ──
+  const selfError = (c: Context, err: unknown) => {
+    if (err instanceof SessionError) {
+      const status = { invalid: 400, logged_out: 410, timeout: 504, busy: 503, send_failed: 502 }[err.code];
+      return c.json({ error: err.message, code: err.code }, status as 400);
+    }
+    console.error("[self]", err);
+    return c.json({ error: "No se pudo completar con tu WhatsApp.", code: "send_failed" }, 502);
+  };
+  const selfBody = z.object({
+    session: z.string().min(10).max(2_000_000),
+    items: z
+      .array(
+        z.object({
+          webpPath: z.string().min(1),
+          audioPath: z.string().min(1).optional(),
+          audioDurationSec: z
+            .number()
+            .positive()
+            .max(STICKER_LIMITS.maxDurationSec + 1)
+            .optional(),
+          animated: z.boolean(),
+        }),
+      )
+      .min(1)
+      .max(30),
+  });
+  app.post("/self/link", async (c) => {
+    if (!bot.self) return c.json({ error: "No disponible." }, 404);
+    const body = (await c.req.json().catch(() => null)) as { phone?: string } | null;
+    try {
+      return c.json({ id: await bot.self.startLink(body?.phone || undefined) });
+    } catch (err) {
+      return selfError(c, err);
+    }
+  });
+  app.get("/self/link/:id", (c) => {
+    const st = bot.self?.linkStatus(c.req.param("id"));
+    return st ? c.json(st) : c.json({ error: "Vinculación vencida.", code: "invalid" }, 404);
+  });
+  app.post("/self/send", async (c) => {
+    if (!bot.self) return c.json({ error: "No disponible." }, 404);
+    const parsed = selfBody.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return c.json({ error: "Solicitud no válida.", code: "invalid" }, 400);
+    try {
+      // Only result/community files may leave the box.
+      const items = await Promise.all(
+        parsed.data.items.map(async (it) => ({
+          ...it,
+          webpPath: await assertResultFile(it.webpPath, sendableRoots(), /\.webp$/),
+          audioPath: it.audioPath ? await assertResultFile(it.audioPath, sendableRoots(), /\.ogg$/) : undefined,
+        })),
+      );
+      const { result, session } = await bot.self.sendToSelf(parsed.data.session, items);
+      return c.json({ sent: result.sent, session });
+    } catch (err) {
+      return selfError(c, err);
+    }
+  });
+  app.post("/self/logout", async (c) => {
+    if (!bot.self) return c.json({ error: "No disponible." }, 404);
+    const body = (await c.req.json().catch(() => null)) as { session?: string } | null;
+    if (!body?.session) return c.json({ error: "Solicitud no válida.", code: "invalid" }, 400);
+    try {
+      await bot.self.logout(body.session);
+      return c.json({ ok: true });
+    } catch (err) {
+      return selfError(c, err);
+    }
+  });
 
   app.post("/admin/unlink", async (c) => {
     if (!bot.unlinkBot) return c.json({ error: "No disponible." }, 404);

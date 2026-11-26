@@ -1,0 +1,98 @@
+import { readFile, rm } from "node:fs/promises";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { PACK_STICKER_PUBLISHER, type PackSummary } from "../../src/adapters/http/contract.js";
+import { parseStickerExif } from "../../src/core/metadata/stickerExif.js";
+import { readExif } from "../../src/core/webp/chunks.js";
+import { type Harness, makeHarness } from "../helpers/apiHarness.js";
+import { makeTempDir } from "../helpers/fixtures.js";
+
+/** «Tu propio WhatsApp»: the web routes build what to send and relay the bot's answer. */
+type Call = {
+  path: string;
+  body?: { session?: string; items?: { webpPath: string; audioPath?: string; animated: boolean }[] };
+};
+
+let dir: string;
+let h: Harness;
+let calls: Call[];
+let answer: { status: number; body: Record<string, unknown> };
+beforeEach(async () => {
+  dir = await makeTempDir();
+  calls = [];
+  answer = { status: 200, body: { sent: 1, session: "s1.refreshed" } };
+  const bot = {
+    status: async () => ({ available: true, connected: false }),
+    send: async () => ({ delivered: "sticker" as const }),
+    // Every browser counts as signed in (its own account), so packs can be made.
+    linkStatus: async (client: string) => ({ state: "linked" as const, phone: "…0000", linkedAt: 1, account: client }),
+    unlink: async () => {},
+    self: async (path: string, body?: unknown) => {
+      calls.push({ path, body: body as Call["body"] });
+      if (path.startsWith("/link/")) return { status: 200, body: { state: "qr", qr: "2@abc,def,ghi,jkl" } };
+      if (path === "/link") return { status: 200, body: { id: "L1" } };
+      return answer;
+    },
+  };
+  h = await makeHarness(dir, undefined, { bot: bot as never });
+});
+afterEach(async () => {
+  h.close();
+  await rm(dir, { recursive: true, force: true });
+});
+const post = (path: string, body: unknown) => h.req("anon", path, { method: "POST", body: JSON.stringify(body) });
+
+describe("send to your own chat", () => {
+  it("a fresh result: sticker + sound paths go to the bot with the session; the refreshed session comes back", async () => {
+    const id = await h.makeResult();
+    const r = await post("/api/self/send", { session: "s1.old", results: [id] });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ sent: 1, session: "s1.refreshed" });
+    const [call] = calls;
+    expect(call?.path).toBe("/send");
+    expect(call?.body?.session).toBe("s1.old");
+    expect(call?.body?.items?.[0]?.webpPath).toMatch(/sticker\.webp$/);
+    expect(call?.body?.items?.[0]?.audioPath).toMatch(/sticker\.ogg$/);
+  });
+
+  it("a pack: one request for all, each sticker stamped with the pack and the app's mark", async () => {
+    await h.signIn("ana", "ana");
+    const a = await h.publish("ana", { title: "Uno" });
+    const b = await h.publish("ana", { title: "Dos" });
+    const pack = await h.json<PackSummary>(
+      h.req("ana", "/api/me/packs", { method: "POST", body: JSON.stringify({ name: "Risas", stickerId: a.id }) }),
+    );
+    await h.req("ana", `/api/me/packs/${pack.id}/stickers/${b.id}`, { method: "PUT" });
+    expect((await post("/api/self/send", { session: "s1.x", community: [a.id, b.id], pack: pack.id })).status).toBe(
+      200,
+    );
+    const items = calls[0]?.body?.items ?? [];
+    expect(items).toHaveLength(2);
+    for (const it of items) {
+      const meta = parseStickerExif(readExif(await readFile(it.webpPath)) as Buffer);
+      expect(meta).toMatchObject({ packName: "Risas · @ana", publisher: PACK_STICKER_PUBLISHER });
+    }
+  });
+
+  it("refuses without a session, with nothing to send, expired results; relays WhatsApp errors", async () => {
+    expect((await post("/api/self/send", { results: ["x"] })).status).toBe(400);
+    expect((await post("/api/self/send", { session: "s1.x", results: [] })).status).toBe(400);
+    expect(
+      (await post("/api/self/send", { session: "s1.x", results: ["00000000-0000-4000-8000-000000000000"] })).status,
+    ).toBe(404);
+    answer = {
+      status: 410,
+      body: { error: "Tu WhatsApp quitó este dispositivo: vincúlalo otra vez.", code: "logged_out" },
+    };
+    const r = await post("/api/self/send", { session: "s1.x", results: [await h.makeResult()] });
+    expect(r.status).toBe(410);
+    expect(await r.json()).toMatchObject({ error: { code: "logged_out" } });
+  });
+
+  it("linking: start, then the QR comes back as an SVG (never cached)", async () => {
+    expect(await (await post("/api/self/link", { phone: "+52 (229) 873-2115" })).json()).toEqual({ id: "L1" });
+    expect(calls[0]?.body).toEqual({ phone: "522298732115" }); // digits only, used to ask for the code
+    const st = await h.req("anon", "/api/self/link/L1");
+    expect(st.headers.get("cache-control")).toBe("no-store");
+    expect(((await st.json()) as { qrSvg: string }).qrSvg).toMatch(/^<svg/);
+  });
+});

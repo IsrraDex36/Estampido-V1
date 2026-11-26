@@ -42,9 +42,14 @@ const MIN = 60_000;
 export const JSON_BODY_LIMIT = 256 * 1024;
 /** Routes that receive files (they enforce their own size limits). */
 const UPLOAD_PATHS = /^\/api\/convert$/;
+/** Routes that receive the sealed self-channel session. */
+const SESSION_PATHS = /^\/api\/self\/(send|logout)$/;
 export const DEFAULT_LIMITS = {
   convert: { max: 15, windowMs: 10 * MIN }, // CPU-heavy
   slot: { max: 20, windowMs: 10 * MIN },
+  // «Tu propio WhatsApp»: each one opens a WhatsApp connection.
+  selfLink: { max: 10, windowMs: 10 * MIN },
+  selfSend: { max: 40, windowMs: 10 * MIN },
   // Many people share one IP on mobile data (CGNAT): room for a crowd, still a cap.
   linkCode: { max: 30, windowMs: 10 * MIN },
   send: { max: 40, windowMs: 10 * MIN },
@@ -67,6 +72,8 @@ const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; pa
   // A place in line is cheap to ask for but holds a queue spot: its own limit,
   // so one IP rotating browser ids can't fill the line for everyone.
   { name: "slot", method: "POST", path: /^\/api\/convert\/slot$/ },
+  { name: "selfLink", method: "POST", path: /^\/api\/self\/link$/ },
+  { name: "selfSend", method: "POST", path: /^\/api\/self\/(send|logout)$/ },
   { name: "linkCode", method: "POST", path: /^\/api\/whatsapp\/link$/ },
   { name: "send", method: "POST", path: /^\/api\/(results|community\/stickers)\/[^/]+\/whatsapp$/ },
   { name: "publish", method: "POST", path: /^\/api\/community\/stickers$/ },
@@ -261,8 +268,14 @@ export function createServerApp(opts: ServerOptions): Hono {
     maxSize: JSON_BODY_LIMIT,
     onError: (c) => c.json(fail("too_large", "La solicitud es demasiado grande."), 413),
   });
+  // Self-channel requests carry the sealed WhatsApp session (bigger than a form).
+  const sessionBody = bodyLimit({
+    maxSize: 2 * 1024 * 1024,
+    onError: (c) => c.json(fail("too_large", "La solicitud es demasiado grande."), 413),
+  });
   app.use("/api/*", async (c, next) => {
     if (c.req.method === "GET" || c.req.method === "HEAD" || UPLOAD_PATHS.test(c.req.path)) return next();
+    if (SESSION_PATHS.test(c.req.path)) return sessionBody(c, next);
     return smallBody(c, next);
   });
   app.use("*", rateLimits(opts));

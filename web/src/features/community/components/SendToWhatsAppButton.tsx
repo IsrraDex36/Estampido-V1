@@ -1,9 +1,7 @@
 import type { CommunitySticker } from "@contract";
 import { CheckIcon, Loader2Icon, PauseIcon, SendIcon } from "@/components/icons";
-import { useBotStatus, useSendToWhatsApp } from "@/features/bot/api";
-import { LinkDialog } from "@/features/bot/LinkDialog";
-import { useLinkGate } from "@/features/bot/useLinkGate";
-import { notify } from "@/lib/notify";
+import { useBotStatus } from "@/features/bot/api";
+import { useSelfSend } from "@/features/self/useSelfSend";
 import { cn } from "@/lib/utils";
 
 /**
@@ -13,25 +11,12 @@ import { cn } from "@/lib/utils";
  */
 export function SendToWhatsAppButton({ sticker, className }: { sticker: CommunitySticker; className?: string }) {
   const bot = useBotStatus();
-  const send = useSendToWhatsApp("community");
-  const { gate, dialog } = useLinkGate();
-  const connected = bot?.connected === true;
-  const sending = send.isPending;
-  const sent = send.isSuccess;
-
-  const onClick = () =>
-    gate(() =>
-      send.mutate(sticker.id, {
-        onSuccess: ({ delivered }) =>
-          notify.success(
-            delivered === "native"
-              ? `«${sticker.title}» llegó a tu chat con sonido`
-              : delivered === "separate"
-                ? `«${sticker.title}» llegó a tu chat (sticker + nota de voz)`
-                : `«${sticker.title}» llegó a tu chat`,
-          ),
-      }),
-    );
+  // Your own WhatsApp → your own «Tú» chat (works even while the Estampido number is offline).
+  const self = useSelfSend();
+  const connected = bot?.available === true;
+  const sending = self.sending;
+  const sent = self.sent;
+  const onClick = () => self.send({ community: [sticker.id] }, `«${sticker.title}»`);
 
   const label = !connected
     ? "El envío directo está en pausa"
@@ -73,7 +58,6 @@ export function SendToWhatsAppButton({ sticker, className }: { sticker: Communit
           </>
         )}
       </button>
-      <LinkDialog {...dialog} />
     </>
   );
 }

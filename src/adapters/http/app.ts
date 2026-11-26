@@ -495,6 +495,103 @@ export function createApp(deps: AppDeps = {}): ApiApp {
   });
 
   // Community stickers live on (no 30-min expiry): anyone linked can get one in their chat.
+  // ── «Tu propio WhatsApp»: the person's own linked device sends to their own chat ──
+  // The sealed session travels with each request (it lives in the browser);
+  // nothing about it is stored here.
+  const selfReply = (c: Context, r: { status: number; body: Record<string, unknown> }) => {
+    if (r.status >= 200 && r.status < 300) return c.json(r.body);
+    const message = typeof r.body.error === "string" ? r.body.error : "No se pudo completar con tu WhatsApp.";
+    const code = typeof r.body.code === "string" ? r.body.code : "self_failed";
+    return c.json(fail(code, message), (r.status >= 400 && r.status < 600 ? r.status : 502) as ContentfulStatusCode);
+  };
+  const selfCall = async (c: Context, path: string, body?: unknown, method?: "GET" | "POST") => {
+    if (!bot.self) return c.json(fail("not_found", "No disponible."), 404);
+    try {
+      return selfReply(c, await bot.self(path, body, method));
+    } catch (err) {
+      return botFailure(c, err, "self");
+    }
+  };
+  app.post("/self/link", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { phone?: unknown } | null;
+    const phone = typeof body?.phone === "string" ? body.phone.replace(/\D/g, "").slice(0, 15) : undefined;
+    return selfCall(c, "/link", phone ? { phone } : {});
+  });
+  app.get("/self/link/:id", async (c) => {
+    c.header("Cache-Control", "no-store");
+    if (!bot.self) return c.json(fail("not_found", "No disponible."), 404);
+    try {
+      const r = await bot.self(`/link/${encodeURIComponent(c.req.param("id"))}`, undefined, "GET");
+      if (r.status === 200 && r.body.state === "qr" && typeof r.body.qr === "string") {
+        const qrSvg = await QRCode.toString(r.body.qr, { type: "svg", margin: 2, errorCorrectionLevel: "L" });
+        return c.json({ state: "qr", qrSvg });
+      }
+      return selfReply(c, r);
+    } catch (err) {
+      return botFailure(c, err, "self-link");
+    }
+  });
+  app.post("/self/send", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as {
+      session?: unknown;
+      results?: unknown;
+      community?: unknown;
+      pack?: unknown;
+    } | null;
+    if (typeof body?.session !== "string") return c.json(fail("bad_request", "Falta tu sesión de WhatsApp."), 400);
+    const results = Array.isArray(body.results) ? body.results.filter((x): x is string => typeof x === "string") : [];
+    const community = Array.isArray(body.community)
+      ? body.community.filter((x): x is string => typeof x === "string")
+      : [];
+    if (results.length + community.length === 0 || results.length + community.length > 30) {
+      return c.json(fail("bad_request", "Elige de 1 a 30 stickers."), 400);
+    }
+    const items: { webpPath: string; audioPath?: string; audioDurationSec?: number; animated: boolean }[] = [];
+    const describe = async (webpPath: string, oggPath: string | null) => {
+      const webp = await readFile(webpPath).catch(() => null);
+      if (!webp) return null;
+      const hasAudio =
+        oggPath !== null &&
+        (await stat(oggPath).then(
+          () => true,
+          () => false,
+        ));
+      return {
+        webpPath,
+        animated: inspectWebp(webp).animated,
+        ...(hasAudio && oggPath ? { audioPath: oggPath, audioDurationSec: (await probe(oggPath)).durationSec } : {}),
+      };
+    };
+    for (const id of results) {
+      const webpPath = store.resolve(id, "sticker.webp");
+      const it = webpPath ? await describe(webpPath, store.resolve(id, "sticker.ogg")) : null;
+      if (!it) return c.json(fail("expired", "Uno de los stickers expiró. Vuelve a crearlo."), 404);
+      items.push(it);
+    }
+    const pack = typeof body.pack === "string" ? await social.pack(body.pack) : null;
+    for (const id of community) {
+      const sticker = await communityRepo.get(id);
+      const webp = sticker && !sticker.hidden ? await communityRepo.resolveFile(id, "sticker.webp") : null;
+      if (!sticker || !webp) return c.json(fail("not_found", "Uno de los stickers ya no existe."), 404);
+      const ogg = sticker.soundSec !== null ? await communityRepo.resolveFile(id, "sticker.ogg") : null;
+      let webpPath = webp.path;
+      if (pack && (await social.packContains(pack.id, id))) {
+        const tmp = await store.create();
+        webpPath = await stampForPack(webp.path, pack, tmp.dir);
+      }
+      const it = await describe(webpPath, ogg?.path ?? null);
+      if (it) items.push(it);
+    }
+    const res = await selfCall(c, "/send", { session: body.session, items });
+    if (res.ok) for (const id of community) await communityRepo.recordSend(id).catch(() => {});
+    return res;
+  });
+  app.post("/self/logout", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { session?: unknown } | null;
+    if (typeof body?.session !== "string") return c.json(fail("bad_request", "Falta tu sesión de WhatsApp."), 400);
+    return selfCall(c, "/logout", { session: body.session });
+  });
+
   app.post("/community/stickers/:id/whatsapp", async (c) => {
     const id = c.req.param("id");
     const sticker = await communityRepo.get(id);

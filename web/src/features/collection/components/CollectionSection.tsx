@@ -3,18 +3,15 @@ import { CommunityIcon, Loader2Icon, SendIcon, Trash2Icon } from "@/components/i
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useBotStatus, useRefreshBot } from "@/features/bot/api";
-import { LinkDialog } from "@/features/bot/LinkDialog";
-import { useLinkGate } from "@/features/bot/useLinkGate";
+import { useBotStatus } from "@/features/bot/api";
+import { useSelfSend } from "@/features/self/useSelfSend";
 import { Section } from "@/components/section";
 import { selectSelectedItems, useCollectionStore } from "../collectionStore";
-import { useBatchSend } from "../useBatchSend";
 import { CollectionTile } from "./CollectionTile";
 
 // The batch form (and the publish model behind it) loads only when used.
 const loadPublish = () => import("./BatchPublishDialog");
 const BatchPublishDialog = lazy(() => loadPublish().then((m) => ({ default: m.BatchPublishDialog })));
-import { notify } from "@/lib/notify";
 
 /** Session collection: pick several stickers and send them all at once. */
 export function CollectionSection({ className }: { className?: string }) {
@@ -30,29 +27,19 @@ export function CollectionSection({ className }: { className?: string }) {
   );
   const selectedItems = useCollectionStore(useShallow(selectSelectedItems));
   const bot = useBotStatus();
-  const refreshBot = useRefreshBot();
-  const { gate, dialog } = useLinkGate();
-  const { phase, send, cancel, reset } = useBatchSend();
+  // Your own WhatsApp → your own «Tú» chat, all selected in one connection.
+  const self = useSelfSend();
   const [publishOpen, setPublishOpen] = useState(false);
 
   if (items.length === 0) return null;
-  const sending = phase.kind === "sending";
-  const ready = bot?.connected === true;
+  const sending = self.sending;
+  const ready = bot?.available === true;
   const count = selectedItems.length;
 
-  const onSend = async () => {
-    const result = await send(selectedItems.map((i) => i.id));
-    if (result.kind !== "finished") return;
-    if (result.stoppedReason && result.sent === 0) notify.error(result.stoppedReason);
-    else if (result.failed || result.stoppedReason) {
-      notify.warning(`Enviados ${result.sent} de ${result.total}.${result.stoppedReason ? ` ${result.stoppedReason}` : ""}`);
-    } else notify.success(result.sent === 1 ? "Sticker enviado a tu chat" : `${result.sent} stickers enviados a tu chat`);
-    if (result.stoppedReason) void refreshBot();
-    reset();
-  };
+  const onSend = () => self.send({ results: selectedItems.map((i) => i.id) }, "Tu sticker");
 
   const sendButton = (
-    <Button className="h-11 rounded-full px-5 font-semibold" disabled={!ready || count === 0 || sending} onClick={() => gate(() => void onSend())}>
+    <Button className="h-11 rounded-full px-5 font-semibold" disabled={!ready || count === 0 || sending} onClick={onSend}>
       <SendIcon data-icon="inline-start" />
       {count <= 1 ? "Enviar a WhatsApp" : `Enviar ${count} a WhatsApp`}
     </Button>
@@ -83,22 +70,9 @@ export function CollectionSection({ className }: { className?: string }) {
 
       <div className="mt-5 flex flex-wrap items-center gap-2" aria-live="polite">
         {sending ? (
-          <div className="flex min-w-0 flex-1 items-center gap-3">
+          <div className="flex min-w-0 flex-1 items-center gap-3" role="status">
             <Loader2Icon className="size-4 shrink-0 animate-spin" />
-            <div className="min-w-0 flex-1">
-              <p className="text-[13px] font-medium tabular-nums">
-                Enviando {Math.min(phase.done + 1, phase.total)} de {phase.total}…
-              </p>
-              <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
-                <div
-                  className="h-full origin-left rounded-full bg-sound transition-transform duration-300"
-                  style={{ transform: `scaleX(${phase.done / phase.total})` }}
-                />
-              </div>
-            </div>
-            <Button variant="ghost" size="sm" className="rounded-full" onClick={cancel}>
-              Cancelar
-            </Button>
+            <p className="text-[13px] font-medium tabular-nums">Enviando {count} a tu chat «Tú»…</p>
           </div>
         ) : (
           <>
@@ -120,7 +94,7 @@ export function CollectionSection({ className }: { className?: string }) {
               <Button
                 variant="secondary"
                 className="h-11 rounded-full"
-                onClick={() => gate(() => setPublishOpen(true))}
+                onClick={() => setPublishOpen(true)}
                 onPointerEnter={() => void loadPublish()}
               >
                 <CommunityIcon data-icon="inline-start" />
@@ -145,7 +119,6 @@ export function CollectionSection({ className }: { className?: string }) {
       <p className="mt-3 text-[12px] text-muted-foreground">
         Se envían uno tras otro, en este orden, como stickers con sonido. Los stickers se guardan 30 min.
       </p>
-      <LinkDialog {...dialog} />
       {publishOpen && (
         <Suspense fallback={null}>
           <BatchPublishDialog items={selectedItems} open={publishOpen} onOpenChange={setPublishOpen} />

@@ -1,4 +1,5 @@
 import { useTourStore } from "@/features/onboarding/tourStore";
+import { SelfLinkDialog } from "@/features/self/SelfLinkDialog";
 import { lazy, Suspense, useState } from "react";
 import { Route, Switch } from "wouter";
 import { AppFooter } from "@/app/AppFooter";
@@ -74,6 +75,7 @@ function Shell() {
       </main>
       <AppFooter />
       <LazyTour />
+      <SelfLinkDialog />
     </div>
   );
 }

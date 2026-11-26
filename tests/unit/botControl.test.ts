@@ -227,3 +227,42 @@ describe("control: admin unlink", () => {
     await rm(results, { recursive: true, force: true });
   });
 });
+
+describe("control: «Tu propio WhatsApp»", () => {
+  it("only result/community files can be sent; bad requests and session errors map to clear statuses", async () => {
+    const { SessionError } = await import("../../src/adapters/bot/selfSession.js");
+    const results = await mkdtemp(join(tmpdir(), "sva-self-"));
+    const sent: unknown[] = [];
+    const self = {
+      startLink: async () => "link-1",
+      linkStatus: (id: string) => (id === "link-1" ? { state: "code", code: "ABCD-EFGH" } : null),
+      sendToSelf: async (_s: string, items: unknown[]) => {
+        sent.push(...items);
+        return { result: { sent: items.length }, session: "s1.new" };
+      },
+      logout: async () => {
+        throw new SessionError("gone", "logged_out");
+      },
+    };
+    const app = createControlApp({ current: () => null, links: () => null, self: self as never }, TOKEN, results);
+    const post = (path: string, body: unknown) =>
+      app.request(path, { method: "POST", headers: auth, body: JSON.stringify(body) });
+    expect(await (await post("/self/link", {})).json()).toEqual({ id: "link-1" });
+    expect(await (await app.request("/self/link/link-1", { headers: auth })).json()).toEqual({
+      state: "code",
+      code: "ABCD-EFGH",
+    });
+    expect((await app.request("/self/link/nope", { headers: auth })).status).toBe(404);
+    expect((await post("/self/send", { session: "s1.x", items: [] })).status).toBe(400);
+    // A path outside the allowed folders is refused (never send arbitrary server files).
+    const evil = await post("/self/send", {
+      session: "s1.xxxxxxxxxx",
+      items: [{ webpPath: "/etc/passwd", animated: false }],
+    });
+    expect(evil.status).toBeGreaterThanOrEqual(400);
+    expect(sent).toEqual([]);
+    expect((await post("/self/logout", { session: "s1.xxxxxxxxxx" })).status).toBe(410);
+    expect((await app.request("/self/link", { method: "POST" })).status).toBe(401);
+    await rm(results, { recursive: true, force: true });
+  });
+});

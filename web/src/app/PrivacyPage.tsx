@@ -3,7 +3,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { ROUTES } from "./routes";
 
-const UPDATED = "25 de noviembre de 2026";
+const UPDATED = "26 de noviembre de 2026";
 
 /** Short, plain-language privacy notice + terms (public test phase). */
 export function PrivacyPage() {
@@ -14,6 +14,31 @@ export function PrivacyPage() {
       <p className="mt-4 text-[16px] text-muted-foreground">
         Estampido está en fase de prueba. Esto es lo que guardamos, para qué y cómo borrarlo, sin letra pequeña.
       </p>
+
+      <Block title="«Enviar a mi WhatsApp» (tu propio dispositivo)">
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            Al conectar tu WhatsApp, Estampido queda como un <b>dispositivo vinculado</b> (igual que WhatsApp Web) y solo
+            lo usa para mandarte stickers <b>a tu propio chat «Tú»</b>. Nunca escribe a otras personas.
+          </li>
+          <li>
+            <b>No guardamos tu sesión</b>: queda cifrada <b>solo en este navegador</b>, y únicamente nuestro servidor
+            puede descifrarla cuando tú pides un envío. En el servidor no queda ninguna copia.
+          </li>
+          <li>
+            Al enviar, la conexión se abre unos segundos y se cierra. <b>No leemos ni guardamos</b> tus chats, contactos
+            ni mensajes; tu número solo se usa para pedir el código de vinculación y no se guarda.
+          </li>
+          <li>
+            Puedes quitarlo cuando quieras: «Desvincular mi WhatsApp» aquí, o en tu teléfono → Dispositivos vinculados.
+            Borrar los datos del navegador también borra la sesión.
+          </li>
+          <li>
+            Es una conexión no oficial de WhatsApp. Como solo te envías mensajes a ti, el riesgo de restricciones es muy
+            bajo, pero no es cero.
+          </li>
+        </ul>
+      </Block>
 
       <Block title="Lo que guardamos">
         <ul className="list-disc space-y-2 pl-5">

@@ -32,6 +32,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **«Enviar a mi WhatsApp» con tu propio WhatsApp**: cada persona vincula su WhatsApp como dispositivo (código con su número o QR) y el sticker llega **a su propio chat «Tú»** con sonido. Ya no hay un número de Estampido escribiéndole a muchas personas (lo que provoca baneos). La sesión queda **cifrada solo en el navegador** (el servidor no guarda ninguna), la conexión dura segundos, no se lee ni guarda nada de los chats. Packs y colección se envían en una sola conexión. «Desvincular mi WhatsApp» en cualquier momento. Privacidad actualizada.
+
 - **Modo defensa** en `/admin`: durante un ataque, crear stickers queda solo para cuentas vinculadas con WhatsApp; los demás ven «Entra con tu WhatsApp para crear».
 - **Más blindaje**: ffmpeg/ffprobe solo abren archivos locales de formatos reales (lista blanca de protocolos y formatos), tope de 8 192 px por lado contra imágenes «bomba», guarda de disco/memoria que pausa conversiones nuevas antes de que el servidor se caiga, tope de 256 KB para formularios, límite propio para pedir lugar en la fila, y salida de ffmpeg acotada.
 
