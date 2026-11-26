@@ -6,9 +6,16 @@ import { useBotStatus, useLink } from "./api";
 import { LinkDialog } from "./LinkDialog";
 
 const COPY = {
-  on: { label: "Bot conectado", hint: "Puedes enviar stickers directo a tu chat." },
-  linking: { label: "Bot sin conexión", hint: "El bot corre pero no está conectado a WhatsApp." },
-  off: { label: "Bot apagado", hint: "Ejecuta «npm run bot» para enviar desde aquí." },
+  // User-facing: no technical details (how the service runs is not their business).
+  on: { label: "WhatsApp listo", hint: "Puedes enviar stickers directo a tu chat." },
+  linking: {
+    label: "WhatsApp en pausa",
+    hint: "El envío a WhatsApp vuelve en unos minutos. Mientras, puedes crear y descargar tus stickers.",
+  },
+  off: {
+    label: "WhatsApp en pausa",
+    hint: "El envío a WhatsApp vuelve en unos minutos. Mientras, puedes crear y descargar tus stickers.",
+  },
 } as const;
 
 /** Header status: skeleton while the first check runs; click → manage the WhatsApp link. */

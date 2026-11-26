@@ -50,7 +50,8 @@ export class BotRequestError extends Error {
 }
 
 export class BotUnavailableError extends Error {
-  constructor(message = "El bot de WhatsApp no está corriendo. Arráncalo con `npm run bot`.") {
+  // Shown to users: plain words, never how the service is run.
+  constructor(message = "El envío a WhatsApp está en pausa. Intenta de nuevo en unos minutos.") {
     super(message);
     this.name = "BotUnavailableError";
   }
@@ -83,11 +84,16 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
 
   async function json<T>(res: Response): Promise<T> {
     const body = (await res.json().catch(() => ({}))) as T & { error?: string; code?: string };
-    if (res.status === 503) throw new BotUnavailableError(body.error ?? "El bot no está conectado a WhatsApp.");
+    if (res.status === 503) throw new BotUnavailableError(); // one friendly message, whatever the cause
     // The control server doesn't know this endpoint → an older bot is running.
     if (res.status === 404)
-      throw new BotUnavailableError("El bot necesita reiniciarse para esta función (Ctrl+C y npm run bot).");
-    if (!res.ok) throw new BotRequestError(body.error ?? `bot ${res.status}`, body.code ?? "bot_error", res.status);
+      throw new BotUnavailableError("Esta función de WhatsApp aún no está disponible. Intenta más tarde.");
+    if (!res.ok)
+      throw new BotRequestError(
+        body.error ?? "No se pudo completar con WhatsApp.",
+        body.code ?? "bot_error",
+        res.status,
+      );
     return body;
   }
 

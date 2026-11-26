@@ -13,6 +13,7 @@ import { LinkStore } from "./links.js";
 import { installRawCapture } from "./rawCapture.js";
 import type { SendMode } from "./saudio.js";
 import { BOT_TMP_PREFIX } from "./saudio.js";
+import { wipeSession } from "./session.js";
 import { installRawEncode } from "./soundSticker.js";
 import { cleanupTempDirs } from "./tempCleanup.js";
 import { BotAgeStore } from "./volume.js";
@@ -92,7 +93,7 @@ const watchdog = new Watchdog(
       current = null;
       pairing = { kind: "waiting" };
       sock?.end(new Error("watchdog: relink"));
-      await rm(authDir(), { recursive: true, force: true }); // the reconnect (2 s) starts a fresh pairing
+      await wipeSession(authDir()); // keeps control.json; the reconnect (2 s) starts a fresh pairing
     },
     alert: fanOut(
       consoleSink,

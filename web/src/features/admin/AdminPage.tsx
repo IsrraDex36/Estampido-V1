@@ -73,13 +73,13 @@ export function AdminPage() {
             autoComplete="current-password"
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
-            placeholder="Contraseña (SVA_ADMIN_TOKEN)"
+            placeholder="Contraseña de administrador"
             className="h-11 w-full rounded-xl bg-muted/60 px-4 text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
           />
           {unauthorized && <p className="text-[13px] text-destructive">Contraseña incorrecta.</p>}
           {disabled && (
             <p className="text-[13px] text-muted-foreground">
-              El panel está desactivado. Define <code>SVA_ADMIN_TOKEN</code> (16+ caracteres) en el servidor.
+              El panel no está disponible.
             </p>
           )}
           <Button type="submit" className="h-11 w-full rounded-full" disabled={draft.length < 1}>

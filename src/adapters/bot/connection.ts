@@ -4,6 +4,7 @@ import pino from "pino";
 import qrcode from "qrcode-terminal";
 import { isRotateRequest, newAdvSecret, resolveWaVersion, shouldSyncHistory, withAdvSecret } from "./pairing.js";
 import { sentMessages } from "./sentCache.js";
+import { wipeSession } from "./session.js";
 
 export interface ConnectOptions {
   /** Auth state folder. Contains session keys → never commit. */
@@ -129,7 +130,7 @@ export async function connect(opts: ConnectOptions): Promise<void> {
         // session to protect → wipe the attempt and start a fresh one instead of looping.
         console.warn("↺ La vinculación no se completó o caducó. Empiezo de nuevo con un código/QR nuevo…");
         opts.onPairing?.({ kind: "waiting" });
-        void rm(authDir, { recursive: true, force: true }).then(() => setTimeout(() => void connect(opts), 1_000));
+        void wipeSession(authDir).then(() => setTimeout(() => void connect(opts), 1_000));
         return;
       }
       if (code === DisconnectReason.loggedOut) {
@@ -138,7 +139,7 @@ export async function connect(opts: ConnectOptions): Promise<void> {
         console.error("✘ Sesión cerrada desde el teléfono. Borro la sesión; vuelve a vincular el bot en /admin.");
         opts.onLoggedOut?.();
         opts.onPairing?.({ kind: "waiting" });
-        void rm(authDir, { recursive: true, force: true }).then(() => setTimeout(() => void connect(opts), 1_000));
+        void wipeSession(authDir).then(() => setTimeout(() => void connect(opts), 1_000));
         return;
       }
       if (code === DisconnectReason.restartRequired) {

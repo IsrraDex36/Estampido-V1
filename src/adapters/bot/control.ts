@@ -118,7 +118,8 @@ export function createControlApp(
     const store = storeOr503();
     if (!store) return c.json({ error: "Bot no conectado." }, 503);
     const body = (await c.req.json().catch(() => null)) as { client?: string } | null;
-    if (!body?.client || !isClientHash(body.client)) return c.json({ error: "cliente inválido" }, 400);
+    if (!body?.client || !isClientHash(body.client))
+      return c.json({ error: "No pudimos reconocer este navegador. Recarga la página." }, 400);
     try {
       return c.json(store.createCode(body.client));
     } catch (err) {
@@ -130,7 +131,7 @@ export function createControlApp(
     const store = storeOr503();
     if (!store) return c.json({ error: "Bot no conectado." }, 503);
     const client = c.req.param("client");
-    if (!isClientHash(client)) return c.json({ error: "cliente inválido" }, 400);
+    if (!isClientHash(client)) return c.json({ error: "No pudimos reconocer este navegador. Recarga la página." }, 400);
     const st = await store.status(client);
     // Never return the full number: the browser only needs "…5678"; the API
     // gets an opaque account key (HMAC) to recognize the same person.
@@ -147,7 +148,7 @@ export function createControlApp(
     const store = storeOr503();
     if (!store) return c.json({ error: "Bot no conectado." }, 503);
     const client = c.req.param("client");
-    if (!isClientHash(client)) return c.json({ error: "cliente inválido" }, 400);
+    if (!isClientHash(client)) return c.json({ error: "No pudimos reconocer este navegador. Recarga la página." }, 400);
     return c.json({ removed: await store.unlink(client) });
   });
 

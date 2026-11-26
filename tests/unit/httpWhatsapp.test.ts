@@ -75,7 +75,7 @@ describe("WhatsApp routes", () => {
       headers: H,
     });
     expect(r503.status).toBe(503);
-    expect(JSON.stringify(await r503.json())).toMatch(/npm run bot/);
+    expect(JSON.stringify(await r503.json())).toMatch(/en pausa/);
     const broken = fakeBot({ send: async () => Promise.reject(new Error("boom")) });
     expect(
       (await createApp({ store, bot: broken }).request(`/api/results/${ID}/whatsapp`, { method: "POST", headers: H }))
@@ -158,7 +158,7 @@ describe("createBotClient vs an older bot", () => {
     const file = join(root, "control-old.json");
     await writeFile(file, JSON.stringify({ port, token: "t" }));
     const client = createBotClient(file);
-    await expect(client.linkStatus("c".repeat(64))).rejects.toThrow(/reiniciarse/);
+    await expect(client.linkStatus("c".repeat(64))).rejects.toThrow(/aún no está disponible/);
     await expect(client.linkStatus("c".repeat(64))).rejects.toBeInstanceOf(BotUnavailableError);
     srv.close();
   });
