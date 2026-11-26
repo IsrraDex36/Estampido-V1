@@ -19,8 +19,9 @@ import { shareLink } from "../share";
 import { categoryById } from "../model";
 import { useFavorites } from "../store/favoritesStore";
 import { usePreview } from "../store/previewStore";
+import { SendToWhatsAppButton } from "./SendToWhatsAppButton";
 
-/** A published sticker: tap the cover to hear it; save, use its sound, share, download. */
+/** A published sticker: tap the cover to hear it; send it to WhatsApp, save, use its sound, share, download. */
 export function StickerCard({ sticker, rank, className }: { sticker: CommunitySticker; rank?: number; className?: string }) {
   const saved = useFavorites((s) => sticker.id in s.stickers);
   const toggleSaved = useFavorites((s) => s.toggleSticker);
@@ -93,6 +94,7 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
             {sticker.uses > 0 && <span>· {sticker.uses} {sticker.uses === 1 ? "uso" : "usos"}</span>}
           </p>
         </div>
+        <SendToWhatsAppButton sticker={sticker} />
         <div className="flex items-center justify-between text-muted-foreground">
           <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={() => toggleSaved(sticker)}>
             <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
@@ -163,6 +165,7 @@ export function StickerCardSkeleton({ className }: { className?: string }) {
       <div className="space-y-3 p-3">
         <div className="shimmer h-3 w-3/4 rounded-full bg-muted" />
         <div className="shimmer h-2.5 w-1/2 rounded-full bg-muted" />
+        <div className="shimmer h-9 rounded-full bg-muted" />
         <div className="shimmer h-7 rounded-full bg-muted" />
       </div>
     </div>

@@ -259,3 +259,79 @@ describe("public server rules", () => {
     expect(await repo.list()).toHaveLength(0);
   });
 });
+
+describe("community → WhatsApp", () => {
+  it("sends the community files (with sound) to the linked chat, counts the send; needs a browser id", async () => {
+    const sends: { client: string; webpPath: string; audioPath?: string; audioDurationSec?: number }[] = [];
+    const repo = new CommunityRepo(join(dir, "community-send"));
+    const bot = {
+      status: async () => ({ available: true, connected: true }),
+      send: async (req: { client: string; webpPath: string; audioPath?: string; audioDurationSec?: number }) => {
+        sends.push(req);
+        return { delivered: "native" as const };
+      },
+    };
+    const a = createApp({ store: results, bot: bot as never, community: repo });
+    const id = await fakeResult(true);
+    const pub = await a.request("/api/community/stickers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ resultId: id, category: "memes", title: "Para enviar", ownsAudio: true }),
+    });
+    expect(pub.status).toBe(201);
+    const sticker = (await pub.json()) as CommunitySticker;
+
+    const url = `/api/community/stickers/${sticker.id}/whatsapp`;
+    expect((await a.request(url, { method: "POST" })).status).toBe(400); // no browser id
+    const ok = await a.request(url, {
+      method: "POST",
+      headers: { "x-estampido-client": "0f8fad5b-d9cb-469f-a165-70867728950e" },
+    });
+    expect(ok.status).toBe(200);
+    expect(await ok.json()).toEqual({ delivered: "native" });
+    expect(sends).toHaveLength(1);
+    expect(sends[0]?.webpPath).toContain(join("community-send", sticker.id, "sticker.webp"));
+    expect(sends[0]?.audioPath).toContain(join("community-send", sticker.id, "sticker.ogg"));
+    expect(sends[0]?.audioDurationSec).toBeGreaterThan(1.5);
+    expect((await repo.get(sticker.id))?.sends).toBe(1);
+
+    const missing = await a.request("/api/community/stickers/00000000-0000-0000-0000-000000000000/whatsapp", {
+      method: "POST",
+      headers: { "x-estampido-client": "0f8fad5b-d9cb-469f-a165-70867728950e" },
+    });
+    expect(missing.status).toBe(404);
+    expect(sends).toHaveLength(1);
+  });
+
+  it("a silent community sticker is sent without audio; a bot failure doesn't count as a send", async () => {
+    const repo = new CommunityRepo(join(dir, "community-send-2"));
+    let fail = false;
+    const sends: { audioPath?: string }[] = [];
+    const bot = {
+      status: async () => ({ available: true, connected: true }),
+      send: async (req: { audioPath?: string }) => {
+        if (fail) throw new Error("boom");
+        sends.push(req);
+        return { delivered: "sticker" as const };
+      },
+    };
+    const a = createApp({ store: results, bot: bot as never, community: repo });
+    const id = await fakeResult(false);
+    const pub = await a.request("/api/community/stickers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ resultId: id, category: "memes" }),
+    });
+    const sticker = (await pub.json()) as CommunitySticker;
+    const h = { "x-estampido-client": "0f8fad5b-d9cb-469f-a165-70867728950e" };
+    expect(
+      (await a.request(`/api/community/stickers/${sticker.id}/whatsapp`, { method: "POST", headers: h })).status,
+    ).toBe(200);
+    expect(sends[0]?.audioPath).toBeUndefined();
+    fail = true;
+    expect((await a.request(`/api/community/stickers/${sticker.id}/whatsapp`, { method: "POST", headers: h })).ok).toBe(
+      false,
+    );
+    expect((await repo.get(sticker.id))?.sends).toBe(1);
+  });
+});

@@ -1,7 +1,15 @@
 import type { SendToWhatsAppResponse, WhatsAppLink } from "@contract";
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback } from "react";
-import { ApiError, createWhatsAppLink, deleteWhatsAppLink, getWhatsAppLink, getWhatsAppStatus, sendToWhatsApp } from "@/lib/api";
+import {
+  ApiError,
+  createWhatsAppLink,
+  deleteWhatsAppLink,
+  getWhatsAppLink,
+  getWhatsAppStatus,
+  sendCommunityToWhatsApp,
+  sendToWhatsApp,
+} from "@/lib/api";
 import { queryKeys } from "@/lib/query/keys";
 
 export const BOT_POLL_MS = 10_000;
@@ -35,14 +43,15 @@ export function useRefreshBot() {
 }
 
 /**
- * Send a result to my own chat. Errors toast globally (ApiError message);
- * any failure re-checks the bot so the UI reflects reality.
+ * Send something to my own chat: a fresh result («result») or a community
+ * sticker («community»). Errors toast globally (ApiError message); any failure
+ * re-checks the bot so the UI reflects reality.
  */
-export function useSendToWhatsApp() {
+export function useSendToWhatsApp(target: "result" | "community" = "result") {
   const qc = useQueryClient();
   return useMutation<SendToWhatsAppResponse, Error, string>({
-    mutationKey: ["whatsapp", "send"],
-    mutationFn: (resultId) => sendToWhatsApp(resultId),
+    mutationKey: ["whatsapp", "send", target],
+    mutationFn: (id) => (target === "community" ? sendCommunityToWhatsApp(id) : sendToWhatsApp(id)),
     onError: (err) => {
       void qc.invalidateQueries({ queryKey: queryKeys.bot.status });
       // Link removed elsewhere (other tab, bot number changed): refresh so the UI asks to link again.

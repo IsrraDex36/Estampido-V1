@@ -99,7 +99,8 @@ export function createApp(deps: AppDeps = {}): Hono {
         }
       }
     : undefined;
-  app.route("/community", communityRoutes(deps.community ?? new CommunityRepo(communityRoot()), store, { canPublish }));
+  const communityRepo = deps.community ?? new CommunityRepo(communityRoot());
+  app.route("/community", communityRoutes(communityRepo, store, { canPublish }));
 
   app.post(
     "/convert",
@@ -324,31 +325,61 @@ export function createApp(deps: AppDeps = {}): Hono {
   });
 
   // Send a finished result to THIS browser's linked chat as a native sound sticker.
-  app.post("/results/:id/whatsapp", async (c) => {
+  /**
+   * Send a sticker (+ optional sound) to THIS browser's linked chat. Shared by
+   * fresh results and community stickers: same link rule, limits and fallback.
+   */
+  const sendToLinkedChat = async (
+    c: Context,
+    files: { webpPath: string; oggPath: string | null },
+  ): Promise<Response> => {
     const client = clientHash(c.req.header(CLIENT_HEADER));
     if (!client) return c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
-    const webpPath = store.resolve(c.req.param("id"), "sticker.webp");
-    if (!webpPath) return c.json(fail("not_found", "Resultado no encontrado."), 404);
-    const webp = await readFile(webpPath).catch(() => null);
-    if (!webp) return c.json(fail("expired", "El resultado expiró o no existe."), 404);
-
-    const oggPath = store.resolve(c.req.param("id"), "sticker.ogg") as string;
-    const hasAudio = await stat(oggPath).then(
-      () => true,
-      () => false,
-    );
+    const webp = await readFile(files.webpPath).catch(() => null);
+    if (!webp) return c.json(fail("expired", "El sticker ya no existe."), 404);
+    const hasAudio =
+      files.oggPath !== null &&
+      (await stat(files.oggPath).then(
+        () => true,
+        () => false,
+      ));
     try {
       const sent = await bot.send({
         client,
         ...(deps.ownerSelfSend ? { fallbackToSelf: true } : {}),
-        webpPath,
+        webpPath: files.webpPath,
         animated: inspectWebp(webp).animated,
-        ...(hasAudio ? { audioPath: oggPath, audioDurationSec: (await probe(oggPath)).durationSec } : {}),
+        ...(hasAudio && files.oggPath
+          ? { audioPath: files.oggPath, audioDurationSec: (await probe(files.oggPath)).durationSec }
+          : {}),
       });
       return c.json(sent satisfies SendToWhatsAppResponse);
     } catch (err) {
       return botFailure(c, err, "send");
     }
+  };
+
+  app.post("/results/:id/whatsapp", async (c) => {
+    const webpPath = store.resolve(c.req.param("id"), "sticker.webp");
+    if (!webpPath) return c.json(fail("not_found", "Resultado no encontrado."), 404);
+    const exists = await stat(webpPath).then(
+      () => true,
+      () => false,
+    );
+    if (!exists) return c.json(fail("expired", "El resultado expiró o no existe."), 404);
+    return sendToLinkedChat(c, { webpPath, oggPath: store.resolve(c.req.param("id"), "sticker.ogg") });
+  });
+
+  // Community stickers live on (no 30-min expiry): anyone linked can get one in their chat.
+  app.post("/community/stickers/:id/whatsapp", async (c) => {
+    const id = c.req.param("id");
+    const sticker = await communityRepo.get(id);
+    const webp = sticker ? await communityRepo.resolveFile(id, "sticker.webp") : null;
+    if (!sticker || !webp) return c.json(fail("not_found", "Sticker no encontrado."), 404);
+    const ogg = sticker.soundSec !== null ? await communityRepo.resolveFile(id, "sticker.ogg") : null;
+    const res = await sendToLinkedChat(c, { webpPath: webp.path, oggPath: ogg?.path ?? null });
+    if (res.ok) await communityRepo.recordSend(id).catch(() => {}); // a ranking signal; never fails the send
+    return res;
   });
 
   // «Exportar para WhatsApp»: square MP4 for WhatsApp's own «Crear sticker»,

@@ -43,7 +43,7 @@ export type LimitName = keyof typeof DEFAULT_LIMITS;
 const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; path: RegExp }[] = [
   { name: "convert", method: "POST", path: /^\/api\/convert$/ },
   { name: "linkCode", method: "POST", path: /^\/api\/whatsapp\/link$/ },
-  { name: "send", method: "POST", path: /^\/api\/results\/[^/]+\/whatsapp$/ },
+  { name: "send", method: "POST", path: /^\/api\/(results|community\/stickers)\/[^/]+\/whatsapp$/ },
   { name: "publish", method: "POST", path: /^\/api\/community\/stickers$/ },
   { name: "soundUse", method: "POST", path: /^\/api\/community\/sounds\/[^/]+\/use$/ },
 ];

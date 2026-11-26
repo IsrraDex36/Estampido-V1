@@ -11,6 +11,8 @@ export interface StoredSticker extends Rankable {
   /** Seconds of sound; null = silent. */
   soundSec: number | null;
   soundOrigin: string | null;
+  /** Times it was sent to someone's WhatsApp (trending signal; older entries lack it). */
+  sends?: number;
 }
 
 export const COMMUNITY_FILES = { "sticker.webp": "image/webp", "sticker.ogg": "audio/ogg" } as const;
@@ -130,6 +132,19 @@ export class CommunityRepo {
         await rm(dir, { recursive: true, force: true });
         throw err;
       }
+    });
+  }
+
+  /** +1 «sent to WhatsApp». Returns the new count, or null if there is no such sticker. */
+  recordSend(id: string): Promise<number | null> {
+    return this.exclusive(async () => {
+      const items = await this.load();
+      const i = items.findIndex((s) => s.id === id);
+      if (i === -1) return null;
+      const next = items.map((s, j) => (j === i ? { ...s, sends: (s.sends ?? 0) + 1 } : s));
+      await this.persist(next);
+      this.items = next;
+      return next[i]?.sends ?? null;
     });
   }
 
