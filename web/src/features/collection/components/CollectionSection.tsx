@@ -1,4 +1,5 @@
-import { Loader2Icon, SendIcon, Trash2Icon } from "@/components/icons";
+import { lazy, Suspense, useState } from "react";
+import { CommunityIcon, Loader2Icon, SendIcon, Trash2Icon } from "@/components/icons";
 import { useShallow } from "zustand/react/shallow";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -9,6 +10,10 @@ import { Section } from "@/components/section";
 import { selectSelectedItems, useCollectionStore } from "../collectionStore";
 import { useBatchSend } from "../useBatchSend";
 import { CollectionTile } from "./CollectionTile";
+
+// The batch form (and the publish model behind it) loads only when used.
+const loadPublish = () => import("./BatchPublishDialog");
+const BatchPublishDialog = lazy(() => loadPublish().then((m) => ({ default: m.BatchPublishDialog })));
 import { notify } from "@/lib/notify";
 
 /** Session collection: pick several stickers and send them all at once. */
@@ -28,6 +33,7 @@ export function CollectionSection({ className }: { className?: string }) {
   const refreshBot = useRefreshBot();
   const { gate, dialog } = useLinkGate();
   const { phase, send, cancel, reset } = useBatchSend();
+  const [publishOpen, setPublishOpen] = useState(false);
 
   if (items.length === 0) return null;
   const sending = phase.kind === "sending";
@@ -110,6 +116,17 @@ export function CollectionSection({ className }: { className?: string }) {
               Quitar
             </Button>
             <span className="ml-auto" />
+            {count >= 2 && (
+              <Button
+                variant="secondary"
+                className="h-11 rounded-full"
+                onClick={() => gate(() => setPublishOpen(true))}
+                onPointerEnter={() => void loadPublish()}
+              >
+                <CommunityIcon data-icon="inline-start" />
+                Publicar {count}
+              </Button>
+            )}
             {ready ? (
               sendButton
             ) : (
@@ -129,6 +146,11 @@ export function CollectionSection({ className }: { className?: string }) {
         Se envían uno tras otro, en este orden, como stickers con sonido. Los stickers se guardan 30 min.
       </p>
       <LinkDialog {...dialog} />
+      {publishOpen && (
+        <Suspense fallback={null}>
+          <BatchPublishDialog items={selectedItems} open={publishOpen} onOpenChange={setPublishOpen} />
+        </Suspense>
+      )}
     </Section>
   );
 }

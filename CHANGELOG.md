@@ -15,6 +15,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Varios archivos a la vez** (hasta 5, sin anunciarlo): el primero queda como clip y los demás se crean solos, uno tras otro, con los mismos ajustes («+N en fila» en la tarjeta del archivo). Si uno falla, la fila se detiene.
+- **Publicar varios desde la Colección**: con 2 o más seleccionados, «Publicar N» con un solo formulario (categoría, etiquetas, derechos del audio), con progreso; se detiene si el error se repetiría (sesión, límite).
+
 - **Compartir directo a Estampido (Android)**: con la app instalada, «Compartir» desde WhatsApp o la galería → Estampido abre el video/GIF/foto como clip, o el audio (p. ej. una nota de voz) como sonido. Botón «Instalar app» cuando el navegador lo permite.
 
 - **Tiempo estimado al enviar un pack**: antes de enviar, si va a tardar, avisa «Tardará ~X min» (el bot envía con calma y, con número nuevo, con límites por minuto/hora); durante el envío muestra «N/M enviados · faltan ~X», con el ritmo real.

@@ -32,6 +32,14 @@ export interface ConverterState {
 
   /** Returns a user-facing error, or null. */
   selectFile: (file: File | null) => string | null;
+  /**
+   * More files picked at once (owner's batch, max MAX_BATCH in total): they
+   * wait here and are converted one after another with the same settings.
+   */
+  queued: File[];
+  /** Pick several files: the first becomes the clip, the rest wait (returns how many were refused). */
+  selectFiles: (files: File[]) => number;
+  clearQueue: () => void;
   selectAudioFile: (file: File | null, origin?: CommunitySoundRef) => string | null;
   updateOptions: (patch: Partial<ConverterOptions>) => void;
   updateText: (patch: Partial<MemeText>) => void;
@@ -59,6 +67,9 @@ export interface CommunitySoundRef {
   title: string;
 }
 
+/** Files per pick (not advertised: people pick one; the owner batches). */
+export const MAX_BATCH = 5;
+
 // Not state: an imperative handle for the in-flight request.
 let inflight: AbortController | null = null;
 
@@ -70,6 +81,7 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
   communitySound: null,
   resultSoundOrigin: null,
   options: DEFAULT_OPTIONS,
+  queued: [],
   text: EMPTY_TEXT,
   settingsTab: "time",
   setSettingsTab: (settingsTab) => set({ settingsTab }),
@@ -88,7 +100,7 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
     const previous = get().previewUrl;
     if (previous) URL.revokeObjectURL(previous); // free the old preview
     if (!file) {
-      set({ file: null, previewUrl: null, inputKind: null, status: { kind: "idle" } });
+      set({ file: null, previewUrl: null, inputKind: null, status: { kind: "idle" }, queued: [] });
       return null;
     }
     const kind = inputKindOf(file);
@@ -108,6 +120,21 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
     }));
     return null;
   },
+
+  selectFiles: (files) => {
+    const picked = files.slice(0, MAX_BATCH);
+    const valid = picked.filter((f) => validateFile(f) === null);
+    const [first, ...rest] = valid;
+    if (!first) {
+      // Let the single-file path report why.
+      if (picked[0]) get().selectFile(picked[0]);
+      return files.length;
+    }
+    get().selectFile(first);
+    set({ queued: rest });
+    return files.length - valid.length;
+  },
+  clearQueue: () => set({ queued: [] }),
 
   selectAudioFile: (audioFile, origin) => {
     if (audioFile) {
@@ -167,6 +194,16 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
         resultSoundOrigin: audioFile ? (communitySound?.id ?? null) : null,
         autoRetries: 0,
       });
+      // Batch: the next waiting file goes with the same settings (the result is
+      // already in the collection). A failure stops here: the rest keep waiting.
+      const [next, ...rest] = get().queued;
+      if (next) {
+        set({ queued: rest });
+        setTimeout(() => {
+          if (get().file !== file) return; // the user moved on meanwhile
+          if (get().selectFile(next) === null) void get().convert();
+        }, 700);
+      }
     } catch (err) {
       // Cancelled (or superseded): never let a late failure overwrite the state.
       if (controller.signal.aborted || (err instanceof ApiError && err.code === "aborted")) return;

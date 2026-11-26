@@ -19,6 +19,8 @@ export function MediaDropzone() {
   const inputKind = useConverterStore((s) => s.inputKind);
   const busy = useConverterStore(selectBusy);
   const selectFile = useConverterStore((s) => s.selectFile);
+  const selectFiles = useConverterStore((s) => s.selectFiles);
+  const queued = useConverterStore((s) => s.queued.length);
   const resetPlayback = usePlaybackStore((s) => s.reset);
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
@@ -29,16 +31,24 @@ export function MediaDropzone() {
     const error = selectFile(next);
     if (error) notify.error(error);
   };
+  /** One or several (up to MAX_BATCH): the rest wait and go after this one. */
+  const chooseMany = (files: File[]) => {
+    if (files.length <= 1) return choose(files[0] ?? null);
+    resetPlayback();
+    const refused = selectFiles(files);
+    if (refused > 0) notify.warning(`${refused} ${refused === 1 ? "archivo no se pudo usar" : "archivos no se pudieron usar"}.`);
+  };
 
   const picker = (
     <input
       ref={inputRef}
       type="file"
       accept="video/*,image/*"
+      multiple
       className="hidden"
       onChange={(e) => {
-        const picked = e.target.files?.[0];
-        if (picked) choose(picked);
+        const picked = [...(e.target.files ?? [])];
+        if (picked.length) chooseMany(picked);
         e.target.value = "";
       }}
     />
@@ -66,8 +76,8 @@ export function MediaDropzone() {
           onDrop={(e: DragEvent) => {
             e.preventDefault();
             setDragging(false);
-            const dropped = e.dataTransfer.files[0];
-            if (dropped && !busy) choose(dropped);
+            const dropped = [...e.dataTransfer.files];
+            if (dropped.length && !busy) chooseMany(dropped);
           }}
         >
           {inputKind === "video" ? (
@@ -87,6 +97,7 @@ export function MediaDropzone() {
               </p>
               <p className="text-[12px] text-muted-foreground">
                 {KIND_LABEL[inputKind]} · {formatBytes(file.size)}
+                {queued > 0 && <span className="font-medium text-sound"> · +{queued} en fila</span>}
               </p>
             </div>
             <Button
@@ -128,8 +139,8 @@ export function MediaDropzone() {
           onDrop={(e: DragEvent) => {
             e.preventDefault();
             setDragging(false);
-            const dropped = e.dataTransfer.files[0];
-            if (dropped && !busy) choose(dropped);
+            const dropped = [...e.dataTransfer.files];
+            if (dropped.length && !busy) chooseMany(dropped);
           }}
           className={cn(
             "flex h-[clamp(16rem,42vh,26rem)] w-full flex-col items-center justify-center gap-5 rounded-2xl bg-stage px-6 text-center transition-[box-shadow,background-color]",
