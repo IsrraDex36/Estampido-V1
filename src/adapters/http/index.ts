@@ -26,7 +26,10 @@ const community = new CommunityRepo(communityRoot(), Date.now, maxMb * 1024 * 10
 const accounts = new AccountRepo(community);
 // Open (and migrate) the community database now, so a problem shows at boot.
 const stats = await community.stats();
-const purge = () => accounts.purgeExpiredSessions().catch((err) => console.error("[cuentas] limpieza:", err));
+const purge = () =>
+  Promise.all([accounts.purgeExpiredSessions(), community.purgePlayMarks()]).catch((err) =>
+    console.error("[limpieza]", err),
+  );
 await purge();
 setInterval(purge, 6 * 3_600_000).unref();
 console.log(`Comunidad (SQLite): ${stats.stickers} stickers, ${stats.sounds} sonidos · ${community.dbPath}`);

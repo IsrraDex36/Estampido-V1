@@ -51,7 +51,10 @@ function fakeItems(n: number, seed = 1): StoredSticker[] {
       tags: r() < 0.3 ? ["risa"] : [],
       createdAt: NOW - Math.floor(r() * 30 * 24) * H, // last 30 days, many ties
       uses: Math.floor(r() * 6), // many ties → id tiebreak matters
-      sends: 0,
+      saves: Math.floor(r() * 4),
+      sends: Math.floor(r() * 3),
+      plays: Math.floor(r() * 30),
+      hidden: (r() < 0.08 ? 1 : 0) as 0 | 1, // some hidden by reports: never in public feeds
       bytes: 1000,
       animated: r() < 0.5,
       soundSec: r() < 0.7 ? 3 : null,
@@ -82,7 +85,7 @@ async function walkSql(q: Omit<FeedQuery, "cursor">, pool: "stickers" | "sounds"
   throw new Error("pagination did not end");
 }
 function walkRef(all: StoredSticker[], q: Omit<FeedQuery, "cursor">, pool: "stickers" | "sounds") {
-  const poolItems = all.filter((s) => (pool === "stickers" ? s.listed !== false : s.soundSec !== null));
+  const poolItems = all.filter((s) => !s.hidden && (pool === "stickers" ? s.listed !== false : s.soundSec !== null));
   const ids: string[] = [];
   let cursor: string | null = null;
   for (let guard = 0; guard < 500; guard++) {
@@ -261,11 +264,13 @@ describe("database health and consistency", () => {
       const plan = (sql: string) =>
         (db.prepare(`EXPLAIN QUERY PLAN ${sql}`).all() as { detail: string }[]).map((r) => r.detail).join(" | ");
       expect(
-        plan("SELECT id FROM stickers WHERE listed = 1 AND created_at <= 0 ORDER BY created_at DESC, id DESC"),
+        plan(
+          "SELECT id FROM stickers WHERE hidden = 0 AND listed = 1 AND created_at <= 0 ORDER BY created_at DESC, id DESC",
+        ),
       ).toMatch(/USING (COVERING )?INDEX stickers_listed_new/);
-      expect(plan("SELECT id FROM stickers WHERE sound_sec IS NOT NULL ORDER BY created_at DESC, id DESC")).toMatch(
-        /INDEX stickers_sounds_new/,
-      );
+      expect(
+        plan("SELECT id FROM stickers WHERE hidden = 0 AND sound_sec IS NOT NULL ORDER BY created_at DESC, id DESC"),
+      ).toMatch(/INDEX stickers_sounds_new/);
       expect(plan("SELECT id FROM stickers WHERE id = 'x'")).toMatch(/PRIMARY KEY|sqlite_autoindex/);
     } finally {
       db.close();

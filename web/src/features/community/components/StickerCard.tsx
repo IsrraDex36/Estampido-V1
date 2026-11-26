@@ -1,8 +1,11 @@
 import type { CommunitySticker } from "@contract";
+import { useState } from "react";
 import { Link } from "wouter";
 import {
   BookmarkIcon,
   DownloadIcon,
+  FlagIcon,
+  MoreHorizontalIcon,
   PauseIcon,
   PlayIcon,
   Share2Icon,
@@ -10,18 +13,27 @@ import {
   Volume2Icon,
   VolumeXIcon,
 } from "@/components/icons";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { creatorHref, remixHref } from "@/app/routes";
 import { Avatar } from "@/features/account/Avatar";
 import { downloadUrl } from "@/lib/api";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { trackPlay } from "../plays";
 import { shareLink } from "../share";
 import { categoryById } from "../model";
-import { useToggleFavorite } from "@/features/account/api";
+import { useMe, useToggleFavorite } from "@/features/account/api";
 import { useFavorites } from "../store/favoritesStore";
 import { previewTime, usePreview, usePreviewMode } from "../store/previewStore";
 import { SyncedSticker } from "@/components/SyncedSticker";
+import { ReportDialog } from "./ReportDialog";
 import { SendToWhatsAppButton } from "./SendToWhatsAppButton";
 
 /** A published sticker: tap the cover to hear it; send it to WhatsApp, save, use its sound, share, download. */
@@ -53,7 +65,11 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
         {sticker.sound ? (
           <button
             type="button"
-            onClick={() => sticker.sound && togglePlay(sticker.sound.url)}
+            onClick={() => {
+              if (!sticker.sound) return;
+              if (mode === "idle") trackPlay(sticker.id);
+              togglePlay(sticker.sound.url);
+            }}
             aria-label={playing ? `Pausar «${sticker.title}»` : mode === "paused" ? `Continuar «${sticker.title}»` : `Escuchar «${sticker.title}»`}
             aria-pressed={playing}
             className="absolute inset-0 grid place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
@@ -85,6 +101,11 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
             </>
           )}
         </span>
+        {sticker.hidden && (
+          <span className="pointer-events-none absolute right-2.5 bottom-2.5 rounded-full bg-retro-a/90 px-2 py-0.5 text-[11px] font-medium text-black">
+            En revisión
+          </span>
+        )}
         {rank !== undefined && (
           <span className="pointer-events-none absolute top-2.5 right-2.5 font-pixel text-[11px] text-muted-foreground">
             #{rank}
@@ -138,19 +159,51 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
           ) : (
             <span className="w-14" />
           )}
-          <IconAction label="Compartir" onClick={() => void shareLink(sticker.title, sticker.stickerUrl)}>
-            <Share2Icon className="size-[18px]" />
-          </IconAction>
-          <a
-            href={downloadUrl(sticker.stickerUrl)}
-            aria-label="Descargar sticker"
-            className="grid size-8 place-items-center rounded-full transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <DownloadIcon className="size-[18px]" />
-          </a>
+          <MoreMenu sticker={sticker} />
         </div>
       </div>
     </article>
+  );
+}
+
+/** Less frequent actions: share, download, report (not on your own sticker). */
+function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
+  const [reportOpen, setReportOpen] = useState(false);
+  const me = useMe().data;
+  const mine = Boolean(me && sticker.creator && me.handle === sticker.creator.handle);
+  return (
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label={`Más opciones de «${sticker.title}»`}
+            className="grid size-8 place-items-center rounded-full transition-colors hover:bg-muted hover:text-foreground"
+          >
+            <MoreHorizontalIcon className="size-[18px]" weight="bold" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onSelect={() => void shareLink(sticker.title, sticker.stickerUrl)}>
+            <Share2Icon className="size-4" /> Compartir
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a href={downloadUrl(sticker.stickerUrl)}>
+              <DownloadIcon className="size-4" /> Descargar
+            </a>
+          </DropdownMenuItem>
+          {!mine && (
+            <>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={() => setReportOpen(true)} className="text-destructive">
+                <FlagIcon className="size-4" /> Reportar
+              </DropdownMenuItem>
+            </>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+      <ReportDialog stickerId={sticker.id} title={sticker.title} open={reportOpen} onOpenChange={setReportOpen} />
+    </>
   );
 }
 

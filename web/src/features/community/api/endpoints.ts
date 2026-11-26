@@ -4,6 +4,8 @@ import type {
   CommunityStats,
   CommunitySticker,
   PublishRequest,
+  ReportRequest,
+  ReportResponse,
 } from "@contract";
 import { clientHeaders, readJson } from "@/lib/api";
 import type { CommunityFilters } from "../store/filters";
@@ -59,6 +61,25 @@ export async function publishSticker(req: PublishRequest): Promise<CommunityStic
       body: JSON.stringify(req),
     }),
   );
+}
+
+export async function reportSticker(id: string, req: ReportRequest): Promise<ReportResponse> {
+  return readJson(
+    await fetch(`${BASE}/stickers/${encodeURIComponent(id)}/report`, {
+      method: "POST",
+      headers: { "content-type": "application/json", ...clientHeaders() },
+      body: JSON.stringify(req),
+    }),
+  );
+}
+
+/** Someone listened (the server counts it once per person per day). keepalive: survives navigation. */
+export function recordPlay(id: string): void {
+  void fetch(`${BASE}/stickers/${encodeURIComponent(id)}/play`, {
+    method: "POST",
+    headers: clientHeaders(),
+    keepalive: true,
+  }).catch(() => {});
 }
 
 export async function recordSoundUse(id: string): Promise<void> {

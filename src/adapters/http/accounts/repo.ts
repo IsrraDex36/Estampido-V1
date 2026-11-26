@@ -23,6 +23,8 @@ export interface User {
   avatar: string;
   phoneHint: string;
   createdAt: number;
+  /** Blocked by the admin: can't sign in or publish; profile and stickers hidden. */
+  banned: boolean;
 }
 
 /** Session lifetime; refreshed (sliding) at most once a day while in use. */
@@ -75,6 +77,7 @@ interface UserRow {
   avatar: string;
   phone_hint: string;
   created_at: number;
+  banned_at: number | null;
 }
 
 const fromRow = (r: UserRow): User => ({
@@ -85,9 +88,10 @@ const fromRow = (r: UserRow): User => ({
   avatar: r.avatar,
   phoneHint: r.phone_hint,
   createdAt: r.created_at,
+  banned: r.banned_at !== null,
 });
 
-const USER_COLS = "id, handle, display_name, bio, avatar, phone_hint, created_at";
+const USER_COLS = "id, handle, display_name, bio, avatar, phone_hint, created_at, banned_at";
 export const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
 const pick = <T>(list: readonly T[]): T => list[randomInt(list.length)] as T;
 
@@ -168,9 +172,11 @@ export class AccountRepo {
     return r ? fromRow(r) : null;
   }
 
-  async byHandle(handle: string): Promise<User | null> {
+  /** Public lookup: banned creators don't exist publicly (the admin passes includeBanned). */
+  async byHandle(handle: string, { includeBanned = false } = {}): Promise<User | null> {
     const r = (await this.q(`SELECT ${USER_COLS} FROM users WHERE handle = ?`)).get(handle) as UserRow | undefined;
-    return r ? fromRow(r) : null;
+    if (!r || (r.banned_at !== null && !includeBanned)) return null;
+    return fromRow(r);
   }
 
   async updateProfile(id: string, patch: MeUpdate): Promise<User> {
@@ -229,45 +235,48 @@ export class AccountRepo {
     return ids.length;
   }
 
-  async stats(userId: string): Promise<CreatorStats> {
+  /** Public numbers count visible stickers; the owner's own view counts everything. */
+  async stats(userId: string, { includeHidden = false } = {}): Promise<CreatorStats> {
     const r = (
       await this.q(
         `SELECT COUNT(*) AS stickers, COALESCE(SUM(uses), 0) AS uses, COALESCE(SUM(saves), 0) AS saves,
               COALESCE(SUM(sends), 0) AS sends
-         FROM stickers WHERE owner_id = ?`,
+         FROM stickers WHERE owner_id = ? ${includeHidden ? "" : "AND hidden = 0"}`,
       )
     ).get(userId) as unknown as CreatorStats;
     return { stickers: r.stickers, uses: r.uses, saves: r.saves, sends: r.sends };
   }
 
-  async profile(user: User): Promise<CreatorProfile> {
+  async profile(user: User, { includeHidden = false } = {}): Promise<CreatorProfile> {
     return {
       handle: user.handle,
       displayName: user.displayName,
       avatar: user.avatar,
       bio: user.bio,
       createdAt: new Date(user.createdAt).toISOString(),
-      stats: await this.stats(user.id),
+      stats: await this.stats(user.id, { includeHidden }),
     };
   }
 
   async me(user: User): Promise<Me> {
-    return { ...(await this.profile(user)), id: user.id, phone: user.phoneHint };
+    return { ...(await this.profile(user, { includeHidden: true })), id: user.id, phone: user.phoneHint };
   }
 
   /**
    * Creators with at least one public sticker, ranked by how much the
-   * community uses their work (reuses ×3, saves ×2, sends ×1.5, stickers ×1).
+   * community engages with their work: the sum of their stickers' trending
+   * engagement (feed.ts TRENDING_WEIGHTS) plus one point per sticker.
    */
   async topCreators(limit = 8): Promise<CreatorProfile[]> {
     const rows = (
       await this.q(
         `SELECT u.${USER_COLS.split(", ").join(", u.")},
               COUNT(s.id) AS stickers, SUM(s.uses) AS uses, SUM(s.saves) AS saves, SUM(s.sends) AS sends
-         FROM users u JOIN stickers s ON s.owner_id = u.id
+         FROM users u JOIN stickers s ON s.owner_id = u.id AND s.hidden = 0
+        WHERE u.banned_at IS NULL
         GROUP BY u.id
        HAVING SUM(s.listed) > 0
-        ORDER BY SUM(s.uses) * 3 + SUM(s.saves) * 2 + SUM(s.sends) * 1.5 + COUNT(s.id) DESC, u.created_at ASC
+        ORDER BY SUM(s.eng) + COUNT(s.id) DESC, u.created_at ASC
         LIMIT ?`,
       )
     ).all(limit) as unknown as (UserRow & CreatorStats)[];
@@ -308,7 +317,7 @@ export class AccountRepo {
     const row = (
       await this.q(
         `SELECT s.last_seen_at, s.expires_at, u.${USER_COLS.split(", ").join(", u.")}
-         FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ?`,
+         FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND u.banned_at IS NULL`,
       )
     ).get(hash) as (UserRow & { last_seen_at: number; expires_at: number }) | undefined;
     if (!row) return null;
@@ -351,7 +360,7 @@ export class AccountRepo {
     if (!isCommunityId(stickerId)) return null;
     const db = await this.db();
     return transaction(db, () => {
-      const s = db.prepare("SELECT saves, sound_sec FROM stickers WHERE id = ?").get(stickerId) as
+      const s = db.prepare("SELECT saves, sound_sec FROM stickers WHERE id = ? AND hidden = 0").get(stickerId) as
         | { saves: number; sound_sec: number | null }
         | undefined;
       if (!s || (kind === "sound" && s.sound_sec === null)) return null;
@@ -407,7 +416,7 @@ export class AccountRepo {
     const t0 = this.now();
     return transaction(db, () => {
       let added = 0;
-      const find = db.prepare("SELECT sound_sec FROM stickers WHERE id = ?");
+      const find = db.prepare("SELECT sound_sec FROM stickers WHERE id = ? AND hidden = 0");
       const insert = db.prepare(
         "INSERT OR IGNORE INTO favorites (user_id, sticker_id, kind, created_at) VALUES (?, ?, ?, ?)",
       );

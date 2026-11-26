@@ -111,6 +111,12 @@ export function accountRoutes({ accounts, community, bot, cookie }: AccountRoute
       return c.json(fail("bot_outdated", "El bot necesita reiniciarse para activar las cuentas."), 503);
     }
     const { user, created } = await accounts.upsertFromLink(st.account, st.phone);
+    if (user.banned) {
+      return c.json(
+        fail("account_banned", "Esta cuenta está bloqueada por incumplir las reglas de la comunidad."),
+        403,
+      );
+    }
     if (c.get("user")?.id !== user.id) cookie.write(c, await accounts.createSession(user.id, client));
     c.header("Cache-Control", "no-store");
     return c.json({ me: await accounts.me(user), created });
@@ -171,7 +177,10 @@ export function accountRoutes({ accounts, community, bot, cookie }: AccountRoute
     if (user instanceof Response) return user;
     const q = pageSchema.safeParse(c.req.query());
     if (!q.success) return c.json(fail("bad_query", "Consulta inválida."), 400);
-    const page = await community.page({ sort: "new", period: "all", ...q.data }, "all", { ownerId: user.id });
+    const page = await community.page({ sort: "new", period: "all", ...q.data }, "all", {
+      ownerId: user.id,
+      includeHidden: true, // mine, even while under review
+    });
     if ("error" in page) return c.json(fail("bad_cursor", "Cursor inválido; vuelve a cargar la lista."), 400);
     c.header("Cache-Control", "no-store");
     return c.json({

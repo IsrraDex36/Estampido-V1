@@ -9,7 +9,6 @@ import {
   encodeCursor,
   type FeedQuery,
   PERIOD_MS,
-  popularity,
   type Rankable,
   scoreOf,
   searchText,
@@ -33,7 +32,13 @@ export interface StoredSticker extends Rankable {
   ownerId?: string | null;
   /** Public info of the owner, joined on read. */
   creator?: CreatorRef | null;
+  /** Visibility (see Visibility). Older rows: visible. */
+  hidden?: Visibility;
 }
+
+/** 0 visible · 1 hidden by reports (pending review) · 2 hidden by the admin (banned creator). */
+export const VISIBILITY = { visible: 0, reported: 1, banned: 2 } as const;
+export type Visibility = (typeof VISIBILITY)[keyof typeof VISIBILITY];
 
 export const COMMUNITY_FILES = { "sticker.webp": "image/webp", "sticker.ogg": "audio/ogg" } as const;
 export type CommunityFile = keyof typeof COMMUNITY_FILES;
@@ -82,17 +87,21 @@ interface Row {
   listed: number;
   owner_id: string | null;
   saves: number;
+  plays: number;
+  hidden: number;
   c_handle: string | null;
   c_name: string | null;
   c_avatar: string | null;
 }
 
-const COLUMNS = "id, title, category, tags, created_at, uses, sends, bytes, animated, sound_sec, sound_origin, listed";
-const INSERT = `INSERT INTO stickers (${COLUMNS}, search, pop, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const COLUMNS =
+  "id, title, category, tags, created_at, uses, sends, bytes, animated, sound_sec, sound_origin, listed, owner_id, saves, plays, hidden";
+/** eng/pop are filled by the insert trigger (db.ts). */
+const INSERT = `INSERT INTO stickers (${COLUMNS}, search) VALUES (${Array(17).fill("?").join(", ")})`;
 /** Sticker columns (alias s) + its creator's public fields (alias u). */
 const SELECT_FULL = `SELECT ${COLUMNS.split(", ")
   .map((c) => `s.${c}`)
-  .join(", ")}, s.owner_id, s.saves, u.handle AS c_handle, u.display_name AS c_name, u.avatar AS c_avatar`;
+  .join(", ")}, u.handle AS c_handle, u.display_name AS c_name, u.avatar AS c_avatar`;
 const FROM_FULL = "FROM stickers s LEFT JOIN users u ON u.id = s.owner_id";
 
 const fromRow = (r: Row): StoredSticker => ({
@@ -110,6 +119,8 @@ const fromRow = (r: Row): StoredSticker => ({
   listed: r.listed === 1,
   ownerId: r.owner_id,
   saves: r.saves,
+  plays: r.plays,
+  hidden: r.hidden as Visibility,
   creator: r.c_handle ? { handle: r.c_handle, displayName: r.c_name ?? r.c_handle, avatar: r.c_avatar ?? "" } : null,
 });
 
@@ -119,7 +130,7 @@ const likeWord = (w: string) => `%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 /** SQL expression for each ordering (must equal feed.ts `scoreOf`). */
 const SCORE_SQL = {
   new: "created_at",
-  top: "uses",
+  top: "eng",
   // Same operations, same order as feed.ts hotScore → bit-identical doubles.
   hot: "pop - MAX(0, (:asOf - created_at) / 3600000.0) / 36",
 } as const;
@@ -218,14 +229,16 @@ export class CommunityRepo {
     return row ? fromRow(row) : null;
   }
 
-  /** Several by id, in the given order (missing ones skipped). */
-  async getMany(ids: readonly string[]): Promise<StoredSticker[]> {
+  /** Several by id, in the given order (missing — and, unless asked, hidden — ones skipped). */
+  async getMany(ids: readonly string[], { includeHidden = false } = {}): Promise<StoredSticker[]> {
     const valid = ids.filter(isCommunityId);
     if (valid.length === 0) return [];
     const db = await this.db();
-    const rows = this.stmt(db, `${SELECT_FULL} ${FROM_FULL} WHERE s.id IN (SELECT value FROM json_each(?))`).all(
-      JSON.stringify(valid),
-    ) as unknown as Row[];
+    // Only visible ones (a hidden sticker drops out of everyone's favorites view).
+    const rows = this.stmt(
+      db,
+      `${SELECT_FULL} ${FROM_FULL} WHERE s.id IN (SELECT value FROM json_each(?))${includeHidden ? "" : " AND s.hidden = 0"}`,
+    ).all(JSON.stringify(valid)) as unknown as Row[];
     const byId = new Map(rows.map((r) => [r.id, fromRow(r)]));
     return valid.flatMap((id) => byId.get(id) ?? []);
   }
@@ -246,21 +259,22 @@ export class CommunityRepo {
     const db = await this.db();
     const r = this.stmt(
       db,
-      "SELECT COALESCE(SUM(listed), 0) AS stickers, COUNT(sound_sec) AS sounds, COALESCE(SUM(uses), 0) AS uses FROM stickers",
+      "SELECT COALESCE(SUM(listed), 0) AS stickers, COUNT(sound_sec) AS sounds, COALESCE(SUM(uses), 0) AS uses FROM stickers WHERE hidden = 0",
     ).get() as { stickers: number; sounds: number; uses: number };
     return { stickers: r.stickers, sounds: r.sounds, uses: r.uses };
   }
 
   /**
    * One ranked page. `pool`: the sticker feed (listed) or the sounds tab
-   * (has sound). Same semantics as feed.ts `pageOf` (tests compare both):
+   * (has sound). Only visible stickers, unless `includeHidden` (the owner's
+   * own list). Same semantics as feed.ts `pageOf` (tests compare both):
    * items newer than the first page's `asOf` stay out while scrolling, and
    * (score desc, id desc) is a total order, so pages never skip or repeat.
    */
   async page(
     query: FeedQuery,
     pool: "stickers" | "sounds" | "all",
-    opts: { ownerId?: string } = {},
+    opts: { ownerId?: string; includeHidden?: boolean } = {},
   ): Promise<FeedPage> {
     let cursor: ReturnType<typeof decodeCursor> = null;
     if (query.cursor) {
@@ -270,6 +284,7 @@ export class CommunityRepo {
     const asOf = cursor?.asOf ?? this.now();
     const params: Record<string, SQLInputValue> = { asOf, limit: query.limit + 1 };
     const where = ["created_at <= :asOf"];
+    if (!opts.includeHidden) where.push("hidden = 0"); // literal: matches the partial indexes
     if (pool === "stickers") where.push("listed = 1");
     if (pool === "sounds") where.push("sound_sec IS NOT NULL");
     if (opts.ownerId) {
@@ -344,6 +359,8 @@ export class CommunityRepo {
         createdAt: this.now(),
         uses: 0,
         sends: 0,
+        plays: 0,
+        hidden: VISIBILITY.visible,
         bytes: incoming,
         animated: input.animated,
         soundSec: input.oggPath ? input.soundSec : null,
@@ -365,7 +382,9 @@ export class CommunityRepo {
   async recordSend(id: string): Promise<number | null> {
     if (!isCommunityId(id)) return null;
     const db = await this.db();
-    const row = this.stmt(db, "UPDATE stickers SET sends = sends + 1 WHERE id = ? RETURNING sends").get(id);
+    const row = this.stmt(db, "UPDATE stickers SET sends = sends + 1 WHERE id = ? AND hidden = 0 RETURNING sends").get(
+      id,
+    );
     return (row as { sends: number } | undefined)?.sends ?? null;
   }
 
@@ -375,9 +394,39 @@ export class CommunityRepo {
     const db = await this.db();
     const row = this.stmt(
       db,
-      "UPDATE stickers SET uses = uses + 1, pop = pop(uses + 1) WHERE id = ? AND sound_sec IS NOT NULL RETURNING uses",
+      "UPDATE stickers SET uses = uses + 1 WHERE id = ? AND sound_sec IS NOT NULL AND hidden = 0 RETURNING uses",
     ).get(id);
     return (row as { uses: number } | undefined)?.uses ?? null;
+  }
+
+  /**
+   * Someone listened. Counts once per viewer per sticker per (UTC) day, so
+   * replaying or refreshing can't pump the ranking. Returns whether it counted;
+   * null if there is no such (visible) sticker.
+   */
+  async recordPlay(id: string, viewer: string): Promise<boolean | null> {
+    if (!isCommunityId(id) || !viewer) return null;
+    const db = await this.db();
+    const day = Math.floor(this.now() / 86_400_000);
+    return transaction(db, () => {
+      const exists = this.stmt(db, "SELECT 1 AS ok FROM stickers WHERE id = ? AND hidden = 0").get(id);
+      if (!exists) return null;
+      const fresh = this.stmt(db, "INSERT OR IGNORE INTO play_marks (sticker_id, viewer, day) VALUES (?, ?, ?)").run(
+        id,
+        viewer,
+        day,
+      ).changes;
+      if (Number(fresh) === 0) return false;
+      this.stmt(db, "UPDATE stickers SET plays = plays + 1 WHERE id = ?").run(id);
+      return true;
+    });
+  }
+
+  /** Play marks only matter for «today»: drop the old ones. */
+  async purgePlayMarks(): Promise<number> {
+    const db = await this.db();
+    const today = Math.floor(this.now() / 86_400_000);
+    return Number(this.stmt(db, "DELETE FROM play_marks WHERE day < ?").run(today - 1).changes);
   }
 
   /** Owner moderation: delete one sticker (row + files). false if it doesn't exist. */
@@ -427,8 +476,10 @@ function rowValues(s: StoredSticker): SQLInputValue[] {
     typeof s.soundSec === "number" ? s.soundSec : null,
     s.soundOrigin ?? null,
     s.listed === false ? 0 : 1,
-    searchText({ title: s.title, tags, category: s.category }),
-    popularity(Math.max(0, Math.round(s.uses ?? 0))),
     s.ownerId ?? null,
+    Math.max(0, Math.round(s.saves ?? 0)),
+    Math.max(0, Math.round(s.plays ?? 0)),
+    s.hidden ?? VISIBILITY.visible,
+    searchText({ title: s.title, tags, category: s.category }),
   ];
 }

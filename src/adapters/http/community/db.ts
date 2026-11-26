@@ -1,7 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import { popularity } from "./feed.js";
+import { engagement, popularity } from "./feed.js";
 
 /**
  * Community database: one SQLite file next to the sticker files, through
@@ -11,9 +11,10 @@ import { popularity } from "./feed.js";
  *   (a power cut can lose the last commit, never corrupt the file).
  * - Schema versioned with PRAGMA user_version; each step runs once, in a
  *   transaction.
- * - «hot» = pop - age/36 in plain SQL arithmetic; `pop` = log10(1 + uses) is
- *   computed by JS (`pop()` registered from feed.ts) when uses change, so SQL
- *   ranks with bit-identical scores to feed.ts (cursors compare exactly).
+ * - Ranking: `eng` = weighted engagement and `pop` = log10(1 + eng) are kept
+ *   per row by triggers that call feed.ts's own functions (registered as SQL
+ *   `engagement()` / `popularity()`), so SQL scores are bit-identical to
+ *   feed.ts and cursors compare exactly. «hot» = pop - age/36 in plain SQL.
  */
 export const MIGRATIONS: readonly string[] = [
   // 1 — stickers
@@ -80,6 +81,55 @@ export const MIGRATIONS: readonly string[] = [
    ALTER TABLE stickers ADD COLUMN owner_id TEXT REFERENCES users (id) ON DELETE SET NULL;
    ALTER TABLE stickers ADD COLUMN saves INTEGER NOT NULL DEFAULT 0 CHECK (saves >= 0);
    CREATE INDEX stickers_owner_new ON stickers (owner_id, created_at DESC, id DESC) WHERE owner_id IS NOT NULL;`,
+
+  // 3 — trending (combined engagement kept by triggers) + moderation (reports, hiding, bans)
+  `ALTER TABLE stickers ADD COLUMN plays INTEGER NOT NULL DEFAULT 0 CHECK (plays >= 0);
+   ALTER TABLE stickers ADD COLUMN eng REAL NOT NULL DEFAULT 0;       -- engagement(uses, saves, sends, plays)
+   -- 0 visible · 1 hidden by reports (pending review) · 2 hidden by the admin (banned creator)
+   ALTER TABLE stickers ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0 CHECK (hidden IN (0, 1, 2));
+   UPDATE stickers SET eng = engagement(uses, saves, sends, plays);
+   UPDATE stickers SET pop = popularity(eng);
+
+   -- Any counter change re-scores the row: no code path can forget it.
+   CREATE TRIGGER stickers_score_insert AFTER INSERT ON stickers BEGIN
+     UPDATE stickers SET eng = engagement(NEW.uses, NEW.saves, NEW.sends, NEW.plays),
+                         pop = popularity(engagement(NEW.uses, NEW.saves, NEW.sends, NEW.plays))
+      WHERE id = NEW.id;
+   END;
+   CREATE TRIGGER stickers_score_update AFTER UPDATE OF uses, saves, sends, plays ON stickers BEGIN
+     UPDATE stickers SET eng = engagement(NEW.uses, NEW.saves, NEW.sends, NEW.plays),
+                         pop = popularity(engagement(NEW.uses, NEW.saves, NEW.sends, NEW.plays))
+      WHERE id = NEW.id;
+   END;
+
+   -- Feeds only ever show visible rows: partial covering indexes (pop/eng for hot/top).
+   DROP INDEX stickers_listed_new;
+   CREATE INDEX stickers_listed_new ON stickers (listed, created_at DESC, id DESC, pop, eng) WHERE hidden = 0;
+   DROP INDEX stickers_sounds_new;
+   CREATE INDEX stickers_sounds_new ON stickers (created_at DESC, id DESC, pop, eng)
+     WHERE sound_sec IS NOT NULL AND hidden = 0;
+
+   -- One play per person per sticker per day (UTC day number).
+   CREATE TABLE play_marks (
+     sticker_id TEXT NOT NULL REFERENCES stickers (id) ON DELETE CASCADE,
+     viewer     TEXT NOT NULL,
+     day        INTEGER NOT NULL,
+     PRIMARY KEY (sticker_id, viewer, day)
+   ) STRICT, WITHOUT ROWID;
+   CREATE INDEX play_marks_day ON play_marks (day);
+
+   -- One report per person per sticker.
+   CREATE TABLE reports (
+     sticker_id TEXT NOT NULL REFERENCES stickers (id) ON DELETE CASCADE,
+     reporter   TEXT NOT NULL,                 -- "u:<user id>" or "c:<browser hash>"
+     reason     TEXT NOT NULL CHECK (reason IN ('spam', 'ofensivo', 'sexual', 'violencia', 'derechos', 'otro')),
+     note       TEXT NOT NULL DEFAULT '',
+     created_at INTEGER NOT NULL,
+     PRIMARY KEY (sticker_id, reporter)
+   ) STRICT, WITHOUT ROWID;
+   CREATE INDEX reports_new ON reports (created_at DESC);
+
+   ALTER TABLE users ADD COLUMN banned_at INTEGER;`,
 ];
 
 export function openCommunityDb(path: string): DatabaseSync {
@@ -92,7 +142,11 @@ export function openCommunityDb(path: string): DatabaseSync {
     PRAGMA busy_timeout = 5000;
     PRAGMA temp_store = MEMORY;
   `);
-  db.function("pop", { deterministic: true }, (uses) => popularity(Number(uses)));
+  // The ranking formula lives in feed.ts; SQL calls the very same functions.
+  db.function("engagement", { deterministic: true }, (uses, saves, sends, plays) =>
+    engagement(Number(uses), Number(saves), Number(sends), Number(plays)),
+  );
+  db.function("popularity", { deterministic: true }, (eng) => popularity(Number(eng)));
   migrate(db);
   return db;
 }

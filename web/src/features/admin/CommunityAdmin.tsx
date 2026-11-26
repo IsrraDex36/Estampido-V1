@@ -15,6 +15,7 @@ import {
 import { readJson } from "@/lib/api";
 import { errorMessage, notify } from "@/lib/notify";
 import { queryKeys } from "@/lib/query/keys";
+import { AuthedImage } from "./AuthedImage";
 
 const auth = (token: string) => ({ authorization: `Bearer ${token}`, "content-type": "application/json" });
 const kb = (n: number) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.round(n / 1024)} KB`);
@@ -86,19 +87,23 @@ export function CommunityAdmin({ token }: { token: string }) {
         <ul className="max-h-[28rem] space-y-1.5 overflow-y-auto pr-1">
           {shown.map((s) => (
             <li key={s.id} className="flex items-center gap-3 rounded-2xl bg-background/50 p-2">
-              <img
-                src={s.stickerUrl}
-                alt=""
-                loading="lazy"
-                className="size-12 shrink-0 rounded-xl bg-stage object-contain"
-              />
+              <AuthedImage src={s.stickerUrl} token={token} className="size-12 shrink-0 rounded-xl bg-stage object-contain" />
               <div className="min-w-0 flex-1">
                 <p className="truncate text-[14px] font-medium">{s.title}</p>
                 <p className="truncate text-[12px] text-muted-foreground">
                   {day(s.createdAt)}
                   {s.sound ? ` · ${s.sound.durationSec.toFixed(1)} s` : " · sin sonido"}
                   {!s.listed && " · solo sonido"}
-                  {` · ${s.uses} usos · ${s.sends} envíos`}
+                  {` · ${s.uses} usos · ${s.saves} guardados · ${s.sends} envíos · ${s.plays} escuchas`}
+                  {s.creator && ` · @${s.creator.handle}`}
+                </p>
+                <p className="flex gap-1.5 text-[11px]">
+                  {s.hidden && <span className="rounded-full bg-retro-a/90 px-1.5 font-medium text-black">Oculto</span>}
+                  {s.reports > 0 && (
+                    <span className="rounded-full bg-destructive/15 px-1.5 text-destructive">
+                      {s.reports} {s.reports === 1 ? "reporte" : "reportes"}
+                    </span>
+                  )}
                 </p>
               </div>
               <DeleteButton

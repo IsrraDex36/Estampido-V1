@@ -5,7 +5,7 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { probe } from "../../../core/probe/probe.js";
 import { inspectWebp } from "../../../core/webp/inspect.js";
-import type { AppEnv } from "../accounts/session.js";
+import { type AppEnv, viewerKey } from "../accounts/session.js";
 import {
   type ApiErrorBody,
   COMMUNITY_CATEGORIES,
@@ -70,6 +70,7 @@ export const toStickerDto = (s: StoredSticker): CommunitySticker => ({
   listed: s.listed !== false,
   saves: s.saves ?? 0,
   creator: s.creator ?? null,
+  hidden: (s.hidden ?? 0) !== 0,
 });
 
 export const toSoundDto = (s: StoredSticker): CommunitySound => ({
@@ -93,7 +94,11 @@ export type PublishGuard = (c: Context<AppEnv>) => Promise<{ status: 403 | 503; 
 export function communityRoutes(
   repo: CommunityRepo,
   results: ResultStore,
-  opts: { canPublish?: PublishGuard } = {},
+  opts: {
+    canPublish?: PublishGuard;
+    /** The site owner (admin password) may see hidden stickers' files to review them. */
+    isAdmin?: (c: Context<AppEnv>) => boolean;
+  } = {},
 ): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
@@ -144,7 +149,7 @@ export function communityRoutes(
     );
 
     const origin = req.soundOrigin ? await repo.get(req.soundOrigin) : null;
-    if (req.soundOrigin && (!origin || origin.soundSec === null)) {
+    if (req.soundOrigin && (!origin || origin.soundSec === null || origin.hidden)) {
       return c.json(fail("bad_request", "El sonido de la comunidad ya no existe."), 400);
     }
     // What is shared decides which rules apply.
@@ -184,12 +189,21 @@ export function communityRoutes(
 
   app.get("/sounds/:id", async (c) => {
     const s = await repo.get(c.req.param("id"));
-    if (!s || s.soundSec === null) return c.json(fail("not_found", "Sonido no encontrado."), 404);
+    if (!s || s.soundSec === null || s.hidden) return c.json(fail("not_found", "Sonido no encontrado."), 404);
     return c.json(toSoundDto(s));
   });
 
   app.get("/stats", async (c) => {
     return c.json((await repo.stats()) satisfies CommunityStats);
+  });
+
+  // Someone listened (counts once per person per day; a trending signal).
+  app.post("/stickers/:id/play", async (c) => {
+    const viewer = viewerKey(c);
+    if (!viewer) return c.json({ counted: false });
+    const counted = await repo.recordPlay(c.req.param("id"), viewer);
+    if (counted === null) return c.json(fail("not_found", "Sticker no encontrado."), 404);
+    return c.json({ counted });
   });
 
   // Someone picked this sound for a new sticker.
@@ -201,15 +215,22 @@ export function communityRoutes(
 
   app.get("/files/:id/:file", async (c) => {
     const { id, file } = c.req.param();
-    const found = await repo.resolveFile(id, file);
-    if (!found) return c.json(fail("not_found", "Archivo no encontrado."), 404);
+    const sticker = await repo.get(id);
+    const found = sticker ? await repo.resolveFile(id, file) : null;
+    if (!sticker || !found) return c.json(fail("not_found", "Archivo no encontrado."), 404);
+    // Hidden (in review / blocked): only its owner and the admin can still open it.
+    const isPrivate = Boolean(sticker.hidden);
+    if (isPrivate) {
+      const owner = sticker.ownerId !== null && c.get("user")?.id === sticker.ownerId;
+      if (!owner && !opts.isAdmin?.(c)) return c.json(fail("not_found", "Archivo no encontrado."), 404);
+    }
     const download = c.req.query("download") !== undefined;
     return new Response(Readable.toWeb(createReadStream(found.path)) as ReadableStream, {
       headers: {
         "Content-Type": COMMUNITY_FILES[file as CommunityFile],
         "Content-Length": String(found.size),
-        // ids are random and files never change → cache forever
-        "Cache-Control": "public, max-age=31536000, immutable",
+        // ids are random and files never change → cache forever (hidden ones: never cached)
+        "Cache-Control": isPrivate ? "private, no-store" : "public, max-age=31536000, immutable",
         ...(download
           ? { "Content-Disposition": `attachment; filename="estampido-${id.slice(0, 8)}.${file.split(".")[1]}"` }
           : {}),

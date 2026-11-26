@@ -7,8 +7,30 @@ export interface Rankable {
   category: CommunityCategory;
   tags: string[];
   createdAt: number;
+  /** Its sound was picked for another sticker. */
   uses: number;
+  /** Saved as favorite. */
+  saves?: number;
+  /** Sent to someone's WhatsApp. */
+  sends?: number;
+  /** Listened to (once per person per day). */
+  plays?: number;
 }
+
+/**
+ * How much each signal is worth. A reuse is the strongest proof a sound is
+ * good (someone built on it); a save means «I want this»; a send, «I used it
+ * in a chat»; a play is cheap curiosity.
+ */
+export const TRENDING_WEIGHTS = { uses: 3, saves: 2, sends: 1.5, plays: 0.2 } as const;
+
+/** Weighted engagement. Also registered as SQL `engagement()` so both agree bit for bit. */
+export function engagement(uses: number, saves = 0, sends = 0, plays = 0): number {
+  const w = TRENDING_WEIGHTS;
+  return uses * w.uses + saves * w.saves + sends * w.sends + plays * w.plays;
+}
+
+const engagementOf = (it: Rankable) => engagement(it.uses, it.saves, it.sends, it.plays);
 
 export interface FeedQuery {
   sort: CommunitySort;
@@ -37,22 +59,22 @@ export const PERIOD_MS: Record<CommunityPeriod, number> = {
 /**
  * Score for an ordering (higher first). Pure and deterministic for a given asOf.
  * - new: recency
- * - top: uses (period applied as a filter)
- * - hot: log-uses with time decay (a fresh sticker can beat an old popular one)
+ * - top: weighted engagement (period applied as a filter)
+ * - hot: log-engagement with time decay (a fresh sticker can beat an old popular one)
  */
 export function scoreOf(item: Rankable, sort: CommunitySort, asOf: number): number {
   if (sort === "new") return item.createdAt;
-  if (sort === "top") return item.uses;
-  return hotScore(item.uses, item.createdAt, asOf);
+  if (sort === "top") return engagementOf(item);
+  return hotScore(engagementOf(item), item.createdAt, asOf);
 }
 
-/** «hot»: log-uses minus age (1 point per 36 h). Also registered as SQL `hot()`. */
-export function hotScore(uses: number, createdAt: number, asOf: number): number {
-  return popularity(uses) - Math.max(0, (asOf - createdAt) / HOUR) / 36;
+/** «hot»: log-engagement minus age (1 point per 36 h ≈ 10× the engagement every 1.5 days). */
+export function hotScore(eng: number, createdAt: number, asOf: number): number {
+  return popularity(eng) - Math.max(0, (asOf - createdAt) / HOUR) / 36;
 }
 
-/** log10(1 + uses): stored per row so SQL never calls back into JS to rank. */
-export const popularity = (uses: number): number => Math.log10(1 + uses);
+/** log10(1 + engagement): stored per row (SQL `popularity()`), so ranking never calls back into JS. */
+export const popularity = (eng: number): number => Math.log10(1 + eng);
 
 /** Lowercase, no accents: "Cumpleaños" ~ "cumpleanos". */
 export const normalize = (s: string): string =>

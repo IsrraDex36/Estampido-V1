@@ -6,6 +6,7 @@ import { remixHref } from "@/app/routes";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { useToggleFavorite } from "@/features/account/api";
+import { trackPlay } from "../plays";
 import { useFavorites } from "../store/favoritesStore";
 import { usePreview } from "../store/previewStore";
 
@@ -49,7 +50,10 @@ export function SoundRow({
       {rank !== undefined && <span className="w-4 shrink-0 font-pixel text-[11px] text-muted-foreground">{rank}</span>}
       <button
         type="button"
-        onClick={() => toggle(sound.url)}
+        onClick={() => {
+          if (!playing) trackPlay(sound.id);
+          toggle(sound.url);
+        }}
         aria-label={playing ? `Pausar «${sound.title}»` : `Escuchar «${sound.title}»`}
         aria-pressed={playing}
         className={cn(

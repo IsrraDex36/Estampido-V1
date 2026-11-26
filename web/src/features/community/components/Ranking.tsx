@@ -1,7 +1,8 @@
 import type { CommunitySticker } from "@contract";
-import { VoteIcon } from "@/components/icons";
+import { BookmarkIcon, VoteIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useRanking } from "../api/queries";
+import { trackPlay } from "../plays";
 import { previewTime, usePreview, usePreviewMode } from "../store/previewStore";
 import { SyncedSticker } from "@/components/SyncedSticker";
 
@@ -11,7 +12,10 @@ const PODIUM = [
   { place: 3, height: "h-11", tint: "bg-retro-a/20" },
 ] as const;
 
-/** Top of the week by uses: podium (1–3) + list (4–10). Tap to listen. */
+/**
+ * Top of the week by engagement (reuses, saves, sends, listens — see the
+ * server's TRENDING_WEIGHTS): podium (1–3) + list (4–10). Tap to listen.
+ */
 export function Ranking() {
   const ranking = useRanking();
   const items = ranking.data ?? [];
@@ -53,7 +57,7 @@ export function Ranking() {
               <span className="w-6 font-pixel text-[11px] text-muted-foreground">{i + 4}</span>
               <Thumb sticker={s} className="size-9 shrink-0 rounded-lg" />
               <span className="min-w-0 flex-1 truncate text-[13px]">{s.title}</span>
-              <Uses n={s.uses} />
+              <Signals sticker={s} />
             </li>
           ))}
         </ol>
@@ -62,10 +66,19 @@ export function Ranking() {
   );
 }
 
-function Uses({ n }: { n: number }) {
+/** The two signals people recognize: reuses of its sound and saves. */
+function Signals({ sticker }: { sticker: CommunitySticker }) {
   return (
-    <span className="flex items-center gap-1 font-mono text-[12px] text-muted-foreground tabular-nums" title="Usos de su sonido">
-      <VoteIcon className="size-3.5" /> {n}
+    <span
+      className="flex items-center gap-2 font-mono text-[12px] text-muted-foreground tabular-nums"
+      title={`${sticker.uses} usos de su sonido · ${sticker.saves} guardados`}
+    >
+      <span className="flex items-center gap-0.5">
+        <VoteIcon className="size-3.5" /> {sticker.uses}
+      </span>
+      <span className="flex items-center gap-0.5">
+        <BookmarkIcon className="size-3.5" /> {sticker.saves}
+      </span>
     </span>
   );
 }
@@ -79,7 +92,11 @@ function Thumb({ sticker, className }: { sticker: CommunitySticker; className?: 
     <button
       type="button"
       disabled={!sticker.sound}
-      onClick={() => sticker.sound && toggle(sticker.sound.url)}
+      onClick={() => {
+        if (!sticker.sound) return;
+        if (mode === "idle") trackPlay(sticker.id);
+        toggle(sticker.sound.url);
+      }}
       aria-label={`Escuchar «${sticker.title}»`}
       aria-pressed={playing}
       className={cn(

@@ -13,6 +13,7 @@ export {
   ArrowLineRightIcon as ArrowRightToLineIcon,
   ArrowSquareOutIcon as ExternalIcon,
   ArrowUpIcon,
+  FlagIcon,
   UserCircleIcon,
   BookmarkSimpleIcon as BookmarkIcon,
   CalendarDotsIcon as CalendarClockIcon,

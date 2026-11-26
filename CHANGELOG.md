@@ -13,6 +13,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Tendencias con puntaje combinado**: usos ×3, guardados ×2, envíos ×1.5 y escuchas ×0.2 (una por persona al día), con caída por antigüedad en «Tendencias» y suma en «Top». Triggers SQL mantienen el puntaje en cada cambio; el Top de la semana y los creadores destacados usan la misma fórmula.
+- **Moderación**: reportar desde el menú ⋯ de cada sticker (motivo + nota); con 3 reportes distintos se oculta del feed, los sonidos, el perfil, los favoritos, WhatsApp y sus archivos (su dueño lo ve «En revisión»). En `/admin`, cola de reportes: mantener, borrar o bloquear al creador (sesiones cerradas, no puede entrar ni publicar, perfil y stickers ocultos; desbloquear lo revierte).
+
 - **Cuentas con WhatsApp** (sin contraseñas): al vincular tu WhatsApp quedas dentro. Perfiles de creador públicos en `/u/usuario` (avatar emoji + color, nombre, descripción, cifras, stickers, SEO propio), «Mi cuenta» (editar perfil, mis stickers con borrado, cerrar sesión, borrar cuenta con todo lo publicado), favoritos sincronizados entre dispositivos (se importan los del navegador al entrar), contador de guardados, creadores destacados en la Comunidad y el creador en cada sticker. Publicar en el servidor público requiere cuenta.
 - Seguridad: el bot entrega una clave HMAC por número (nunca el número), sesiones de 90 días deslizantes guardadas con hash, cookie `__Host-` HttpOnly/Secure/SameSite=Lax, chequeo de origen en escrituras con cookie, límites por IP para cuenta y favoritos, usuarios reservados, validación estricta con Zod.
 - Encabezado compacto en celular (la guía y el estado del bot pasan al footer).

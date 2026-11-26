@@ -59,7 +59,10 @@ export function PrivacyPage() {
       <Block title="Reglas de uso">
         <ul className="list-disc space-y-2 pl-5">
           <li>Publica solo contenido propio o con permiso. Nada ilegal, violento, sexual, de odio ni de acoso.</li>
-          <li>Podemos retirar contenido o bloquear el acceso a quien abuse del servicio.</li>
+          <li>
+            Si ves algo que no debería estar, usa <b>Reportar</b> en el menú ⋯ del sticker. Con varios reportes se oculta
+            mientras lo revisamos; podemos retirar contenido o bloquear a quien abuse del servicio.
+          </li>
           <li>
             El envío a WhatsApp usa una integración <b>no oficial</b>: puede fallar o cambiar sin aviso. Estampido no está
             afiliado a WhatsApp ni a Meta.

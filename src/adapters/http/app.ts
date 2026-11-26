@@ -37,6 +37,8 @@ import {
   type WhatsAppLink,
   type WhatsAppStatus,
 } from "./contract.js";
+import { ModerationRepo } from "./moderation/repo.js";
+import { moderationRoutes } from "./moderation/routes.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
 import { convertFieldsSchema } from "./schema.js";
 
@@ -46,6 +48,8 @@ export interface AppDeps {
   community?: CommunityRepo;
   /** Accounts (default: on top of the community database). */
   accounts?: AccountRepo;
+  /** Reports and bans (default: on top of the community database). */
+  moderation?: ModerationRepo;
   /** HTTPS deployment: `__Host-` session cookie with Secure. */
   secureCookies?: boolean;
   /** Public server: only signed-in users (login with WhatsApp) may publish (anti-spam, accountability). */
@@ -109,7 +113,10 @@ export function createApp(deps: AppDeps = {}): ApiApp {
               body: fail("link_required", "Entra con tu WhatsApp para publicar en la comunidad."),
             }
     : undefined;
-  app.route("/community", communityRoutes(communityRepo, store, { canPublish }));
+  app.route(
+    "/community",
+    communityRoutes(communityRepo, store, { canPublish, isAdmin: (c) => adminDenied(c) === null }),
+  );
   app.route("/", accountRoutes({ accounts, community: communityRepo, bot, cookie }));
 
   app.post(
@@ -287,12 +294,21 @@ export function createApp(deps: AppDeps = {}): ApiApp {
   });
 
   // ── Owner: community moderation ──────────────────────────────────────────
+  // Reports (public) + review queue and creator blocking (admin).
+  const moderation = deps.moderation ?? new ModerationRepo(communityRepo);
+  app.route("/", moderationRoutes({ moderation, accounts, adminDenied }));
+
   app.get("/admin/community", async (c) => {
     const denied = adminDenied(c);
     if (denied) return denied;
-    const all = await communityRepo.listAll();
+    const [all, reports] = await Promise.all([communityRepo.listAll(), moderation.reportCounts()]);
     return c.json({
-      items: all.map((s) => ({ ...toStickerDto(s), sends: s.sends ?? 0 })),
+      items: all.map((s) => ({
+        ...toStickerDto(s),
+        sends: s.sends ?? 0,
+        plays: s.plays ?? 0,
+        reports: reports.get(s.id) ?? 0,
+      })),
       usedBytes: await communityRepo.usedBytes(),
     } satisfies AdminCommunity);
   });
@@ -431,7 +447,7 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     const id = c.req.param("id");
     const sticker = await communityRepo.get(id);
     const webp = sticker ? await communityRepo.resolveFile(id, "sticker.webp") : null;
-    if (!sticker || !webp) return c.json(fail("not_found", "Sticker no encontrado."), 404);
+    if (!sticker || sticker.hidden || !webp) return c.json(fail("not_found", "Sticker no encontrado."), 404);
     const ogg = sticker.soundSec !== null ? await communityRepo.resolveFile(id, "sticker.ogg") : null;
     const res = await sendToLinkedChat(c, { webpPath: webp.path, oggPath: ogg?.path ?? null });
     if (res.ok) await communityRepo.recordSend(id).catch(() => {}); // a ranking signal; never fails the send

@@ -188,6 +188,50 @@ export interface CommunitySticker {
   saves: number;
   /** Who published it (null: anonymous, from before accounts). */
   creator: CreatorRef | null;
+  /** Only its owner ever sees it true: hidden while reports are reviewed (or by the admin). */
+  hidden: boolean;
+}
+
+// ── Moderation ─────────────────────────────────────────────────────────────
+
+export const REPORT_REASONS = [
+  { id: "spam", label: "Spam o publicidad" },
+  { id: "ofensivo", label: "Ofensivo, odio o acoso" },
+  { id: "sexual", label: "Contenido sexual" },
+  { id: "violencia", label: "Violencia o algo peligroso" },
+  { id: "derechos", label: "No es suyo (derechos de autor)" },
+  { id: "otro", label: "Otro motivo" },
+] as const;
+export type ReportReason = (typeof REPORT_REASONS)[number]["id"];
+export const REPORT_NOTE_MAX = 200;
+/** Distinct people reporting a sticker before it's hidden pending review. */
+export const REPORT_HIDE_THRESHOLD = 3;
+
+export interface ReportRequest {
+  reason: ReportReason;
+  note?: string;
+}
+
+/** POST /api/community/stickers/:id/report */
+export interface ReportResponse {
+  /** false = this person had already reported it (nothing changed). */
+  reported: boolean;
+}
+
+/** One reported sticker in the /admin review queue. */
+export interface AdminReportItem {
+  sticker: CommunitySticker & { reports: number };
+  /** How many people chose each reason. */
+  reasons: Partial<Record<ReportReason, number>>;
+  /** Written notes, newest first. */
+  notes: { reason: ReportReason; note: string; createdAt: string }[];
+  latestAt: string;
+  /** Its creator is blocked. */
+  creatorBanned: boolean;
+}
+
+export interface AdminReports {
+  items: AdminReportItem[];
 }
 
 // ── Accounts & creators (login with WhatsApp) ──────────────────────────────
@@ -323,7 +367,7 @@ export type AdminPairing =
 /** /api/admin/health — watchdog report (token-protected). */
 /** Owner moderation view of the community (every sticker, newest first; includes «solo el sonido»). */
 export interface AdminCommunity {
-  items: (CommunitySticker & { sends: number })[];
+  items: (CommunitySticker & { sends: number; plays: number; reports: number })[];
   usedBytes: number;
 }
 

@@ -1,5 +1,7 @@
 import type { Context, MiddlewareHandler } from "hono";
 import { deleteCookie, getCookie, setCookie } from "hono/cookie";
+import { clientHash } from "../client.js";
+import { CLIENT_HEADER } from "../contract.js";
 import type { AccountRepo, User } from "./repo.js";
 import { SESSION_TTL_MS } from "./repo.js";
 
@@ -62,4 +64,15 @@ export function sameOrigin(cookie: SessionCookie, { allowLocalhost = false } = {
     }
     await next();
   };
+}
+
+/**
+ * Who is acting, as an opaque key: the account if signed in ("u:<id>"), else
+ * this browser ("c:<hash>"). Dedupes reports and plays per person. null = unknown.
+ */
+export function viewerKey(c: Context<AppEnv>): string | null {
+  const user = c.get("user");
+  if (user) return `u:${user.id}`;
+  const client = clientHash(c.req.header(CLIENT_HEADER));
+  return client ? `c:${client}` : null;
 }

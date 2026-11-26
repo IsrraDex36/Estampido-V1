@@ -43,8 +43,10 @@ export const meOptions = (qc: QueryClient) =>
       if (link?.state !== "linked") return null;
       try {
         return (await createSession()).me;
-      } catch {
-        return null; // bot offline / outdated: stay signed out, the app still works
+      } catch (err) {
+        // Blocked account: say so. Bot offline / outdated: stay signed out quietly, the app still works.
+        if (err instanceof ApiError && err.code === "account_banned") notify.error(err.message, { id: "account_banned" });
+        return null;
       }
     },
     staleTime: Number.POSITIVE_INFINITY,
