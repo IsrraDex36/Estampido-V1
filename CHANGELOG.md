@@ -13,6 +13,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Packs con la marca de la app**: al enviar un pack, cada sticker llega como «<pack> · @creador • Crea más en estampido.isrradev.com» (el autor lo fija la app, no se puede cambiar) y todos comparten el mismo pack en WhatsApp. Se aplica a una copia; el sticker publicado no cambia.
+- **«Así lo verán en WhatsApp»** rediseñado como la pantalla real: chat oscuro con tu sticker (texto, emojis y filtro incluidos; lo transparente deja ver el chat), hora con ✓✓, ícono de sonido y la hoja de info del sticker con pack y autor.
+
 - **Restablecer por pestaña**: cada pestaña de ajustes (Tiempo, Sonido, Estilo, Texto, Pack) muestra «Restablecer …» solo cuando cambiaste algo, y regresa únicamente lo suyo.
 - **+10 tipografías** (Caricatura, Redonda, Letrero, Pop, Retro, Vintage, Nota, Militar, Terror, Disco → 18 en total), que se descargan solo al aparecer en pantalla.
 - **+6 efectos de voz** (Megáfono, Videojuego, Fantasma, Mareado, Coro, Bajo el agua → 14) con su vista previa en «Escuchar».

@@ -1,6 +1,6 @@
-import { PACK_LIMITS } from "@contract";
+import { PACK_LIMITS, PACK_STICKER_PUBLISHER } from "@contract";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { creatorHref, ROUTES } from "@/app/routes";
 import { Loader2Icon, SendIcon, Share2Icon, Trash2Icon } from "@/components/icons";
@@ -23,7 +23,9 @@ export default function PackPage() {
   const pack = useQuery(socialQueries.pack(id));
   const refresh = useInvalidatePacks();
   const [, navigate] = useLocation();
-  const batch = useBatchSend(sendCommunityToWhatsApp);
+  // Sent as this pack: every sticker carries the pack's name and the app's mark.
+  const sendOne = useCallback((stickerId: string) => sendCommunityToWhatsApp(stickerId, id), [id]);
+  const batch = useBatchSend(sendOne);
   const { gate, dialog } = useLinkGate();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -171,6 +173,9 @@ export default function PackPage() {
             </>
           )}
         </div>
+        <p className="text-[12px] text-muted-foreground">
+          Llegan a tu WhatsApp como el pack «{p.name} · @{p.owner.handle}» · {PACK_STICKER_PUBLISHER}
+        </p>
         {sending && batch.phase.kind === "sending" && (
           <div className="h-1 max-w-md overflow-hidden rounded-full bg-foreground/10" role="progressbar" aria-valuenow={batch.phase.done} aria-valuemax={batch.phase.total}>
             <div

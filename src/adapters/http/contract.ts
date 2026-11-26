@@ -9,6 +9,9 @@ export type MediaKind = "video" | "animated" | "image";
 /** Sticker pack metadata when the user leaves it empty (mirrors core DEFAULT_METADATA). */
 export const STICKER_DEFAULTS = { packName: "Busca o crea más en", publisher: "estampido.isrradev.com" } as const;
 
+/** Fixed «author» line of stickers sent as part of a pack (the app's mark; not editable). */
+export const PACK_STICKER_PUBLISHER = "Crea más en estampido.isrradev.com";
+
 /** Voice effects for the sound (mirrors core/audio/voice.ts, asserted by tests). */
 export const VOICE_EFFECTS = [
   "ardilla",

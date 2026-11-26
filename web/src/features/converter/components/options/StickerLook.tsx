@@ -27,10 +27,13 @@ function Canvas({
   background,
   blurSrc,
   blurFilter,
+  checker = true,
   className,
   children,
   ...rest
 }: {
+  /** Show transparency as a checkerboard (editor) or let what's behind show (chat preview). */
+  checker?: boolean;
   fit: FitMode;
   background: StickerBackground;
   blurSrc: string | null;
@@ -44,7 +47,7 @@ function Canvas({
     <span
       className={cn(
         "relative block aspect-square overflow-hidden",
-        fit === "pad" && background === "transparent" && "checkerboard",
+        checker && fit === "pad" && background === "transparent" && "checkerboard",
         className,
       )}
       style={fit === "pad" && solid ? { backgroundColor: solid } : undefined}
@@ -70,6 +73,7 @@ export function StickerLook({
   background,
   frame = CENTERED,
   adjust,
+  checker = true,
   className,
 }: {
   still: string | null;
@@ -77,6 +81,7 @@ export function StickerLook({
   background: StickerBackground;
   frame?: CropFrame;
   adjust?: PreviewAdjust;
+  checker?: boolean;
   className?: string;
 }) {
   const m = mediaStyle(fit, frame, adjust);
@@ -86,6 +91,7 @@ export function StickerLook({
       background={background}
       blurSrc={still}
       blurFilter={adjust?.look ? LOOK_CSS[adjust.look] : undefined}
+      checker={checker}
       className={cn("w-full rounded-xl", className)}
     >
       {still ? (

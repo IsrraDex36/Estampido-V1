@@ -42,6 +42,7 @@ import { ModerationRepo } from "./moderation/repo.js";
 import { moderationRoutes } from "./moderation/routes.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
 import { OgImages } from "./social/og.js";
+import { stampForPack } from "./social/packStamp.js";
 import { SocialRepo } from "./social/repo.js";
 import { socialRoutes } from "./social/routes.js";
 
@@ -384,7 +385,18 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     const webp = sticker ? await communityRepo.resolveFile(id, "sticker.webp") : null;
     if (!sticker || sticker.hidden || !webp) return c.json(fail("not_found", "Sticker no encontrado."), 404);
     const ogg = sticker.soundSec !== null ? await communityRepo.resolveFile(id, "sticker.ogg") : null;
-    const res = await sendToLinkedChat(c, { webpPath: webp.path, oggPath: ogg?.path ?? null });
+    // Sent from a pack → a copy stamped with the pack's name and the app's mark (30-min temp).
+    let webpPath = webp.path;
+    const packId = c.req.query("pack");
+    if (packId) {
+      const pack = await social.pack(packId);
+      if (!pack || !(await social.packContains(pack.id, id))) {
+        return c.json(fail("not_found", "Ese sticker ya no está en el pack."), 404);
+      }
+      const tmp = await store.create();
+      webpPath = await stampForPack(webp.path, pack, tmp.dir);
+    }
+    const res = await sendToLinkedChat(c, { webpPath, oggPath: ogg?.path ?? null });
     if (res.ok) await communityRepo.recordSend(id).catch(() => {}); // a ranking signal; never fails the send
     return res;
   });

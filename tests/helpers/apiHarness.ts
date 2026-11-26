@@ -34,9 +34,14 @@ export async function makeHarness(dir: string, start = Date.UTC(2026, 10, 25, 12
   for (const [name, id] of Object.entries(BROWSERS)) {
     if (name !== "anon") linked.set(clientHash(id) as string, name.repeat(64).slice(0, 64));
   }
+  /** What the fake bot was asked to send (newest last). */
+  const sent: { webpPath: string; audioPath?: string }[] = [];
   const bot = {
     status: async () => ({ available: true, connected: true }),
-    send: async () => ({ delivered: "sticker" as const }),
+    send: async (req: { webpPath: string; audioPath?: string }) => {
+      sent.push({ webpPath: req.webpPath, audioPath: req.audioPath });
+      return { delivered: "sticker" as const };
+    },
     linkStatus: async (client: string) => {
       const account = linked.get(client);
       return account
@@ -66,6 +71,7 @@ export async function makeHarness(dir: string, start = Date.UTC(2026, 10, 25, 12
   const cookies = new Map<Browser, string>();
   const h = {
     app,
+    sent,
     clock,
     community,
     accounts,

@@ -236,3 +236,44 @@ describe("tags", () => {
     expect(sug.items.slice(0, 4)).toEqual(["gato", "bailando", "risa", "remix"]);
   });
 });
+
+describe("packs carry the app's mark", () => {
+  it("sent from a pack: «<pack> · @creator • Crea más en …», same pack id for all; the original stays untouched", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { readExif } = await import("../../src/core/webp/chunks.js");
+    const { parseStickerExif } = await import("../../src/core/metadata/stickerExif.js");
+    const { PACK_STICKER_PUBLISHER } = await import("../../src/adapters/http/contract.js");
+    await h.signIn("ana", "ana");
+    await h.signIn("beto", "beto");
+    const a = await h.publish("ana", { title: "Uno" });
+    const b = await h.publish("ana", { title: "Dos" });
+    const pack = await h.json<PackSummary>(
+      h.req("ana", "/api/me/packs", { method: "POST", body: JSON.stringify({ name: "Risas", stickerId: a.id }) }),
+    );
+    await h.req("ana", `/api/me/packs/${pack.id}/stickers/${b.id}`, { method: "PUT" });
+
+    const meta = async (path: string) => {
+      const exif = readExif(await readFile(path));
+      return exif ? parseStickerExif(exif) : null;
+    };
+    for (const s of [a, b]) {
+      const r = await h.req("beto", `/api/community/stickers/${s.id}/whatsapp?pack=${pack.id}`, { method: "POST" });
+      expect(r.status).toBe(200);
+    }
+    const [m1, m2] = await Promise.all(h.sent.slice(-2).map((x) => meta(x.webpPath)));
+    expect(m1).toMatchObject({ packName: "Risas · @ana", publisher: PACK_STICKER_PUBLISHER });
+    expect(m2?.packId).toBe(m1?.packId);
+
+    // A plain send (not from the pack) uses the published file as is.
+    await h.req("beto", `/api/community/stickers/${a.id}/whatsapp`, { method: "POST" });
+    const plain = h.sent.at(-1)?.webpPath as string;
+    expect(plain).toContain("community");
+    expect((await meta(plain))?.publisher).not.toBe(PACK_STICKER_PUBLISHER);
+
+    // Not in that pack → refused (no stamping arbitrary stickers with someone's pack).
+    const other = await h.publish("ana", { title: "Fuera" });
+    expect(
+      (await h.req("beto", `/api/community/stickers/${other.id}/whatsapp?pack=${pack.id}`, { method: "POST" })).status,
+    ).toBe(404);
+  });
+});

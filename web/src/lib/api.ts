@@ -226,9 +226,10 @@ export async function sendToWhatsApp(resultId: string): Promise<SendToWhatsAppRe
 }
 
 /** Send a community sticker to THIS browser's linked WhatsApp chat. 409 not_linked if none. */
-export async function sendCommunityToWhatsApp(stickerId: string): Promise<SendToWhatsAppResponse> {
+export async function sendCommunityToWhatsApp(stickerId: string, packId?: string): Promise<SendToWhatsAppResponse> {
+  const q = packId ? `?pack=${encodeURIComponent(packId)}` : "";
   return readJson<SendToWhatsAppResponse>(
-    await fetch(`/api/community/stickers/${encodeURIComponent(stickerId)}/whatsapp`, {
+    await fetch(`/api/community/stickers/${encodeURIComponent(stickerId)}/whatsapp${q}`, {
       method: "POST",
       headers: clientHeaders(),
     }),

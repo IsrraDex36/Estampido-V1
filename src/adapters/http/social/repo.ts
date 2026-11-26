@@ -136,6 +136,14 @@ export class SocialRepo {
     return this.packRows(await this.db(), "p.id = ?", id)[0] ?? null;
   }
 
+  /** Is this sticker (still) in the pack? */
+  async packContains(packId: string, stickerId: string): Promise<boolean> {
+    const db = await this.db();
+    return Boolean(
+      db.prepare("SELECT 1 AS ok FROM pack_items WHERE pack_id = ? AND sticker_id = ?").get(packId, stickerId),
+    );
+  }
+
   /** Visible stickers of a pack, in order. */
   async packStickers(id: string): Promise<StoredSticker[]> {
     const db = await this.db();
