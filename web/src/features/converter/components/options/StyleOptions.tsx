@@ -240,7 +240,7 @@ export function StyleOptions() {
           <SwitchListRow
             id="hq"
             title="Calidad alta"
-            detail={`Experimental · hasta ${API_LIMITS.maxExperimentalKb / 1024} MB en vez de 500 KB. WhatsApp podría no aceptarlo.`}
+            detail={`Para descargar · hasta ${API_LIMITS.maxExperimentalKb / 1024} MB en vez de 500 KB. En WhatsApp puede trabarse o no moverse.`}
             checked={hq}
             disabled={disabled}
             onCheckedChange={(v) => update({ hq: v })}

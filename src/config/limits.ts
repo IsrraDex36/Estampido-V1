@@ -7,8 +7,13 @@ export const STICKER_LIMITS = {
   size: 512,
   /** Max bytes for an animated WebP (official Business Platform doc). */
   maxAnimatedBytes: 500 * 1024,
-  /** EXPERIMENTAL "hq" cap: ignore the 500 KB rule to see what WhatsApp does. */
-  experimentalMaxBytes: 5 * 1024 * 1024,
+  /**
+   * EXPERIMENTAL "hq" cap. WhatsApp's rule is 500 KB; tests sending bigger
+   * animated stickers (1–5 MB) showed them arriving but stuttering or not
+   * moving on many phones, so the experiment is capped at 1 MB and presented
+   * as «para descargar».
+   */
+  experimentalMaxBytes: 1024 * 1024,
   /** Max bytes for a static WebP. */
   maxStaticBytes: 100 * 1024,
   /** Default clip length in seconds (matches native video→sticker audio). */

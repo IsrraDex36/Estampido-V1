@@ -6,6 +6,9 @@ export type FitMode = "pad" | "crop";
 /** "pad" bars: transparent, a blurred copy of the frame, or "#rrggbb". */
 export type StickerBackground = "transparent" | "blur" | `#${string}`;
 export type MediaKind = "video" | "animated" | "image";
+/** Sticker pack metadata when the user leaves it empty (mirrors core DEFAULT_METADATA). */
+export const STICKER_DEFAULTS = { packName: "Busca o crea más en", publisher: "estampido.isrradev.com" } as const;
+
 /** Voice effects for the sound (mirrors core/audio/voice.ts, asserted by tests). */
 export const VOICE_EFFECTS = ["ardilla", "monstruo", "robot", "radio", "alien", "cueva", "eco", "reversa"] as const;
 export type VoiceEffect = (typeof VOICE_EFFECTS)[number];
@@ -134,7 +137,7 @@ export const API_LIMITS = {
   /** Video clip / GIF sound (experimental 180; mirrors STICKER_LIMITS). */
   maxDurationSec: 180,
   /** Experimental "hq" size cap in KB (mirrors STICKER_LIMITS.experimentalMaxBytes). */
-  maxExperimentalKb: 5 * 1024,
+  maxExperimentalKb: 1024,
   /** Sound length for image stickers. */
   maxImageAudioSec: 10,
   minDurationSec: 0.5,

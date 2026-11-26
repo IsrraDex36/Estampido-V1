@@ -67,7 +67,7 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     );
   });
 
-function formFor({ media, audio, overlay }: ConvertFiles, fields: ConvertRequestFields): FormData {
+export function formFor({ media, audio, overlay }: ConvertFiles, fields: ConvertRequestFields): FormData {
   const form = new FormData();
   form.set("media", media);
   if (audio && fields.includeAudio) form.set("audio", audio);
@@ -87,7 +87,8 @@ function formFor({ media, audio, overlay }: ConvertFiles, fields: ConvertRequest
   if (fields.fit === "pad" && fields.background && fields.background !== "transparent") form.set("background", fields.background);
   form.set("includeAudio", String(fields.includeAudio));
   form.set("audioStartSec", String(fields.audioStartSec));
-  if (audio && fields.audioDurationSec !== undefined) form.set("audioDurationSec", String(fields.audioDurationSec));
+  if (audio && fields.includeAudio && fields.audioDurationSec !== undefined)
+    form.set("audioDurationSec", String(fields.audioDurationSec));
   form.set("includeMetadata", String(fields.includeMetadata));
   if (fields.hq) form.set("hq", "true");
   for (const key of ["packName", "publisher"] as const) {

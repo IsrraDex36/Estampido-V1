@@ -234,7 +234,7 @@ function DurationCard() {
             Auto
           </Chip>
         )}
-        {presets.map((p) => (
+        {presets.filter((p) => p <= WHATSAPP_MAX_ANIMATION_SEC).map((p) => (
           <Chip
             key={p}
             active={effective === p || (requested === p && effective !== undefined && effective < p)}
@@ -244,7 +244,7 @@ function DurationCard() {
             {presetLabel(p)}
           </Chip>
         ))}
-        {isVideo && known && (
+        {isVideo && known && untilEnd <= WHATSAPP_MAX_ANIMATION_SEC + 0.05 && (
           <Chip
             active={effective !== undefined && Math.abs(effective - untilEnd) < 0.05}
             disabled={disabled}
@@ -255,6 +255,39 @@ function DurationCard() {
           </Chip>
         )}
       </div>
+
+      {/* Longer than WhatsApp animates: still possible, set apart and labeled for what it is. */}
+      {!isImage && presets.some((p) => p > WHATSAPP_MAX_ANIMATION_SEC) && (
+        <div className="space-y-1.5 border-t border-border/60 pt-3">
+          <p className="text-[12px] text-muted-foreground">
+            Más largo · <span className="text-retro-a">solo para descargar</span> (WhatsApp anima hasta {WHATSAPP_MAX_ANIMATION_SEC} s)
+          </p>
+          <div className="-mx-1 flex snap-x gap-1.5 overflow-x-auto px-1 pb-0.5 [scrollbar-width:none] sm:flex-wrap [&::-webkit-scrollbar]:hidden [&>*]:shrink-0 [&>*]:snap-start">
+            {presets
+              .filter((p) => p > WHATSAPP_MAX_ANIMATION_SEC)
+              .map((p) => (
+                <Chip
+                  key={p}
+                  active={effective === p || (requested === p && effective !== undefined && effective < p)}
+                  disabled={disabled || (known && p > remaining + 0.05)}
+                  onClick={() => setDuration(p)}
+                >
+                  {presetLabel(p)}
+                </Chip>
+              ))}
+            {isVideo && known && untilEnd > WHATSAPP_MAX_ANIMATION_SEC + 0.05 && (
+              <Chip
+                active={effective !== undefined && Math.abs(effective - untilEnd) < 0.05}
+                disabled={disabled}
+                onClick={() => setDuration(untilEnd)}
+              >
+                <ArrowRightToLineIcon className="size-3.5" />
+                Hasta el final
+              </Chip>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -267,9 +300,8 @@ const SMOOTH: Record<Smoothness, { level: number; title: string; detail: string 
 
 /** How the length trades against the 500 KB budget. */
 function SmoothnessMeter() {
-  const { smoothness, disabled } = useSegment();
+  const { smoothness } = useSegment();
   const hq = useConverterStore((s) => s.options.hq ?? false);
-  const update = useConverterStore((s) => s.updateOptions);
   const s = SMOOTH[smoothness];
   return (
     <div className="flex items-center gap-3 rounded-2xl bg-muted/60 px-4 py-3">
@@ -292,11 +324,6 @@ function SmoothnessMeter() {
         </p>
         <p className="text-[12px] leading-snug text-muted-foreground">{s.detail}</p>
       </div>
-      {smoothness !== "fluid" && !hq && (
-        <Button variant="link" size="xs" className="h-auto shrink-0 p-0" disabled={disabled} onClick={() => update({ hq: true })}>
-          Calidad alta
-        </Button>
-      )}
     </div>
   );
 }

@@ -13,6 +13,17 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Info del sticker que invita**: al tocar un sticker en WhatsApp ahora dice «Busca o crea más en • estampido.isrradev.com» (en vez de «Estampido • estampido») cuando dejas el pack vacío.
+- **Duración guiada**: 3/5/10 s arriba (10 s es lo máximo que anima WhatsApp); 30 s–3 min aparte como «Más largo · solo para descargar».
+
+### Cambiado
+
+- **Calidad alta** ahora llega hasta 1 MB (antes 5 MB) y se presenta como «para descargar»: por encima de 500 KB WhatsApp suele trabar o congelar el sticker. El medidor de fluidez ya no empuja a Calidad alta.
+
+### Corregido
+
+- Con el sonido apagado se enviaba igual la duración del audio y podía hacer fallar la conversión.
+
 - **Texto estilo CapCut**: 8 tipografías (Clásica, Impacto, Cómic, Gordita, Póster, Plumón, Cursiva, Pixel; se cargan solo al abrir la pestaña), 4 estilos (Contorno, Sombra, Caja, Neón) y cualquier color (8 rápidos + selector libre) con contorno automático por contraste.
 - **Más efectos de voz**: Robot, Radio, Alien y Cueva (8 en total), todos conservan la duración exacta.
 - **Estilo**: filtros de color (B/N, Vivo, Retro, Frío, Cálido) con miniaturas en vivo y **Espejo**; la vista previa (también el encuadre arrastrable) refleja ambos.

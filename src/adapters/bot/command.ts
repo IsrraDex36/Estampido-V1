@@ -8,7 +8,7 @@ export interface SaudioCommand {
   fit: FitMode;
   /** `voz`/`audio` flag: wait for a voice note/audio to use instead of the video's sound. */
   customAudio: boolean;
-  /** EXPERIMENTAL `hq` flag: lift the 500 KB cap (up to 5 MB). */
+  /** EXPERIMENTAL `hq` flag: lift the 500 KB cap (up to 1 MB). */
   hq: boolean;
 }
 

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { STICKER_DEFAULTS } from "../../src/adapters/http/contract.js";
 import { UserInputError } from "../../src/core/errors.js";
 import {
   buildStickerExif,
@@ -88,5 +89,12 @@ describe("embedExif", () => {
     const out = embedExif(fakeVp8l(), odd);
     expect(out.length % 2).toBe(0);
     expect(readExif(out)?.length).toBe(odd.length);
+  });
+});
+
+describe("default pack text invites to the site", () => {
+  it("«Busca o crea más en • estampido.isrradev.com», mirrored for the web", () => {
+    expect(DEFAULT_METADATA).toEqual({ packName: "Busca o crea más en", publisher: "estampido.isrradev.com" });
+    expect(STICKER_DEFAULTS).toEqual(DEFAULT_METADATA);
   });
 });

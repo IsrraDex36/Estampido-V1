@@ -1,3 +1,4 @@
+import { STICKER_DEFAULTS } from "@contract";
 import { useShallow } from "zustand/react/shallow";
 import { Input } from "@/components/ui/input";
 import { useClipStill } from "../../hooks/useClipStill";
@@ -7,8 +8,8 @@ import { StickerLook } from "./StickerLook";
 
 type TextKey = "packName" | "publisher";
 const FIELDS: { key: TextKey; label: string; placeholder: string }[] = [
-  { key: "packName", label: "Pack", placeholder: "Estampido" },
-  { key: "publisher", label: "Autor", placeholder: "estampido" },
+  { key: "packName", label: "Pack", placeholder: STICKER_DEFAULTS.packName },
+  { key: "publisher", label: "Autor", placeholder: STICKER_DEFAULTS.publisher },
 ];
 
 /** Pack name + author, with a live «sticker info» card like WhatsApp's. */
@@ -17,8 +18,8 @@ export function PackOptions() {
     useShallow((s) => ({ options: s.options, disabled: selectBusy(s), update: s.updateOptions })),
   );
   const still = useClipStill();
-  const pack = options.packName?.trim() || "Estampido";
-  const author = options.publisher?.trim() || "estampido";
+  const pack = options.packName?.trim() || STICKER_DEFAULTS.packName;
+  const author = options.publisher?.trim() || STICKER_DEFAULTS.publisher;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
@@ -49,6 +50,11 @@ export function PackOptions() {
             </Row>
           ))}
       </GroupedList>
+      {options.includeMetadata && !options.packName?.trim() && !options.publisher?.trim() && (
+        <p className="-mt-2 px-1 text-[12px] text-muted-foreground">
+          Vacío, invita a quien lo reciba a crear los suyos en {STICKER_DEFAULTS.publisher}.
+        </p>
+      )}
 
       {/* Grows into the free space (lg: the column matches the clip's height). */}
       <figure className="flex flex-1 flex-col gap-2">

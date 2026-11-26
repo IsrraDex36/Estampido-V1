@@ -72,7 +72,7 @@ function useTabSummaries(): { values: Record<TabId, string>; attention: Partial<
       ]
         .filter(Boolean)
         .join(" · "),
-      pack: s.includeMetadata ? s.packName?.trim() || "Estampido" : "Sin datos",
+      pack: s.includeMetadata ? s.packName?.trim() || "Por defecto" : "Sin datos",
     },
     attention: { sound: needsSound, style: s.hq },
     muted: !s.includeAudio,

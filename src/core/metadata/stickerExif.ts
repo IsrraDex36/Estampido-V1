@@ -16,7 +16,12 @@ export interface StickerMetadata {
 
 export type StickerMetadataInput = Partial<StickerMetadata>;
 
-export const DEFAULT_METADATA = { packName: "Estampido", publisher: "estampido" } as const;
+/**
+ * Shown by WhatsApp when someone taps the sticker («pack • autor»). By
+ * default it invites whoever receives it to make their own: «Busca o crea más
+ * en • estampido.isrradev.com». Mirrored in the HTTP contract (tested).
+ */
+export const DEFAULT_METADATA = { packName: "Busca o crea más en", publisher: "estampido.isrradev.com" } as const;
 const MAX_TEXT = 128;
 const MAX_EMOJIS = 3;
 const WA_TAG = 0x5741;
