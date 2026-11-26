@@ -26,6 +26,7 @@ export {
   CheckCircleIcon as CircleCheckIcon,
   CheckIcon,
   CompassIcon,
+  CopyIcon,
   CircleNotchIcon as Loader2Icon,
   DotsThreeIcon as MoreHorizontalIcon,
   DownloadSimpleIcon as DownloadIcon,

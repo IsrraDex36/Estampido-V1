@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { CircleCheckIcon, Loader2Icon } from "@/components/icons";
+import { CheckIcon, CircleCheckIcon, CopyIcon, Loader2Icon } from "@/components/icons";
 import { Mascot } from "@/components/pixel/Mascot";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -145,38 +145,79 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
   }
 
   const s = step.status;
+  return <Linking status={s} onRestart={() => setStep({ kind: "intro" })} />;
+}
+
+/** The waiting screen: numbered steps for code (phone) or QR (computer), live status. */
+function Linking({ status: s, onRestart }: { status: LinkStatus; onRestart: () => void }) {
+  const [copied, setCopied] = useState(false);
+  const steps =
+    s.state === "qr"
+      ? [
+          "Abre WhatsApp en tu celular.",
+          "Toca ⋮ (Android) o Configuración (iPhone) → Dispositivos vinculados.",
+          "Toca «Vincular un dispositivo» y apunta la cámara a este código.",
+        ]
+      : [
+          "Copia el código y abre WhatsApp.",
+          "Toca ⋮ (Android) o Configuración (iPhone) → Dispositivos vinculados → Vincular un dispositivo.",
+          "Elige «Vincular con número de teléfono» y escribe el código.",
+          "Regresa aquí: se conecta solo y te mandamos el sticker.",
+        ];
   return (
     <div className="space-y-4">
       <DialogHeader className="items-center text-center">
-        <DialogTitle>{s.state === "qr" ? "Escanea con tu WhatsApp" : "Escribe este código en tu WhatsApp"}</DialogTitle>
-        <DialogDescription>
-          WhatsApp → <b>Dispositivos vinculados</b> → <b>Vincular un dispositivo</b>
-          {s.state === "code" ? (
-            <>
-              {" "}
-              → <b>Vincular con número de teléfono</b>
-            </>
-          ) : null}
-          .
-        </DialogDescription>
+        <DialogTitle>{s.state === "qr" ? "Escanea con tu WhatsApp" : "Tu código para WhatsApp"}</DialogTitle>
+        <DialogDescription>Así Estampido queda como dispositivo vinculado, solo para mandarte a ti.</DialogDescription>
       </DialogHeader>
       {s.state === "qr" ? (
-        <div className="mx-auto w-64 rounded-3xl bg-white p-3">
+        <div className="mx-auto w-60 rounded-3xl bg-white p-3">
           <img src={`data:image/svg+xml;utf8,${encodeURIComponent(s.qrSvg)}`} alt="Código QR para vincular" className="aspect-square w-full" />
         </div>
       ) : s.state === "code" ? (
-        <p className="text-center font-mono text-4xl font-semibold tracking-[0.15em]" aria-live="polite">
-          {s.code}
-        </p>
+        <div className="space-y-2 rounded-2xl bg-stage px-4 py-4 text-center">
+          <p className="font-mono text-4xl font-semibold tracking-[0.15em]" aria-live="polite">
+            {s.code}
+          </p>
+          <Button
+            variant="secondary"
+            size="sm"
+            className="rounded-full"
+            onClick={() =>
+              void navigator.clipboard?.writeText(s.code.replace("-", "")).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1500);
+              })
+            }
+          >
+            {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
+            {copied ? "Copiado" : "Copiar código"}
+          </Button>
+        </div>
       ) : (
         <div className="grid h-40 place-items-center">
           <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
         </div>
       )}
+      {(s.state === "qr" || s.state === "code") && (
+        <ol className="space-y-2 text-[13px]">
+          {steps.map((t, i) => (
+            <li key={t} className="flex gap-2.5">
+              <span className="grid size-6 shrink-0 place-items-center rounded-full bg-foreground text-[12px] font-semibold text-background">
+                {i + 1}
+              </span>
+              <span className="pt-0.5 text-muted-foreground">{t}</span>
+            </li>
+          ))}
+        </ol>
+      )}
       <p className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground" role="status">
         {s.state === "linked" ? <CircleCheckIcon className="size-4 text-sound" /> : <Loader2Icon className="size-4 animate-spin" />}
-        Esperando a tu WhatsApp…
+        Esperando a tu WhatsApp… (el código vence en unos minutos)
       </p>
+      <button type="button" className="mx-auto block text-[12px] text-muted-foreground underline-offset-4 hover:underline" onClick={onRestart}>
+        Pedir otro código / cambiar de método
+      </button>
     </div>
   );
 }
