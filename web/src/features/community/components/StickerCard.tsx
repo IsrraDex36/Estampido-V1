@@ -50,7 +50,8 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
   return (
     <article
       className={cn(
-        "group flex flex-col overflow-hidden rounded-3xl bg-muted/40 ring-1 ring-border/60 transition-shadow hover:ring-foreground/20",
+        // h-full: every card in a grid row is as tall as the tallest one.
+        "group flex h-full flex-col overflow-hidden rounded-3xl bg-muted/40 ring-1 ring-border/60 transition-shadow hover:ring-foreground/20",
         className,
       )}
     >
@@ -116,36 +117,44 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
         )}
       </div>
 
-      <div className="space-y-2 p-3">
-        <div className="min-w-0">
-          <h3 className="truncate text-[14px] font-medium tracking-tight" title={sticker.title}>
+      {/* Fixed layout: title + three reserved lines (creator · category · counts), then
+          the actions pinned to the bottom — every card lines up, whatever its text. */}
+      <div className="flex flex-1 flex-col gap-2 p-3">
+        <div className="min-w-0 space-y-0.5">
+          <h3 className="truncate text-[14px] leading-5 font-medium tracking-tight" title={sticker.title}>
             {sticker.title}
           </h3>
-          {sticker.creator && (
+          {sticker.creator ? (
             <Link
               href={creatorHref(sticker.creator.handle)}
-              className="mt-1 flex w-fit max-w-full items-center gap-1.5 rounded-full text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+              className="flex h-[18px] w-fit max-w-full items-center gap-1.5 rounded-full text-[12px] text-muted-foreground transition-colors hover:text-foreground"
             >
-              <Avatar avatar={sticker.creator.avatar} size={18} />
+              <Avatar avatar={sticker.creator.avatar} size={16} />
               <span className="truncate">@{sticker.creator.handle}</span>
             </Link>
-          )}
-          {cat && (
-            <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
-              {cat.emoji} {cat.label}
+          ) : (
+            <p className="flex h-[18px] items-center gap-1.5 text-[12px] text-muted-foreground/70">
+              <span className="grid size-4 place-items-center rounded-full bg-muted text-[9px]" aria-hidden>
+                ✦
+              </span>
+              <span className="truncate">Comunidad</span>
             </p>
           )}
-          {(sticker.uses > 0 || sticker.saves > 0) && (
-            <p className="mt-0.5 truncate text-[12px] text-muted-foreground tabular-nums">
-              {[
-                sticker.uses > 0 && countLabel(sticker.uses, "uso", "usos"),
-                sticker.saves > 0 && countLabel(sticker.saves, "guardado", "guardados"),
-              ]
-                .filter(Boolean)
-                .join(" · ")}
-            </p>
-          )}
+          <p className="h-[18px] truncate text-[12px] leading-[18px] text-muted-foreground">
+            {cat ? `${cat.emoji} ${cat.label}` : "\u00a0"}
+          </p>
+          <p className="h-[18px] truncate text-[12px] leading-[18px] text-muted-foreground tabular-nums">
+            {sticker.uses > 0 || sticker.saves > 0
+              ? [
+                  sticker.uses > 0 && countLabel(sticker.uses, "uso", "usos"),
+                  sticker.saves > 0 && countLabel(sticker.saves, "guardado", "guardados"),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "Sin usos aún"}
+          </p>
         </div>
+        <div className="mt-auto space-y-2">
         <SendToWhatsAppButton sticker={sticker} />
         <div className="flex items-center justify-between text-muted-foreground">
           <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={toggleSaved}>
@@ -169,6 +178,7 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
             <span className="w-14" />
           )}
           <MoreMenu sticker={sticker} />
+        </div>
         </div>
       </div>
     </article>
