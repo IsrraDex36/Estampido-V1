@@ -74,3 +74,19 @@ que lleva a baneos).
   WhatsApp» (cuentas).
 - Si `account.secret` cambia, todas las sesiones dejan de abrirse y cada
   persona debe vincular otra vez.
+
+### Blindaje (modelo de amenazas)
+
+| Riesgo                                            | Defensa                                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| Hackeo del servidor                               | No hay sesiones guardadas: viven selladas en cada navegador                                                  |
+| Sesión copiada (logs, capturas, respaldos)        | El sello autentica el id del navegador (AAD): en otro navegador no abre                                      |
+| Sesiones olvidadas                                | Caducan a los 180 días sin uso; cada envío las renueva                                                       |
+| Incidente: invalidar todas                        | Subir `SVA_SELF_EPOCH` (cambia la llave)                                                                     |
+| Acoso con códigos de vinculación a números ajenos | Máx. 3 códigos por número por hora (huella en memoria) + límite por IP                                       |
+| Robar una vinculación en curso                    | Solo el navegador que la empezó la ve y la recoge (una vez)                                                  |
+| Dos pestañas a la vez                             | Candado por cuenta: nunca dos conexiones del mismo WhatsApp                                                  |
+| Mandar a otras personas / archivos del servidor   | Siempre al chat propio; solo archivos de resultados o comunidad (rutas validadas)                            |
+| Agotar recursos                                   | 4 conexiones a la vez, fila acotada, tiempo máximo por operación, vinculaciones abandonadas se cierran solas |
+| Fugas por logs o cachés                           | Los errores no incluyen la sesión; respuestas con `no-store`                                                 |
+| «Bomba» comprimida dentro de una sesión           | Descompresión con tope (16 MB)                                                                               |

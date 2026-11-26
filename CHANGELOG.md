@@ -32,6 +32,12 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **«Tu propio WhatsApp» blindado**: la sesión queda atada al navegador que la vinculó (copiarla a otro no sirve), caduca a los 180 días sin uso, se pueden revocar todas con `SVA_SELF_EPOCH`, máximo 3 códigos de vinculación por número por hora (contra acoso), una vinculación en curso solo la ve su navegador, candado por cuenta (nunca dos conexiones del mismo WhatsApp), fila acotada y tiempo máximo por operación, respuestas `no-store` y errores sin datos de la sesión.
+
+### Corregido
+
+- La fila de espera de envíos podía atorarse si alguien se cansaba de esperar; una conexión vieja quedaba abierta al reconectar durante la vinculación; algunos errores escapaban como excepción en vez de respuesta.
+
 - **«Enviar a mi WhatsApp» con tu propio WhatsApp**: cada persona vincula su WhatsApp como dispositivo (código con su número o QR) y el sticker llega **a su propio chat «Tú»** con sonido. Ya no hay un número de Estampido escribiéndole a muchas personas (lo que provoca baneos). La sesión queda **cifrada solo en el navegador** (el servidor no guarda ninguna), la conexión dura segundos, no se lee ni guarda nada de los chats. Packs y colección se envían en una sola conexión. «Desvincular mi WhatsApp» en cualquier momento. Privacidad actualizada.
 
 - **Modo defensa** en `/admin`: durante un ataque, crear stickers queda solo para cuentas vinculadas con WhatsApp; los demás ven «Entra con tu WhatsApp para crear».

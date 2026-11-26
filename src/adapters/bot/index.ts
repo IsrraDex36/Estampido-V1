@@ -147,7 +147,8 @@ await connect({
 // "Enviar a mi WhatsApp" from the web goes through this localhost-only endpoint.
 const live = () => (current && (current.ws as { isOpen?: boolean }).isOpen !== false ? current : null);
 // «Tu propio WhatsApp»: sessions sealed with a key derived from the persistent account secret.
-const self = new SelfSessions({ sealKey: sealKeyFrom(await loadAccountSecret()) });
+// SVA_SELF_EPOCH: raise it to revoke every linked session at once (incident response).
+const self = new SelfSessions({ sealKey: sealKeyFrom(await loadAccountSecret(), process.env.SVA_SELF_EPOCH ?? "1") });
 const control = await startControlServer({
   self,
   current: live,

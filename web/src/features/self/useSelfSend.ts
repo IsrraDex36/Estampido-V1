@@ -24,7 +24,8 @@ export function useSelfSend() {
       return true;
     } catch (err) {
       setState("idle");
-      if (err instanceof ApiError && (err.status === 410 || err.code === "logged_out" || err.code === "invalid")) {
+      // Session no longer usable (device removed, expired, sealed for another browser/epoch): forget it, re-link.
+      if (err instanceof ApiError && (err.status === 410 || ["logged_out", "invalid", "expired"].includes(err.code))) {
         useSelfStore.getState().setSession(null);
         notify.error("Tu WhatsApp quitó este dispositivo. Vincúlalo otra vez.");
         useSelfStore.getState().openDialog(() => void run(what, label));

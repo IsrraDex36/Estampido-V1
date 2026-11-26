@@ -18,7 +18,7 @@ export async function startLink(phone?: string): Promise<string> {
 }
 
 export async function linkStatus(id: string): Promise<LinkStatus> {
-  return readJson(await fetch(`/api/self/link/${encodeURIComponent(id)}`, { cache: "no-store" }));
+  return readJson(await fetch(`/api/self/link/${encodeURIComponent(id)}`, { cache: "no-store", headers: clientHeaders() }));
 }
 
 /** Send to your own chat. The refreshed sealed session replaces the stored one. */

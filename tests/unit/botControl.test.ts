@@ -229,40 +229,113 @@ describe("control: admin unlink", () => {
 });
 
 describe("control: «Tu propio WhatsApp»", () => {
-  it("only result/community files can be sent; bad requests and session errors map to clear statuses", async () => {
+  const A = "a".repeat(64);
+  async function makeApp(overrides: Record<string, unknown> = {}) {
     const { SessionError } = await import("../../src/adapters/bot/selfSession.js");
     const results = await mkdtemp(join(tmpdir(), "sva-self-"));
-    const sent: unknown[] = [];
+    const calls: unknown[][] = [];
     const self = {
-      startLink: async () => "link-1",
-      linkStatus: (id: string) => (id === "link-1" ? { state: "code", code: "ABCD-EFGH" } : null),
-      sendToSelf: async (_s: string, items: unknown[]) => {
-        sent.push(...items);
-        return { result: { sent: items.length }, session: "s1.new" };
+      startLink: async (...a: unknown[]) => {
+        calls.push(["link", ...a]);
+        return "link-1";
+      },
+      linkStatus: (id: string, client: string) =>
+        id === "link-1" && client === A ? { state: "code", code: "ABCD-EFGH" } : null,
+      sendToSelf: async (...a: unknown[]) => {
+        calls.push(["send", ...a]);
+        return { result: { sent: 1 }, session: "s2.new" };
       },
       logout: async () => {
         throw new SessionError("gone", "logged_out");
       },
+      ...overrides,
     };
     const app = createControlApp({ current: () => null, links: () => null, self: self as never }, TOKEN, results);
     const post = (path: string, body: unknown) =>
       app.request(path, { method: "POST", headers: auth, body: JSON.stringify(body) });
-    expect(await (await post("/self/link", {})).json()).toEqual({ id: "link-1" });
-    expect(await (await app.request("/self/link/link-1", { headers: auth })).json()).toEqual({
-      state: "code",
-      code: "ABCD-EFGH",
-    });
-    expect((await app.request("/self/link/nope", { headers: auth })).status).toBe(404);
-    expect((await post("/self/send", { session: "s1.x", items: [] })).status).toBe(400);
-    // A path outside the allowed folders is refused (never send arbitrary server files).
-    const evil = await post("/self/send", {
-      session: "s1.xxxxxxxxxx",
-      items: [{ webpPath: "/etc/passwd", animated: false }],
-    });
-    expect(evil.status).toBeGreaterThanOrEqual(400);
-    expect(sent).toEqual([]);
-    expect((await post("/self/logout", { session: "s1.xxxxxxxxxx" })).status).toBe(410);
-    expect((await app.request("/self/link", { method: "POST" })).status).toBe(401);
+    return { app, post, calls, results, SessionError };
+  }
+
+  it("link: needs the browser id; the phone must be plain digits; extra fields refused", async () => {
+    const { post, calls, results } = await makeApp();
+    expect((await post("/self/link", {})).status).toBe(400);
+    expect((await post("/self/link", { client: "x" })).status).toBe(400);
+    expect((await post("/self/link", { client: A, phone: "+52 229" })).status).toBe(400);
+    expect((await post("/self/link", { client: A, evil: 1 })).status).toBe(400);
+    expect(await (await post("/self/link", { client: A, phone: "5212290000000" })).json()).toEqual({ id: "link-1" });
+    expect(calls).toEqual([["link", A, "5212290000000"]]);
+    await rm(results, { recursive: true, force: true });
+  });
+
+  it("link status only for the browser that started it", async () => {
+    const { app, results } = await makeApp();
+    expect((await app.request(`/self/link/link-1?client=${A}`, { headers: auth })).status).toBe(200);
+    expect((await app.request(`/self/link/link-1?client=${"b".repeat(64)}`, { headers: auth })).status).toBe(404);
+    expect((await app.request("/self/link/link-1", { headers: auth })).status).toBe(400);
+    await rm(results, { recursive: true, force: true });
+  });
+
+  it("send: only files inside the result/community folders; never arbitrary server files", async () => {
+    const { post, calls, results } = await makeApp();
+    for (const webpPath of ["/etc/passwd", "/etc/hosts.webp", `${results}/../../etc/x.webp`, "relative.webp"]) {
+      const r = await post("/self/send", {
+        client: A,
+        session: "s2.xxxxxxxxxx",
+        items: [{ webpPath, animated: false }],
+      });
+      expect(r.status, webpPath).toBe(400);
+    }
+    expect(calls).toEqual([]);
+    // Malformed bodies.
+    for (const body of [
+      { client: A, session: "s2.xxxxxxxxxx", items: [] },
+      { client: A, session: "short", items: [{ webpPath: "/x.webp", animated: true }] },
+      {
+        client: A,
+        session: "s2.xxxxxxxxxx",
+        items: [{ webpPath: "/x.webp", animated: true, jid: "otro@s.whatsapp.net" }],
+      },
+      { session: "s2.xxxxxxxxxx", items: [{ webpPath: "/x.webp", animated: true }] },
+    ]) {
+      expect((await post("/self/send", body)).status).toBe(400);
+    }
+    await rm(results, { recursive: true, force: true });
+  });
+
+  it("errors map to clear statuses and never echo the session", async () => {
+    const { SessionError } = await import("../../src/adapters/bot/selfSession.js");
+    const cases: [string, number][] = [
+      ["invalid", 400],
+      ["expired", 410],
+      ["logged_out", 410],
+      ["rate_limited", 429],
+      ["timeout", 504],
+      ["busy", 503],
+      ["send_failed", 502],
+    ];
+    for (const [code, status] of cases) {
+      const { post, results } = await makeApp({
+        startLink: async () => {
+          throw new SessionError("msg", code as never);
+        },
+      });
+      const r = await post("/self/link", { client: A });
+      expect(r.status, code).toBe(status);
+      expect(await r.json()).toEqual({ error: "msg", code });
+      await rm(results, { recursive: true, force: true });
+    }
+    const { post, results } = await makeApp();
+    const out = await post("/self/logout", { client: A, session: "s2.secretsecretsecret" });
+    expect(out.status).toBe(410);
+    expect(await out.text()).not.toContain("secretsecret");
+    await rm(results, { recursive: true, force: true });
+  });
+
+  it("all self routes need the control token", async () => {
+    const { app, results } = await makeApp();
+    for (const path of ["/self/link", "/self/send", "/self/logout"]) {
+      expect((await app.request(path, { method: "POST" })).status).toBe(401);
+    }
     await rm(results, { recursive: true, force: true });
   });
 });

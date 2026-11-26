@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes, randomUUID } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import makeWASocket, {
   type AuthenticationCreds,
@@ -12,6 +12,7 @@ import makeWASocket, {
   type WASocket,
 } from "baileys";
 import pino from "pino";
+import { RateLimiter } from "../../utils/rateLimit.js";
 import { formatPairingCode, normalizePairingNumber } from "./connection.js";
 import { resolveWaVersion } from "./pairing.js";
 import { type SoundStickerInput, sendSoundSticker } from "./soundSticker.js";
@@ -19,16 +20,24 @@ import { type SoundStickerInput, sendSoundSticker } from "./soundSticker.js";
 /**
  * «Tu propio WhatsApp»: each person links THEIR WhatsApp as a linked device
  * and Estampido sends the sticker to their own «Tú» chat. No shared number
- * messaging many people (the ban pattern), and no stored accounts:
+ * messaging many people (the ban pattern), and no stored accounts.
  *
- * - The session (WhatsApp keys) lives ONLY in the person's browser, sealed
- *   (AES-256-GCM) with a key only this server has. Neither half works alone:
- *   a stolen browser copy is useless outside this server; a server breach
- *   finds no sessions at all (nothing is written to disk).
- * - Connections are ephemeral: open in memory → send to self → close, and
- *   the updated sealed session goes back to the browser.
- * - Nothing is read or kept: no history sync, no message handlers, the
- *   phone number is used only to request the pairing code.
+ * Threat model and defenses:
+ * - Server breach → nothing to steal: sessions are never written here; they
+ *   live sealed (AES-256-GCM) in each person's browser.
+ * - Copied session (logs, screenshots, backups, a shared browser profile) →
+ *   useless elsewhere: the seal authenticates the browser's id (AAD), and
+ *   only this server has the key. Unused sessions expire (180 days).
+ * - Mass revocation → bump SVA_SELF_EPOCH: every sealed session stops opening.
+ * - Harassment with pairing codes (typing someone else's number so their
+ *   phone gets «link a device» prompts) → per-number cap (hashed, in memory).
+ * - Link hijack → a pending link is handed only to the browser that started it.
+ * - Two tabs at once → one operation per WhatsApp account at a time (lock),
+ *   so the device keys never fork.
+ * - Resource abuse → few sockets at once, a bounded waiting line, a time
+ *   limit on every operation, abandoned links closed by a timer.
+ * - Privacy → no history sync, no init queries, no message handlers; the
+ *   phone number is only used to request the code.
  */
 
 // ── sealing ─────────────────────────────────────────────────────────────────
@@ -38,42 +47,77 @@ export interface SessionSnapshot {
   keys: Partial<Record<keyof SignalDataTypeMap, Record<string, unknown>>>;
 }
 
-const VERSION = "s1";
+const VERSION = "s2";
+/** Sessions not used for this long stop opening (each send refreshes it). */
+export const SESSION_MAX_AGE_MS = 180 * 24 * 60 * 60_000;
 
-/** Key for sealing sessions, derived from the server's persistent secret (never leaves the server). */
-export const sealKeyFrom = (secret: Buffer): Buffer =>
-  createHmac("sha256", secret).update("estampido/self-session/v1").digest();
+/**
+ * Key for sealing sessions, derived from the server's persistent secret and
+ * an epoch (SVA_SELF_EPOCH): raising the epoch revokes every session at once.
+ */
+export const sealKeyFrom = (secret: Buffer, epoch = "1"): Buffer =>
+  createHmac("sha256", secret).update(`estampido/self-session/v2/${epoch}`).digest();
 
-export function sealSession(s: SessionSnapshot, key: Buffer): string {
-  const plain = gzipSync(Buffer.from(JSON.stringify(s, BufferJSON.replacer)));
+interface Sealed {
+  /** Issued at (ms). */
+  iat: number;
+  s: SessionSnapshot;
+}
+
+/** Seal a session for ONE browser (`bind` = its client hash, authenticated as AAD). */
+export function sealSession(s: SessionSnapshot, key: Buffer, bind: string, now = Date.now()): string {
+  const plain = gzipSync(Buffer.from(JSON.stringify({ iat: now, s } satisfies Sealed, BufferJSON.replacer)));
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
+  cipher.setAAD(Buffer.from(`${VERSION}:${bind}`));
   const body = Buffer.concat([cipher.update(plain), cipher.final()]);
   return `${VERSION}.${Buffer.concat([iv, cipher.getAuthTag(), body]).toString("base64url")}`;
 }
 
+export type SessionErrorCode =
+  | "invalid"
+  | "expired"
+  | "logged_out"
+  | "timeout"
+  | "busy"
+  | "send_failed"
+  | "rate_limited";
+
 export class SessionError extends Error {
   constructor(
     message: string,
-    readonly code: "invalid" | "logged_out" | "timeout" | "busy" | "send_failed",
+    readonly code: SessionErrorCode,
   ) {
     super(message);
     this.name = "SessionError";
   }
 }
 
-export function openSession(sealed: string, key: Buffer): SessionSnapshot {
+const INVALID = () =>
+  new SessionError("Tu vinculación no es válida en este navegador. Vincula tu WhatsApp otra vez.", "invalid");
+
+export function openSession(sealed: string, key: Buffer, bind: string, now = Date.now()): SessionSnapshot {
   const [v, data] = sealed.split(".");
-  if (v !== VERSION || !data) throw new SessionError("Sesión no válida.", "invalid");
+  if (v !== VERSION || !data || data.length > 3_000_000) throw INVALID();
+  let parsed: Sealed;
   try {
     const raw = Buffer.from(data, "base64url");
+    if (raw.length < 29) throw new Error("short");
     const decipher = createDecipheriv("aes-256-gcm", key, raw.subarray(0, 12));
+    decipher.setAAD(Buffer.from(`${VERSION}:${bind}`));
     decipher.setAuthTag(raw.subarray(12, 28));
-    const plain = gunzipSync(Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]));
-    return JSON.parse(plain.toString("utf8"), BufferJSON.reviver) as SessionSnapshot;
+    const plain = gunzipSync(Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]), {
+      maxOutputLength: 16 * 1024 * 1024, // a sealed session is ~10–100 KB: refuse zip bombs
+    });
+    parsed = JSON.parse(plain.toString("utf8"), BufferJSON.reviver) as Sealed;
   } catch {
-    throw new SessionError("Sesión no válida.", "invalid");
+    throw INVALID();
   }
+  if (typeof parsed?.iat !== "number" || !parsed.s?.creds) throw INVALID();
+  if (now - parsed.iat > SESSION_MAX_AGE_MS) {
+    throw new SessionError("Tu vinculación venció por falta de uso. Vincula tu WhatsApp otra vez.", "expired");
+  }
+  return parsed.s;
 }
 
 // ── in-memory auth state ────────────────────────────────────────────────────
@@ -112,10 +156,17 @@ export function memoryAuthState(from?: SessionSnapshot): {
 
 // ── sockets ─────────────────────────────────────────────────────────────────
 
+/** The part of a Baileys socket we use (lets tests drive the whole flow with a fake). */
+export type SelfSocket = Pick<WASocket, "ev" | "end" | "logout" | "requestPairingCode" | "sendMessage"> & {
+  user?: WASocket["user"];
+};
+
+export type SocketFactory = (state: AuthenticationState) => Promise<SelfSocket>;
+
 const quiet = pino({ level: "silent" });
 
 /** A socket that never asks for history nor handles messages (we only send to ourselves). */
-async function openSocket(state: AuthenticationState): Promise<WASocket> {
+export const realSocket: SocketFactory = async (state) => {
   const { version } = await resolveWaVersion();
   return makeWASocket({
     auth: state,
@@ -129,45 +180,77 @@ async function openSocket(state: AuthenticationState): Promise<WASocket> {
     emitOwnEvents: false,
     getMessage: async () => undefined,
   });
-}
+};
+
+type ConnUpdate = { connection?: string; qr?: string; lastDisconnect?: { error?: unknown } };
+const statusOf = (u: ConnUpdate) =>
+  (u.lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
 
 /** Resolves when the socket is open; rejects on logout/close/timeout. */
-function untilOpen(sock: WASocket, timeoutMs: number): Promise<void> {
+function untilOpen(sock: SelfSocket, timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
-    const t = setTimeout(() => reject(new SessionError("WhatsApp no respondió a tiempo.", "timeout")), timeoutMs);
-    sock.ev.on("connection.update", ({ connection, lastDisconnect }) => {
-      if (connection === "open") {
+    const t = setTimeout(
+      () => reject(new SessionError("Tu WhatsApp no respondió a tiempo. Intenta otra vez.", "timeout")),
+      timeoutMs,
+    );
+    sock.ev.on("connection.update", (u: ConnUpdate) => {
+      if (u.connection === "open") {
         clearTimeout(t);
         resolve();
-      } else if (connection === "close") {
+      } else if (u.connection === "close") {
         clearTimeout(t);
-        const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
         reject(
-          code === DisconnectReason.loggedOut
+          statusOf(u) === DisconnectReason.loggedOut
             ? new SessionError("Tu WhatsApp quitó este dispositivo: vincúlalo otra vez.", "logged_out")
-            : new SessionError("No se pudo conectar con tu WhatsApp.", "timeout"),
+            : new SessionError("No se pudo conectar con tu WhatsApp. Intenta otra vez.", "timeout"),
         );
       }
     });
   });
 }
 
-/** Small concurrency gate: a handful of self sessions at once, the rest wait briefly. */
-class Gate {
+/** Reject after `ms` (the operation keeps running but its socket is closed by the caller). */
+const within = <T>(p: Promise<T>, ms: number, what: string): Promise<T> =>
+  Promise.race([
+    p,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new SessionError(`${what} tardó demasiado.`, "timeout")), ms).unref?.(),
+    ),
+  ]);
+
+/**
+ * Bounded concurrency with a bounded waiting line. A waiter that gives up is
+ * removed from the line (a dead entry must never swallow a free slot).
+ */
+export class Gate {
   private active = 0;
-  private readonly waiting: (() => void)[] = [];
-  constructor(private readonly max: number) {}
+  private readonly line: { go: () => void }[] = [];
+  constructor(
+    private readonly max: number,
+    private readonly maxWaiting = 20,
+  ) {}
+
+  get busy(): { active: number; waiting: number } {
+    return { active: this.active, waiting: this.line.length };
+  }
+
   async run<T>(fn: () => Promise<T>, waitMs = 30_000): Promise<T> {
     if (this.active >= this.max) {
+      if (this.line.length >= this.maxWaiting)
+        throw new SessionError("Mucha gente enviando: intenta en unos segundos.", "busy");
       await new Promise<void>((resolve, reject) => {
-        const t = setTimeout(
-          () => reject(new SessionError("Mucha gente enviando: intenta en unos segundos.", "busy")),
-          waitMs,
-        );
-        this.waiting.push(() => {
-          clearTimeout(t);
-          resolve();
-        });
+        const entry = {
+          go: () => {
+            clearTimeout(t);
+            resolve();
+          },
+        };
+        const t = setTimeout(() => {
+          const i = this.line.indexOf(entry);
+          if (i >= 0) this.line.splice(i, 1);
+          reject(new SessionError("Mucha gente enviando: intenta en unos segundos.", "busy"));
+        }, waitMs);
+        this.line.push(entry);
       });
     }
     this.active++;
@@ -175,8 +258,27 @@ class Gate {
       return await fn();
     } finally {
       this.active--;
-      this.waiting.shift()?.();
+      this.line.shift()?.go();
     }
+  }
+}
+
+/** One operation per key at a time (same WhatsApp from two tabs → in order, never in parallel). */
+export class KeyedLock {
+  private readonly tails = new Map<string, Promise<unknown>>();
+  async run<T>(key: string, fn: () => Promise<T>): Promise<T> {
+    const prev = this.tails.get(key) ?? Promise.resolve();
+    const mine = prev.then(fn, fn);
+    const tail = mine.catch(() => {});
+    this.tails.set(key, tail);
+    try {
+      return await mine;
+    } finally {
+      if (this.tails.get(key) === tail) this.tails.delete(key);
+    }
+  }
+  get size(): number {
+    return this.tails.size;
   }
 }
 
@@ -188,7 +290,21 @@ export interface SelfItem extends Partial<SoundStickerInput> {
 export interface SelfSessionsOptions {
   sealKey: Buffer;
   maxConcurrent?: number;
+  maxWaiting?: number;
   openTimeoutMs?: number;
+  /** Whole operation (connect + send N + close). */
+  opTimeoutMs?: number;
+  /** Pairing-code requests per phone number per hour (anti-harassment). */
+  codesPerNumberPerHour?: number;
+  /** Pending links at once. */
+  maxPendingLinks?: number;
+  linkTtlMs?: number;
+  /** Pauses (tests use 0). */
+  settleMs?: number;
+  gapMs?: number;
+  socket?: SocketFactory;
+  sendSticker?: (sock: SelfSocket, jid: string, item: SelfItem) => Promise<void>;
+  now?: () => number;
 }
 
 type LinkState =
@@ -198,122 +314,209 @@ type LinkState =
   | { state: "linked"; session: string }
   | { state: "failed"; reason: string };
 
+/** Native sound sticker when there's sound, a plain sticker otherwise. */
+const defaultSend = async (sock: SelfSocket, jid: string, it: SelfItem) => {
+  if (it.audioPath && it.audioDurationSec) {
+    await sendSoundSticker(sock as WASocket, jid, {
+      webpPath: it.webpPath,
+      audioPath: it.audioPath,
+      audioDurationSec: it.audioDurationSec,
+      animated: it.animated,
+    });
+  } else {
+    await sock.sendMessage(jid, { sticker: { url: it.webpPath } });
+  }
+};
+
+const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+const phoneKey = (digits: string) => createHash("sha256").update(`estampido/phone/${digits}`).digest("hex");
+
 export class SelfSessions {
   private readonly gate: Gate;
-  private readonly links = new Map<string, { status: LinkState; expires: number; end: () => void }>();
+  private readonly lock = new KeyedLock();
+  private readonly codes: RateLimiter;
+  private readonly links = new Map<
+    string,
+    { client: string; status: LinkState; end: () => void; timer: NodeJS.Timeout }
+  >();
+  private readonly o: Required<Omit<SelfSessionsOptions, "socket" | "sendSticker" | "now">> & {
+    socket: SocketFactory;
+    sendSticker: NonNullable<SelfSessionsOptions["sendSticker"]>;
+    now: () => number;
+  };
 
-  constructor(private readonly o: SelfSessionsOptions) {
-    this.gate = new Gate(o.maxConcurrent ?? 4);
+  constructor(opts: SelfSessionsOptions) {
+    this.o = {
+      maxConcurrent: 4,
+      maxWaiting: 20,
+      openTimeoutMs: 25_000,
+      opTimeoutMs: 120_000,
+      codesPerNumberPerHour: 3,
+      maxPendingLinks: 30,
+      linkTtlMs: 4 * 60_000,
+      settleMs: 1_200,
+      gapMs: 400,
+      socket: realSocket,
+      sendSticker: defaultSend,
+      now: Date.now,
+      ...opts,
+    };
+    this.gate = new Gate(this.o.maxConcurrent, this.o.maxWaiting);
+    this.codes = new RateLimiter(this.o.codesPerNumberPerHour, 60 * 60_000);
   }
 
-  // Linking: a fresh in-memory session; the phone scans a QR or types a code.
-  async startLink(phone?: string): Promise<string> {
-    this.sweep();
-    if (this.links.size >= 30) throw new SessionError("Mucha gente vinculando: intenta en un momento.", "busy");
-    const id = randomUUID();
+  get pendingLinks(): number {
+    return this.links.size;
+  }
+
+  // ── linking ───────────────────────────────────────────────────────────────
+
+  /** A fresh in-memory session; the phone types a code (phone given) or scans a QR. Bound to `client`. */
+  async startLink(client: string, phone?: string): Promise<string> {
+    if (this.links.size >= this.o.maxPendingLinks) {
+      throw new SessionError("Mucha gente vinculando: intenta en un momento.", "busy");
+    }
     const number = phone ? normalizePairingNumber(phone) : null;
     if (phone && !number) throw new SessionError("Escribe tu número con código de país (ej. 52 229 …).", "invalid");
-    const entry = { status: { state: "waiting" } as LinkState, expires: Date.now() + 4 * 60_000, end: () => {} };
-    this.links.set(id, entry);
+    if (number && this.codes.take(phoneKey(number), this.o.now()) > 0) {
+      throw new SessionError("Ya pedimos varios códigos para ese número. Intenta en una hora.", "rate_limited");
+    }
+    const id = randomUUID();
     const { state, snapshot } = memoryAuthState();
+    let sock: SelfSocket | null = null;
+    const end = () => {
+      try {
+        sock?.end(undefined);
+      } catch {
+        // already closed
+      }
+    };
+    const timer = setTimeout(() => this.dropLink(id), this.o.linkTtlMs);
+    timer.unref?.();
+    const entry = { client, status: { state: "waiting" } as LinkState, end, timer };
+    this.links.set(id, entry);
+
     let asked = false;
     let finished = false;
     const run = async (): Promise<void> => {
-      const sock = await openSocket(state);
-      entry.end = () => sock.end(undefined);
-      sock.ev.on("creds.update", () => {}); // state is mutated in place
-      sock.ev.on("connection.update", async ({ connection, qr, lastDisconnect }) => {
-        if (qr && !state.creds.registered) {
+      sock = await this.o.socket(state);
+      const s = sock;
+      s.ev.on("connection.update", async (u: ConnUpdate) => {
+        if (finished) return;
+        if (u.qr && !state.creds.registered) {
           if (number && !asked) {
             asked = true;
             try {
-              entry.status = { state: "code", code: formatPairingCode(await sock.requestPairingCode(number)) };
+              entry.status = { state: "code", code: formatPairingCode(await s.requestPairingCode(number)) };
             } catch {
               entry.status = { state: "failed", reason: "No se pudo pedir el código. Intenta con el QR." };
             }
-          } else if (!number) entry.status = { state: "qr", qr };
+          } else if (!number) entry.status = { state: "qr", qr: u.qr };
         }
-        if (connection === "open") {
+        if (u.connection === "open") {
           finished = true;
-          // Let the first key uploads settle, then hand the sealed session to the browser and leave.
-          await new Promise((r) => setTimeout(r, 2_500));
-          entry.status = { state: "linked", session: sealSession(snapshot(), this.o.sealKey) };
-          sock.end(undefined);
-        }
-        if (connection === "close" && !finished) {
-          const code = (lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
+          await sleep(this.o.settleMs * 2); // first key uploads settle
+          entry.status = { state: "linked", session: sealSession(snapshot(), this.o.sealKey, client, this.o.now()) };
+          end();
+        } else if (u.connection === "close") {
           // Right after scanning, WhatsApp asks for a reconnect with the new credentials.
-          if (code === DisconnectReason.restartRequired) void run();
-          else if (entry.status.state !== "linked") {
-            entry.status = { state: "failed", reason: "La vinculación no se completó. Intenta otra vez." };
+          try {
+            s.end(undefined); // never leave the old socket behind
+          } catch {
+            // already closed
           }
+          if (statusOf(u) === DisconnectReason.restartRequired) void run().catch(() => this.fail(id));
+          else this.fail(id);
         }
       });
     };
-    await run();
+    try {
+      await run();
+    } catch {
+      this.dropLink(id);
+      throw new SessionError("No se pudo empezar la vinculación. Intenta otra vez.", "timeout");
+    }
     return id;
   }
 
-  linkStatus(id: string): LinkState | null {
-    this.sweep();
+  private fail(id: string): void {
     const e = this.links.get(id);
-    if (!e) return null;
-    if (e.status.state === "linked" || e.status.state === "failed") this.links.delete(id); // handed out once
+    if (e && e.status.state !== "linked")
+      e.status = { state: "failed", reason: "La vinculación no se completó. Intenta otra vez." };
+  }
+
+  private dropLink(id: string): void {
+    const e = this.links.get(id);
+    if (!e) return;
+    clearTimeout(e.timer);
+    e.end();
+    this.links.delete(id);
+  }
+
+  /** Status for the browser that started it (anyone else: null). Final states are handed out once. */
+  linkStatus(id: string, client: string): LinkState | null {
+    const e = this.links.get(id);
+    if (!e || e.client !== client) return null;
+    if (e.status.state === "linked" || e.status.state === "failed") this.dropLink(id);
     return e.status;
   }
 
-  private sweep(): void {
-    const t = Date.now();
-    for (const [id, e] of this.links) {
-      if (e.expires < t) {
-        e.end();
-        this.links.delete(id);
-      }
-    }
-  }
+  // ── using a session ───────────────────────────────────────────────────────
 
   /** Open the person's session in memory, run `fn`, close; returns the refreshed sealed session. */
-  private withSession<T>(
+  private async withSession<T>(
     sealed: string,
-    fn: (sock: WASocket, self: string) => Promise<T>,
+    client: string,
+    fn: (sock: SelfSocket, self: string) => Promise<T>,
   ): Promise<{ result: T; session: string }> {
-    return this.gate.run(async () => {
-      const { state, snapshot } = memoryAuthState(openSession(sealed, this.o.sealKey));
-      if (!state.creds.registered || !state.creds.me) throw new SessionError("Sesión no vinculada.", "invalid");
-      const sock = await openSocket(state);
-      try {
-        await untilOpen(sock, this.o.openTimeoutMs ?? 25_000);
-        const self = jidNormalizedUser(sock.user?.id ?? state.creds.me?.id);
-        const result = await fn(sock, self);
-        await new Promise((r) => setTimeout(r, 1_200)); // let receipts/key updates land before sealing
-        return { result, session: sealSession(snapshot(), this.o.sealKey) };
-      } finally {
-        sock.end(undefined);
-      }
-    });
+    const snap = openSession(sealed, this.o.sealKey, client, this.o.now()); // invalid/expired: fail fast, no socket
+    if (!snap.creds.registered || !snap.creds.me?.id) throw INVALID();
+    const account = jidNormalizedUser(snap.creds.me.id);
+    return this.lock.run(account, () =>
+      this.gate.run(async () => {
+        const { state, snapshot } = memoryAuthState(snap);
+        const sock = await this.o.socket(state);
+        try {
+          return await within(
+            (async () => {
+              await untilOpen(sock, this.o.openTimeoutMs);
+              const self = jidNormalizedUser(sock.user?.id ?? account);
+              const result = await fn(sock, self);
+              await sleep(this.o.settleMs); // receipts/key updates land before sealing
+              return { result, session: sealSession(snapshot(), this.o.sealKey, client, this.o.now()) };
+            })(),
+            this.o.opTimeoutMs,
+            "El envío",
+          );
+        } finally {
+          try {
+            sock.end(undefined);
+          } catch {
+            // already closed
+          }
+        }
+      }),
+    );
   }
 
-  /** Send stickers (with sound when given) to the person's own chat, in one connection. */
-  sendToSelf(sealed: string, items: SelfItem[]): Promise<{ result: { sent: number }; session: string }> {
-    return this.withSession(sealed, async (sock, self) => {
+  /** Send stickers to the person's OWN chat (never anyone else), in one connection. */
+  sendToSelf(
+    sealed: string,
+    client: string,
+    items: SelfItem[],
+  ): Promise<{ result: { sent: number }; session: string }> {
+    if (items.length === 0 || items.length > 30)
+      return Promise.reject(new SessionError("Elige de 1 a 30 stickers.", "invalid"));
+    return this.withSession(sealed, client, async (sock, self) => {
       let sent = 0;
-      for (const it of items) {
+      for (const [i, it] of items.entries()) {
         try {
-          if (it.audioPath && it.audioDurationSec) {
-            await sendSoundSticker(sock, self, {
-              webpPath: it.webpPath,
-              audioPath: it.audioPath,
-              audioDurationSec: it.audioDurationSec,
-              animated: it.animated,
-            });
-          } else {
-            await sock.sendMessage(self, { sticker: { url: it.webpPath } });
-          }
+          await this.o.sendSticker(sock, self, it);
           sent++;
         } catch {
           // keep going with the rest
         }
-        if (items.length > 1) await new Promise((r) => setTimeout(r, 400));
+        if (i < items.length - 1) await sleep(this.o.gapMs);
       }
       if (sent === 0) throw new SessionError("No se pudo enviar a tu chat.", "send_failed");
       return { sent };
@@ -321,18 +524,12 @@ export class SelfSessions {
   }
 
   /** Remove this device from the person's WhatsApp. */
-  async logout(sealed: string): Promise<void> {
-    await this.gate.run(async () => {
-      const { state } = memoryAuthState(openSession(sealed, this.o.sealKey));
-      const sock = await openSocket(state);
-      try {
-        await untilOpen(sock, 20_000);
-        await sock.logout("Estampido: desvinculado por el usuario");
-      } catch {
-        // already gone from the phone: nothing to do
-      } finally {
-        sock.end(undefined);
-      }
+  async logout(sealed: string, client: string): Promise<void> {
+    await this.withSession(sealed, client, async (sock) => {
+      await sock.logout("Estampido: desvinculado por el usuario").catch(() => {});
+    }).catch((err) => {
+      // Already gone from the phone: nothing left to undo.
+      if (!(err instanceof SessionError && err.code === "logged_out")) throw err;
     });
   }
 }

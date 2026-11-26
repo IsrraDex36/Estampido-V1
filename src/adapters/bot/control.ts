@@ -122,59 +122,86 @@ export function createControlApp(
   app.get("/pairing", (c) => c.json(bot.pairing?.() ?? ({ kind: "waiting" } satisfies PairingState)));
 
   // ── «Tu propio WhatsApp» (self sessions; work even while the bot number is offline) ──
+  // Every call names the browser (client hash): sessions and pending links are bound to it.
+  const SELF_STATUS = {
+    invalid: 400,
+    expired: 410,
+    logged_out: 410,
+    rate_limited: 429,
+    timeout: 504,
+    busy: 503,
+    send_failed: 502,
+  } as const;
   const selfError = (c: Context, err: unknown) => {
-    if (err instanceof SessionError) {
-      const status = { invalid: 400, logged_out: 410, timeout: 504, busy: 503, send_failed: 502 }[err.code];
-      return c.json({ error: err.message, code: err.code }, status as 400);
-    }
-    console.error("[self]", err);
+    if (err instanceof SessionError) return c.json({ error: err.message, code: err.code }, SELF_STATUS[err.code]);
+    console.error("[self]", err instanceof Error ? err.message : "error"); // never log request bodies (sessions)
     return c.json({ error: "No se pudo completar con tu WhatsApp.", code: "send_failed" }, 502);
   };
-  const selfBody = z.object({
-    session: z.string().min(10).max(2_000_000),
+  const clientField = z.string().refine(isClientHash);
+  const selfSend = z.object({
+    client: clientField,
+    session: z.string().min(10).max(3_000_000),
     items: z
       .array(
-        z.object({
-          webpPath: z.string().min(1),
-          audioPath: z.string().min(1).optional(),
-          audioDurationSec: z
-            .number()
-            .positive()
-            .max(STICKER_LIMITS.maxDurationSec + 1)
-            .optional(),
-          animated: z.boolean(),
-        }),
+        z
+          .object({
+            webpPath: z.string().min(1).max(1024),
+            audioPath: z.string().min(1).max(1024).optional(),
+            audioDurationSec: z
+              .number()
+              .positive()
+              .max(STICKER_LIMITS.maxDurationSec + 1)
+              .optional(),
+            animated: z.boolean(),
+          })
+          .strict(),
       )
       .min(1)
       .max(30),
   });
+  const selfLink = z
+    .object({
+      client: clientField,
+      phone: z
+        .string()
+        .regex(/^\d{8,15}$/)
+        .optional(),
+    })
+    .strict();
+  const selfLogout = z.object({ client: clientField, session: z.string().min(10).max(3_000_000) }).strict();
+  const bad = (c: Context) => c.json({ error: "Solicitud no válida.", code: "invalid" }, 400);
+
   app.post("/self/link", async (c) => {
     if (!bot.self) return c.json({ error: "No disponible." }, 404);
-    const body = (await c.req.json().catch(() => null)) as { phone?: string } | null;
+    const parsed = selfLink.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return bad(c);
     try {
-      return c.json({ id: await bot.self.startLink(body?.phone || undefined) });
+      return c.json({ id: await bot.self.startLink(parsed.data.client, parsed.data.phone) });
     } catch (err) {
       return selfError(c, err);
     }
   });
   app.get("/self/link/:id", (c) => {
-    const st = bot.self?.linkStatus(c.req.param("id"));
-    return st ? c.json(st) : c.json({ error: "Vinculación vencida.", code: "invalid" }, 404);
+    const client = c.req.query("client") ?? "";
+    if (!isClientHash(client)) return bad(c);
+    const st = bot.self?.linkStatus(c.req.param("id"), client);
+    return st ? c.json(st) : c.json({ error: "La vinculación venció. Intenta otra vez.", code: "invalid" }, 404);
   });
   app.post("/self/send", async (c) => {
     if (!bot.self) return c.json({ error: "No disponible." }, 404);
-    const parsed = selfBody.safeParse(await c.req.json().catch(() => null));
-    if (!parsed.success) return c.json({ error: "Solicitud no válida.", code: "invalid" }, 400);
+    const parsed = selfSend.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return bad(c);
     try {
-      // Only result/community files may leave the box.
+      // Only result/community files may leave the box (no arbitrary server files).
       const items = await Promise.all(
         parsed.data.items.map(async (it) => ({
           ...it,
           webpPath: await assertResultFile(it.webpPath, sendableRoots(), /\.webp$/),
           audioPath: it.audioPath ? await assertResultFile(it.audioPath, sendableRoots(), /\.ogg$/) : undefined,
         })),
-      );
-      const { result, session } = await bot.self.sendToSelf(parsed.data.session, items);
+      ).catch(() => null);
+      if (!items) return c.json({ error: "Uno de los stickers no se puede enviar.", code: "invalid" }, 400);
+      const { result, session } = await bot.self.sendToSelf(parsed.data.session, parsed.data.client, items);
       return c.json({ sent: result.sent, session });
     } catch (err) {
       return selfError(c, err);
@@ -182,10 +209,10 @@ export function createControlApp(
   });
   app.post("/self/logout", async (c) => {
     if (!bot.self) return c.json({ error: "No disponible." }, 404);
-    const body = (await c.req.json().catch(() => null)) as { session?: string } | null;
-    if (!body?.session) return c.json({ error: "Solicitud no válida.", code: "invalid" }, 400);
+    const parsed = selfLogout.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return bad(c);
     try {
-      await bot.self.logout(body.session);
+      await bot.self.logout(parsed.data.session, parsed.data.client);
       return c.json({ ok: true });
     } catch (err) {
       return selfError(c, err);

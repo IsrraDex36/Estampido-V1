@@ -505,6 +505,7 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     return c.json(fail(code, message), (r.status >= 400 && r.status < 600 ? r.status : 502) as ContentfulStatusCode);
   };
   const selfCall = async (c: Context, path: string, body?: unknown, method?: "GET" | "POST") => {
+    c.header("Cache-Control", "no-store"); // answers may carry the sealed session
     if (!bot.self) return c.json(fail("not_found", "No disponible."), 404);
     try {
       return selfReply(c, await bot.self(path, body, method));
@@ -512,16 +513,27 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       return botFailure(c, err, "self");
     }
   };
+  /** The browser this belongs to (sessions and links are bound to it). */
+  const selfClient = (c: Context): string | null => clientHash(c.req.header(CLIENT_HEADER));
+  const noClient = (c: Context) => c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
   app.post("/self/link", async (c) => {
+    const client = selfClient(c);
+    if (!client) return noClient(c);
     const body = (await c.req.json().catch(() => null)) as { phone?: unknown } | null;
     const phone = typeof body?.phone === "string" ? body.phone.replace(/\D/g, "").slice(0, 15) : undefined;
-    return selfCall(c, "/link", phone ? { phone } : {});
+    return selfCall(c, "/link", phone ? { client, phone } : { client });
   });
   app.get("/self/link/:id", async (c) => {
     c.header("Cache-Control", "no-store");
     if (!bot.self) return c.json(fail("not_found", "No disponible."), 404);
     try {
-      const r = await bot.self(`/link/${encodeURIComponent(c.req.param("id"))}`, undefined, "GET");
+      const client = selfClient(c);
+      if (!client) return noClient(c);
+      const r = await bot.self(
+        `/link/${encodeURIComponent(c.req.param("id"))}?client=${encodeURIComponent(client)}`,
+        undefined,
+        "GET",
+      );
       if (r.status === 200 && r.body.state === "qr" && typeof r.body.qr === "string") {
         const qrSvg = await QRCode.toString(r.body.qr, { type: "svg", margin: 2, errorCorrectionLevel: "L" });
         return c.json({ state: "qr", qrSvg });
@@ -539,6 +551,8 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       pack?: unknown;
     } | null;
     if (typeof body?.session !== "string") return c.json(fail("bad_request", "Falta tu sesión de WhatsApp."), 400);
+    const client = selfClient(c);
+    if (!client) return noClient(c);
     const results = Array.isArray(body.results) ? body.results.filter((x): x is string => typeof x === "string") : [];
     const community = Array.isArray(body.community)
       ? body.community.filter((x): x is string => typeof x === "string")
@@ -582,14 +596,16 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       const it = await describe(webpPath, ogg?.path ?? null);
       if (it) items.push(it);
     }
-    const res = await selfCall(c, "/send", { session: body.session, items });
+    const res = await selfCall(c, "/send", { client, session: body.session, items });
     if (res.ok) for (const id of community) await communityRepo.recordSend(id).catch(() => {});
     return res;
   });
   app.post("/self/logout", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { session?: unknown } | null;
     if (typeof body?.session !== "string") return c.json(fail("bad_request", "Falta tu sesión de WhatsApp."), 400);
-    return selfCall(c, "/logout", { session: body.session });
+    const client = selfClient(c);
+    if (!client) return noClient(c);
+    return selfCall(c, "/logout", { client, session: body.session });
   });
 
   app.post("/community/stickers/:id/whatsapp", async (c) => {

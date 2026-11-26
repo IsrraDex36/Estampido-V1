@@ -50,6 +50,8 @@ describe("send to your own chat", () => {
     const [call] = calls;
     expect(call?.path).toBe("/send");
     expect(call?.body?.session).toBe("s1.old");
+    expect(call?.body?.client).toMatch(/^[0-9a-f]{64}$/); // the browser it's bound to (hashed id, never the raw one)
+    expect(r.headers.get("cache-control")).toBe("no-store");
     expect(call?.body?.items?.[0]?.webpPath).toMatch(/sticker\.webp$/);
     expect(call?.body?.items?.[0]?.audioPath).toMatch(/sticker\.ogg$/);
   });
@@ -90,9 +92,39 @@ describe("send to your own chat", () => {
 
   it("linking: start, then the QR comes back as an SVG (never cached)", async () => {
     expect(await (await post("/api/self/link", { phone: "+52 (229) 873-2115" })).json()).toEqual({ id: "L1" });
-    expect(calls[0]?.body).toEqual({ phone: "522298732115" }); // digits only, used to ask for the code
+    expect(calls[0]?.body).toMatchObject({ phone: "522298732115" }); // digits only, used to ask for the code
+    expect(calls[0]?.body?.client).toMatch(/^[0-9a-f]{64}$/);
     const st = await h.req("anon", "/api/self/link/L1");
+    expect(calls.at(-1)?.path).toMatch(/^\/link\/L1\?client=[0-9a-f]{64}$/);
     expect(st.headers.get("cache-control")).toBe("no-store");
     expect(((await st.json()) as { qrSvg: string }).qrSvg).toMatch(/^<svg/);
+  });
+});
+
+describe("browser identity is required", () => {
+  it("without the browser id header nothing reaches WhatsApp", async () => {
+    const id = await h.makeResult();
+    for (const [path, body] of [
+      ["/api/self/link", {}],
+      ["/api/self/send", { session: "s2.x", results: [id] }],
+      ["/api/self/logout", { session: "s2.x" }],
+    ] as const) {
+      const r = await h.anonymous(path, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      expect(r.status, path).toBe(400);
+    }
+    expect((await h.anonymous("/api/self/link/L1")).status).toBe(400);
+    expect(calls).toEqual([]);
+  });
+
+  it("weird input never becomes a file path", async () => {
+    for (const results of [["../../../etc/passwd"], ["%2e%2e/secret"], [""], [42]]) {
+      const r = await post("/api/self/send", { session: "s2.x", results });
+      expect([400, 404]).toContain(r.status);
+    }
+    expect(calls).toEqual([]);
   });
 });
