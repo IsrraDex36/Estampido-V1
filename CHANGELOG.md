@@ -13,6 +13,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Editor de texto (pestaña «Texto»)**: texto de meme arriba y/o abajo, tamaño, letra (Clásica/Pixel), 6 colores con contorno automático y MAYÚSCULAS; se ajusta solo a 3 líneas. La vista previa es el mismo dibujo que se sube (PNG transparente) y el servidor lo funde con ffmpeg en video, GIF e imagen.
+- **Efectos de voz**: Ardilla, Monstruo, Eco y Reversa en la pestaña Sonido; mantienen la duración exacta del sonido (sincronizado con la imagen).
+
 - **Seguir creadores**: botón Seguir en los perfiles, contador de seguidores, orden **«Siguiendo»** en Stickers (lo nuevo de quienes sigues) y «Siguiendo» en Tu espacio.
 - **Packs**: arma packs de hasta 30 stickers (como en WhatsApp) desde el menú ⋯ de cualquier sticker; página pública `/p/:id` con **«Enviar los N a mi WhatsApp»** (con progreso y detener), compartir, renombrar, quitar y borrar; packs en tu espacio y en tu perfil.
 - **Etiquetas**: sugerencias automáticas al publicar (palabras del título, populares en la categoría y en general) y fila de **#etiquetas populares** que filtra el feed con un toque.

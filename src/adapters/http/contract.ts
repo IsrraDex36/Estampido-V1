@@ -6,6 +6,9 @@ export type FitMode = "pad" | "crop";
 /** "pad" bars: transparent, a blurred copy of the frame, or "#rrggbb". */
 export type StickerBackground = "transparent" | "blur" | `#${string}`;
 export type MediaKind = "video" | "animated" | "image";
+/** Voice effects for the sound (mirrors core/audio/voice.ts, asserted by tests). */
+export const VOICE_EFFECTS = ["ardilla", "monstruo", "eco", "reversa"] as const;
+export type VoiceEffect = (typeof VOICE_EFFECTS)[number];
 
 /** Multipart: `media` (video, GIF or image; legacy name `video`) + optional `audio`. */
 export interface ConvertRequestFields {
@@ -33,6 +36,8 @@ export interface ConvertRequestFields {
   publisher?: string;
   /** Comma-separated, up to 3. */
   emojis?: string;
+  /** Effect on the sticker's sound. */
+  voice?: VoiceEffect;
 }
 
 export interface StickerMetadataView {
@@ -126,6 +131,9 @@ export const API_LIMITS = {
   /** Sound length for image stickers. */
   maxImageAudioSec: 10,
   minDurationSec: 0.5,
+  /** Optional multipart `overlay`: transparent PNG (meme text) drawn over the sticker. */
+  maxOverlayBytes: 2 * 1024 * 1024,
+  maxOverlaySide: 2048,
 } as const;
 
 // ── Community (phase 1.5, local) ─────────────────────────────────────────────

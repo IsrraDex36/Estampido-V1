@@ -7,6 +7,7 @@ import {
 } from "../../config/limits.js";
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
 import { buildFitFilter } from "../frame/fit.js";
+import { OVERLAY_OUT, overlayGraph } from "../frame/overlay.js";
 
 export interface EncodeVideoOptions {
   input: string;
@@ -37,6 +38,8 @@ export interface EncodeVideoOptions {
   seek?: "input" | "output";
   /** Repeat the input until `durationSec` (a short GIF stretched to its sound's length). */
   loop?: boolean;
+  /** Transparent PNG drawn over every frame (meme text), any size: scaled to the canvas. */
+  overlay?: string;
   signal?: AbortSignal;
 }
 
@@ -61,18 +64,21 @@ export function buildVideoArgs(opts: EncodeVideoOptions): string[] {
   const size = opts.size ?? STICKER_LIMITS.size;
   const fit = opts.fit ?? DEFAULT_FIT;
   const trim = ["-ss", String(opts.startSec), "-t", String(opts.durationSec)];
+  // `loop` repeats the decoded frames (works for GIF and animated WebP; -stream_loop
+  // hangs on the WebP decoder); the output -t then cuts it to the sound's length.
+  const chain =
+    (opts.loop ? "loop=loop=-1:size=32767," : "") +
+    buildVideoFilter(fit, fps, size, opts.background, opts.crop, opts.detail);
+  const overlay = opts.overlay ? ["-i", opts.overlay] : [];
 
   return [
     "-hide_banner",
     "-v",
     "error",
     "-y",
-    ...(opts.seek === "output" ? ["-i", opts.input, ...trim] : [...trim, "-i", opts.input]),
-    "-vf",
-    // `loop` repeats the decoded frames (works for GIF and animated WebP; -stream_loop
-    // hangs on the WebP decoder); the output -t then cuts it to the sound's length.
-    (opts.loop ? "loop=loop=-1:size=32767," : "") +
-      buildVideoFilter(fit, fps, size, opts.background, opts.crop, opts.detail),
+    // Output seeking goes after every input (before them it would apply to the overlay).
+    ...(opts.seek === "output" ? ["-i", opts.input, ...overlay, ...trim] : [...trim, "-i", opts.input, ...overlay]),
+    ...(opts.overlay ? ["-filter_complex", overlayGraph(chain, size), "-map", OVERLAY_OUT] : ["-vf", chain]),
     "-an",
     // Constant frame rate → uniform frame durations (variable ones get rejected by WhatsApp).
     "-fps_mode",

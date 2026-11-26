@@ -43,6 +43,7 @@ export async function convertImage(opts: ConvertOptions, source: MediaInfo): Pro
         fit: opts.fit ?? DEFAULT_FIT,
         background: opts.background,
         crop: opts.crop,
+        overlay: opts.overlay,
         quality: a.quality,
         signal: opts.signal,
       }),
@@ -79,6 +80,7 @@ export async function convertImage(opts: ConvertOptions, source: MediaInfo): Pro
         durationSec: duration,
         origin: "file",
         streams: replacement.audioStreams,
+        voice: opts.voice,
       },
       opts.signal,
     );

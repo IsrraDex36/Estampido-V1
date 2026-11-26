@@ -1,6 +1,7 @@
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { analyzeAudio, encodeAudio, type Loudness } from "../core/audio/encodeAudio.js";
+import type { VoiceEffect } from "../core/audio/voice.js";
 import { CancelledError, throwIfCancelled, UserInputError } from "../core/errors.js";
 import { buildStickerExif, resolveMetadata, type StickerMetadata } from "../core/metadata/stickerExif.js";
 import { type AudioStreamInfo, type MediaInfo, probe } from "../core/probe/probe.js";
@@ -82,6 +83,7 @@ export interface SoundSource {
   origin: "video" | "file";
   /** Candidate audio streams (default first); empty → let ffmpeg pick. */
   streams: AudioStreamInfo[];
+  voice?: VoiceEffect;
 }
 
 type AudioStats = NonNullable<ConvertResult["stats"]["audio"]>;

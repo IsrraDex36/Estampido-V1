@@ -20,6 +20,7 @@ import { recordingLimitFor } from "../../model/recording";
 import { selectBusy, useConverterStore } from "../../store/converterStore";
 import { useSegment } from "../segment/useSegment";
 import { GroupedList, SwitchListRow } from "../ui/GroupedList";
+import { VoiceEffects } from "./VoiceEffects";
 import { type AudioWindowChange, AudioWindowEditor } from "./AudioWindowEditor";
 import { CommunitySoundPicker } from "./CommunitySoundPicker";
 import { RecordingPanel } from "./VoiceRecorder";
@@ -35,10 +36,11 @@ const SOURCE_ICON: Record<Source, (p: IconProps) => ReactNode> = {
 
 /** «Sonido»: on/off, then pick where the sound comes from and which stretch plays. */
 export function SoundOptions() {
-  const { includeAudio, audioStartSec, audioDurationSec, durationSec, kind, audioFile, communitySound, disabled, update, selectAudioFile } =
+  const { voice, includeAudio, audioStartSec, audioDurationSec, durationSec, kind, audioFile, communitySound, disabled, update, selectAudioFile } =
     useConverterStore(
       useShallow((s) => ({
         includeAudio: s.options.includeAudio,
+        voice: s.options.voice,
         audioStartSec: s.options.audioStartSec,
         audioDurationSec: s.options.audioDurationSec,
         durationSec: s.options.durationSec,
@@ -135,6 +137,10 @@ export function SoundOptions() {
             onFile={chooseAudio}
           />
         ))}
+
+      {includeAudio && (audioFile || kind === "video") && !recording && (
+        <VoiceEffects value={voice} disabled={disabled} onChange={(v) => update({ voice: v })} />
+      )}
     </div>
   );
 }

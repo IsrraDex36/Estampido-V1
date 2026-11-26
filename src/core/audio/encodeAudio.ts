@@ -1,4 +1,5 @@
 import { ffmpegPath, run } from "../../utils/ffmpeg.js";
+import { type VoiceEffect, voiceFilters } from "./voice.js";
 
 export interface EncodeAudioOptions {
   /** Source file (the video itself, or a replacement audio file). */
@@ -12,6 +13,8 @@ export interface EncodeAudioOptions {
   streamIndex?: number;
   /** Peak-normalization gain in dB (0 = untouched). */
   gainDb?: number;
+  /** Voice effect (ardilla, monstruo, eco, reversa). */
+  voice?: VoiceEffect;
   signal?: AbortSignal;
 }
 
@@ -39,7 +42,10 @@ export function buildAudioArgs(opts: EncodeAudioOptions): string[] {
     "-af",
     [
       "aresample=async=1:first_pts=0",
-      ...(opts.gainDb ? [`volume=${opts.gainDb.toFixed(1)}dB`, "alimiter=limit=0.95"] : []),
+      ...voiceFilters(opts.voice),
+      ...(opts.gainDb ? [`volume=${opts.gainDb.toFixed(1)}dB`] : []),
+      // Gain or an effect (echo adds up) can clip: limit the peaks.
+      ...(opts.gainDb || opts.voice ? ["alimiter=limit=0.95"] : []),
     ].join(","),
     "-ac",
     "1",
@@ -54,6 +60,8 @@ export function buildAudioArgs(opts: EncodeAudioOptions): string[] {
     ...(opts.durationSec > 30 ? ["-vbr", "constrained"] : []),
     "-application",
     "audio",
+    // Effects like the echo add a tail: keep the sound exactly as long as the segment.
+    ...(opts.voice ? ["-t", String(opts.durationSec)] : []),
     "-f",
     "ogg",
     opts.output,

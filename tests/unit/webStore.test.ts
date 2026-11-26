@@ -83,6 +83,19 @@ describe("converter store", () => {
     expect(useConverterStore.getState().options.durationSec).toBeUndefined();
   });
 
+  it("convert: no meme text → no overlay; text and voice are kept in the store", async () => {
+    convertVideo.mockResolvedValue({ id: "r" });
+    const s = useConverterStore.getState();
+    s.selectFile(file("a.mp4", "video/mp4"));
+    await s.convert();
+    expect(convertVideo.mock.calls[0]?.[0]).toMatchObject({ overlay: null });
+    s.updateText({ top: "hola" });
+    s.updateOptions({ voice: "eco" });
+    expect(useConverterStore.getState().text).toMatchObject({ top: "hola", bottom: "", caps: true });
+    expect(useConverterStore.getState().options.voice).toBe("eco");
+    s.updateText({ top: "" });
+  });
+
   it("convert: uploading → processing → done (selectors follow)", async () => {
     const result = { id: "r1" };
     convertVideo.mockImplementation(async (_files, _opts, cb) => {

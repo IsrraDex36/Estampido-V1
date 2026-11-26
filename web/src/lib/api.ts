@@ -50,6 +50,8 @@ export interface ConvertFiles {
   media: File;
   /** Optional replacement sound (audio or video file). */
   audio?: File | null;
+  /** Meme text layer: transparent PNG at the sticker's size. */
+  overlay?: Blob | null;
 }
 
 const sleep = (ms: number, signal?: AbortSignal) =>
@@ -65,10 +67,12 @@ const sleep = (ms: number, signal?: AbortSignal) =>
     );
   });
 
-function formFor({ media, audio }: ConvertFiles, fields: ConvertRequestFields): FormData {
+function formFor({ media, audio, overlay }: ConvertFiles, fields: ConvertRequestFields): FormData {
   const form = new FormData();
   form.set("media", media);
   if (audio && fields.includeAudio) form.set("audio", audio);
+  if (overlay) form.set("overlay", overlay, "texto.png");
+  if (fields.voice && fields.includeAudio) form.set("voice", fields.voice);
   form.set("startSec", String(fields.startSec));
   if (fields.durationSec !== undefined) form.set("durationSec", String(fields.durationSec));
   form.set("fit", fields.fit);

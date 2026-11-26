@@ -48,6 +48,7 @@ export {
   RocketLaunchIcon as RocketIcon,
   ShareNetworkIcon as Share2Icon,
   SparkleIcon as SparklesIcon,
+  TextTIcon as TextIcon,
   SpeakerHighIcon as Volume2Icon,
   StarIcon,
   SpeakerSlashIcon as VolumeXIcon,

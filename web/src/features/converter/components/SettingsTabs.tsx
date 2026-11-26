@@ -8,14 +8,17 @@ import { useConverterStore } from "../store/converterStore";
 import { PackOptions } from "./options/PackOptions";
 import { SoundOptions } from "./options/SoundOptions";
 import { StyleOptions } from "./options/StyleOptions";
+import { TextOptions } from "./options/TextOptions";
 import { SegmentControls } from "./segment/SegmentControls";
 import { useSegment } from "./segment/useSegment";
 import { SETTINGS_TABS, type TabId } from "./settingsTabList";
+import { VOICE_LABELS } from "../model/voice";
 
 const CONTENT: Record<TabId, ReactNode> = {
   time: <SegmentControls />,
   sound: <SoundOptions />,
   style: <StyleOptions />,
+  text: <TextOptions />,
   pack: <PackOptions />,
 };
 
@@ -33,6 +36,9 @@ function useTabSummaries(): { values: Record<TabId, string>; attention: Partial<
       kind: st.inputKind,
       audioName: st.audioFile?.name ?? null,
       community: Boolean(st.communitySound),
+      voice: st.options.voice,
+      textTop: st.text.top.trim(),
+      textBottom: st.text.bottom.trim(),
     })),
   );
   const seg = useSegment();
@@ -49,10 +55,13 @@ function useTabSummaries(): { values: Record<TabId, string>; attention: Partial<
       : s.kind === "video"
         ? "Del video"
         : "Elige uno";
+  const textValue = s.textTop && s.textBottom ? "2 textos" : s.textTop || s.textBottom ? "Con texto" : "Sin texto";
+  const voiceLabel = s.includeAudio && s.voice ? ` · ${VOICE_LABELS[s.voice]}` : "";
   return {
     values: {
       time,
-      sound,
+      sound: `${sound}${voiceLabel}`,
+      text: textValue,
       style: `${s.fit === "crop" ? "Llenar" : s.background === "blur" ? "Desenfoque" : s.background === "transparent" ? "Completo" : "Color"}${s.hq ? " · HQ" : ""}`,
       pack: s.includeMetadata ? s.packName?.trim() || "Estampido" : "Sin datos",
     },
@@ -136,12 +145,12 @@ export function SettingsTabs() {
       }}
       className="flex-1 gap-5"
     >
-      <TabsList className="grid h-auto w-full grid-cols-4 gap-1 rounded-2xl bg-muted p-1 group-data-horizontal/tabs:h-auto">
+      <TabsList className="grid h-auto w-full grid-cols-5 gap-1 rounded-2xl bg-muted p-1 group-data-horizontal/tabs:h-auto">
         {SETTINGS_TABS.map((t) => (
           <TabsTrigger
             key={t.value}
             value={t.value}
-            className="relative h-auto min-w-0 flex-col gap-0.5 rounded-xl px-1.5 py-2 data-[state=active]:shadow-sm"
+            className="relative h-auto min-w-0 flex-col gap-0.5 rounded-xl px-1 py-2 data-[state=active]:shadow-sm sm:px-1.5"
           >
             {/* Phones: icon on top (more room for words); wider: icon beside the name. */}
             <span className="flex flex-col items-center gap-0.5 text-[12px] font-medium sm:flex-row sm:gap-1.5 sm:text-[13px] [&_svg]:size-[18px] sm:[&_svg]:size-4">

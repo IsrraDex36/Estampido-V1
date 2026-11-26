@@ -95,6 +95,7 @@ export async function convertAnimated(
         detail: req.detail,
         seek: kind === "animated" ? "output" : "input",
         loop: stretch !== null,
+        overlay: opts.overlay,
         signal: opts.signal,
       });
       return (await stat(output)).size;
@@ -137,6 +138,7 @@ export async function convertAnimated(
         durationSec: duration,
         origin: "file",
         streams: replacement.audioStreams,
+        voice: opts.voice,
       },
       opts.signal,
     );
@@ -152,6 +154,7 @@ export async function convertAnimated(
         durationSec: segment.durationSec,
         origin: "video",
         streams: source.audioStreams,
+        voice: opts.voice,
       },
       opts.signal,
     );

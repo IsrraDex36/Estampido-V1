@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { ApiError, convertVideo } from "@/lib/api";
 import { DEFAULT_OPTIONS, defaultDurationFor } from "../model/defaults";
+import { EMPTY_TEXT, hasText, type MemeText, renderMemeText } from "../model/memeText";
 import { validateAudioFile, validateFile } from "../model/validation";
 import { type ConverterOptions, type ConverterStatus, type InputKind, inputKindOf } from "../types";
 
@@ -19,12 +20,15 @@ export interface ConverterState {
   /** communitySound at the moment the current result was made. */
   resultSoundOrigin: string | null;
   options: ConverterOptions;
+  /** Meme text drawn over the sticker (rendered to a PNG at convert time). */
+  text: MemeText;
   status: ConverterStatus;
 
   /** Returns a user-facing error, or null. */
   selectFile: (file: File | null) => string | null;
   selectAudioFile: (file: File | null, origin?: CommunitySoundRef) => string | null;
   updateOptions: (patch: Partial<ConverterOptions>) => void;
+  updateText: (patch: Partial<MemeText>) => void;
   convert: (opts?: { auto?: boolean }) => Promise<void>;
   /** Conversions started (keys the error card so each failure starts fresh). */
   attempt: number;
@@ -49,6 +53,7 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
   communitySound: null,
   resultSoundOrigin: null,
   options: DEFAULT_OPTIONS,
+  text: EMPTY_TEXT,
   status: { kind: "idle" },
 
   selectFile: (file) => {
@@ -98,12 +103,13 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
   },
 
   updateOptions: (patch) => set((s) => ({ options: { ...s.options, ...patch } })),
+  updateText: (patch) => set((s) => ({ text: { ...s.text, ...patch } })),
 
   attempt: 0,
   autoRetries: 0,
 
   convert: async ({ auto = false } = {}) => {
-    const { file, audioFile, options, communitySound } = get();
+    const { file, audioFile, options, communitySound, text } = get();
     if (!file) return;
     set((s) => ({ attempt: s.attempt + 1, autoRetries: auto ? s.autoRetries + 1 : 0 }));
     inflight?.abort();
@@ -111,7 +117,10 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
     inflight = controller;
     set({ status: { kind: "uploading", progress: 0 } });
     try {
-      const result = await convertVideo({ media: file, audio: audioFile }, options, {
+      // Only draw when there's text (no extra tick otherwise); a cancel meanwhile stops here.
+      const overlay = hasText(text) ? await renderMemeText(text).catch(() => null) : null;
+      if (controller.signal.aborted) return;
+      const result = await convertVideo({ media: file, audio: audioFile, overlay }, options, {
         signal: controller.signal,
         onUploadProgress: (progress) => set({ status: { kind: "uploading", progress } }),
         onQueued: (position, etaSec) => set({ status: { kind: "queued", position, etaSec } }),

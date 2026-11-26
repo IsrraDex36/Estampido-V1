@@ -389,17 +389,21 @@ function TagSuggestions({
     placeholderData: keepPreviousData,
     meta: { errorMessage: false },
   });
-  const ideas = (q.data ?? []).filter((x) => !current.includes(x)).slice(0, 6);
-  if (current.length >= COMMUNITY_LIMITS.maxTags || ideas.length === 0) return null;
+  const ideas = current.length >= COMMUNITY_LIMITS.maxTags ? [] : (q.data ?? []).filter((x) => !current.includes(x)).slice(0, 6);
+  // Fixed one-line height, even while empty: ideas arriving must not push the
+  // checkbox/submit under the user's finger.
   return (
-    <div className="flex flex-wrap items-center gap-1" aria-label="Etiquetas sugeridas">
-      <span className="text-[12px] text-muted-foreground">Ideas:</span>
+    <div
+      className="flex h-6 items-center gap-1 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      aria-label="Etiquetas sugeridas"
+    >
+      {ideas.length > 0 && <span className="shrink-0 text-[12px] text-muted-foreground">Ideas:</span>}
       {ideas.map((tag) => (
         <button
           key={tag}
           type="button"
           onClick={() => onPick(tag)}
-          className="rounded-full bg-muted/60 px-2 py-0.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="shrink-0 rounded-full bg-muted/60 px-2 py-0.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         >
           + {tag}
         </button>

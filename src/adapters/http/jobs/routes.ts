@@ -348,6 +348,19 @@ async function prepare(
       return { status: 413, code: "too_large", message: `El audio supera ${API_LIMITS.maxAudioBytes / MB} MB.` };
     }
   }
+  // Optional meme-text layer: a real PNG of sane dimensions (it goes straight to ffmpeg).
+  const overlayFile = form.overlay instanceof File && form.overlay.size > 0 ? form.overlay : null;
+  let overlayBytes: Uint8Array | null = null;
+  if (overlayFile) {
+    if (overlayFile.size > API_LIMITS.maxOverlayBytes) {
+      return { status: 413, code: "too_large", message: "El texto del sticker pesa demasiado." };
+    }
+    overlayBytes = new Uint8Array(await overlayFile.arrayBuffer());
+    const size = pngSize(overlayBytes);
+    if (!size || size.width > API_LIMITS.maxOverlaySide || size.height > API_LIMITS.maxOverlaySide) {
+      return { status: 400, code: "bad_options", message: "El texto del sticker no es una imagen PNG válida." };
+    }
+  }
   const parsed = convertFieldsSchema.safeParse(form);
   if (!parsed.success) {
     return { status: 400, code: "bad_options", message: parsed.error.issues.map((i) => i.message).join(" ") };
@@ -358,6 +371,11 @@ async function prepare(
     // Stored under a fixed name: the client filename is never used in a path.
     const input = join(job.dir, "input");
     await writeFile(input, new Uint8Array(await file.arrayBuffer()));
+    let overlay: string | undefined;
+    if (overlayBytes) {
+      overlay = join(job.dir, "overlay.png");
+      await writeFile(overlay, overlayBytes);
+    }
     let audioPath: string | undefined;
     if (audioFile && o.includeAudio) {
       audioPath = join(job.dir, "audio-input");
@@ -374,6 +392,8 @@ async function prepare(
         maxBytes: o.hq ? API_LIMITS.maxExperimentalKb * 1024 : undefined,
         fit: o.fit,
         background: o.background,
+        overlay,
+        voice: o.includeAudio ? o.voice : undefined,
         crop:
           o.cropX !== undefined || o.cropY !== undefined || o.cropZoom !== undefined
             ? { x: o.cropX ?? 0.5, y: o.cropY ?? 0.5, zoom: o.cropZoom ?? 1 }
@@ -392,4 +412,16 @@ async function prepare(
     await store.remove(job.id);
     throw err;
   }
+}
+
+const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** Width/height from a PNG header (signature + IHDR), or null if it isn't one. */
+export function pngSize(b: Uint8Array): { width: number; height: number } | null {
+  if (b.length < 24 || PNG_SIGNATURE.some((v, i) => b[i] !== v)) return null;
+  if (String.fromCharCode(b[12] ?? 0, b[13] ?? 0, b[14] ?? 0, b[15] ?? 0) !== "IHDR") return null;
+  const view = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const width = view.getUint32(16);
+  const height = view.getUint32(20);
+  return width > 0 && height > 0 ? { width, height } : null;
 }
