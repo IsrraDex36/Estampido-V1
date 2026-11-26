@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type { ConvertResponse } from "@contract";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -7,6 +8,7 @@ import {
   Loader2Icon,
   SendIcon,
   Share2Icon,
+  Volume2Icon,
   TriangleAlertIcon,
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -25,7 +27,7 @@ import { notify } from "@/lib/notify";
 import { canShareFiles, shareSticker } from "@/lib/share";
 import { cn } from "@/lib/utils";
 import { ActionTile } from "./ActionTile";
-import { CreateInWhatsApp } from "./CreateInWhatsApp";
+import { CreateInWhatsApp, WhatsAppCreatorDialog } from "./CreateInWhatsApp";
 import { PublishButton } from "./PublishButton";
 
 /** WhatsApp card (primary, never a dead end) + publish / collection / download tiles. */
@@ -59,6 +61,7 @@ function SendCard({ result }: { result: ConvertResponse }) {
   const sending = mine && send.isPending;
   const sent = mine && send.isSuccess;
   const share = canShareFiles();
+  const [creatorOpen, setCreatorOpen] = useState(false);
 
   const doSend = () =>
     gate(() =>
@@ -78,9 +81,7 @@ function SendCard({ result }: { result: ConvertResponse }) {
     bot === undefined
       ? "Comprobando el envío…"
       : !connected
-        ? share
-          ? "El envío directo está en pausa: compártelo desde aquí a WhatsApp."
-          : "El envío directo está en pausa: descárgalo y mándalo desde WhatsApp Web."
+        ? "El envío directo está en pausa. Para que llegue con sonido, créalo en WhatsApp con nuestro video (Android, WhatsApp Beta)."
         : sent
           ? "Llegó a tu chat. Mantenlo presionado → Añadir a favoritos ⭐ para usarlo y reenviarlo siempre."
           : direct
@@ -133,18 +134,22 @@ function SendCard({ result }: { result: ConvertResponse }) {
           )}
           {sending ? "Enviando…" : sent ? "Enviar otra vez" : direct ? "Enviar a mi WhatsApp" : "Vincular y enviar"}
         </Button>
-      ) : share ? (
-        <Button className="h-12 shrink-0 rounded-full px-6 text-[15px] font-semibold" onClick={() => void shareSticker(result.sticker.url)}>
-          <Share2Icon data-icon="inline-start" />
-          Compartir
-        </Button>
       ) : (
-        <Button asChild className="h-12 shrink-0 rounded-full px-6 text-[15px] font-semibold">
-          <a href={downloadUrl(result.sticker.url)}>
-            <DownloadIcon data-icon="inline-start" />
-            Descargar sticker
-          </a>
-        </Button>
+        // Paused: the only way to keep the sound without the bot is WhatsApp's own creator.
+        <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
+          <Button className="h-12 rounded-full px-6 text-[15px] font-semibold" onClick={() => setCreatorOpen(true)}>
+            <Volume2Icon data-icon="inline-start" />
+            Crear con sonido en WhatsApp
+          </Button>
+          <button
+            type="button"
+            className="text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            onClick={() => (share ? void shareSticker(result.sticker.url) : window.location.assign(downloadUrl(result.sticker.url)))}
+          >
+            {share ? "o compartir como imagen (sin sonido)" : "o descargar el sticker (sin sonido)"}
+          </button>
+          <WhatsAppCreatorDialog result={result} open={creatorOpen} onOpenChange={setCreatorOpen} />
+        </div>
       )}
       <LinkDialog {...dialog} />
     </div>

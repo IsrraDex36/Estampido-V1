@@ -6,6 +6,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **Con el envío directo en pausa**, el botón principal ya no comparte una imagen sin sonido: ahora es «Crear con sonido en WhatsApp» (MP4 listo + pasos para el creador de stickers de WhatsApp, Android con WhatsApp Beta). Compartir como imagen queda como opción secundaria, marcada «sin sonido».
+
 - **«Compartir» volvió a estar visible** en el resultado (quedaba escondido cuando el bot estaba conectado y en computadora). En celular abre el menú de compartir con el sticker; en computadora lo descarga y explica cómo mandarlo por WhatsApp Web.
 
 - Prueba de rendimiento de SQLite intermitente en CI (una sola medición): ahora toma la mejor de 5 tras calentar.

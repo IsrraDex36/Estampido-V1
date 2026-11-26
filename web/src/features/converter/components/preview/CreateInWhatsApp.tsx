@@ -40,6 +40,23 @@ export function CreateInWhatsApp({ result }: { result: ConvertResponse }) {
   );
 }
 
+/** The same guide, opened from elsewhere (e.g. the main card while the bot is paused). */
+export function WhatsAppCreatorDialog({
+  result,
+  open,
+  onOpenChange,
+}: {
+  result: ConvertResponse;
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+}) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-md">{open && <Guide result={result} />}</DialogContent>
+    </Dialog>
+  );
+}
+
 function Guide({ result }: { result: ConvertResponse }) {
   const [file, setFile] = useState<{ url: string; blob: Blob } | null>(null);
   const [busy, setBusy] = useState(false);
