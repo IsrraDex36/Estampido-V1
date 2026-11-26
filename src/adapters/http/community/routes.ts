@@ -24,6 +24,7 @@ import {
   type CommunityRepo,
   type StoredSticker,
 } from "./repo.js";
+import { suggestTags } from "./tags.js";
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });
 const categoryIds = COMMUNITY_CATEGORIES.map((c) => c.id) as [string, ...string[]];
@@ -185,6 +186,36 @@ export function communityRoutes(
     }
     // Re-read: the response carries the creator (joined from users).
     return c.json(toStickerDto((await repo.get(item.id)) ?? item), 201);
+  });
+
+  /** Popular tags (explore rail; prefix → autocomplete). */
+  app.get("/tags", async (c) => {
+    const prefix = (c.req.query("q") ?? "").trim().toLowerCase().slice(0, COMMUNITY_LIMITS.maxTagLength);
+    const category = c.req.query("category");
+    const tags = await repo.popularTags({
+      prefix: prefix || undefined,
+      category: categoryIds.includes(category ?? "") ? category : null,
+      limit: Number(c.req.query("limit")) || 12,
+    });
+    c.header("Cache-Control", "public, max-age=60");
+    return c.json({ items: tags });
+  });
+
+  /** Suggestions while publishing: title words, then popular in the category, then popular overall. */
+  app.get("/tags/suggest", async (c) => {
+    const title = (c.req.query("title") ?? "").slice(0, COMMUNITY_LIMITS.maxTitle);
+    const category = c.req.query("category");
+    const [inCat, overall] = await Promise.all([
+      categoryIds.includes(category ?? "") ? repo.popularTags({ category, limit: 8 }) : Promise.resolve([]),
+      repo.popularTags({ limit: 8 }),
+    ]);
+    return c.json({
+      items: suggestTags(
+        title,
+        inCat.map((t) => t.tag),
+        overall.map((t) => t.tag),
+      ),
+    });
   });
 
   app.get("/sounds/:id", async (c) => {

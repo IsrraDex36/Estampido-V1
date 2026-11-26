@@ -13,6 +13,10 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Seguir creadores**: botón Seguir en los perfiles, contador de seguidores, orden **«Siguiendo»** en Stickers (lo nuevo de quienes sigues) y «Siguiendo» en Tu espacio.
+- **Packs**: arma packs de hasta 30 stickers (como en WhatsApp) desde el menú ⋯ de cualquier sticker; página pública `/p/:id` con **«Enviar los N a mi WhatsApp»** (con progreso y detener), compartir, renombrar, quitar y borrar; packs en tu espacio y en tu perfil.
+- **Etiquetas**: sugerencias automáticas al publicar (palabras del título, populares en la categoría y en general) y fila de **#etiquetas populares** que filtra el feed con un toque.
+
 - **Comunidad por pestañas**: encabezado compacto (qué es, contadores abreviados con ícono, «cómo funciona» en 3 pasos y **Reglas de la comunidad**) y cuatro pestañas fijas — Stickers (feed + Top de la semana), Sonidos (lista completa con orden, búsqueda y paginación), Creadores (tarjetas con perfil y cifras) y Tu espacio. La pestaña vive en la URL (`?tab=sonidos`): se comparte y el botón atrás funciona. En celular la página pasó de ~8 000 px de alto a secciones cortas.
 - **Nada se rompe con datos extremos**: cifras abreviadas en todos lados (`370 k`, `1.2 M`, sin decimales desde 100 k, con espacio no separable y el número exacto al pasar el mouse), títulos/nombres/categorías truncados, biografías con cortes de palabra largos, buscador acotado.
 

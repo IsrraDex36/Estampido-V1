@@ -6,6 +6,7 @@ import {
   DownloadIcon,
   FlagIcon,
   MoreHorizontalIcon,
+  PackIcon,
   PauseIcon,
   PlayIcon,
   Share2Icon,
@@ -34,6 +35,8 @@ import { useFavorites } from "../store/favoritesStore";
 import { previewTime, usePreview, usePreviewMode } from "../store/previewStore";
 import { SyncedSticker } from "@/components/SyncedSticker";
 import { ReportDialog } from "./ReportDialog";
+import { AddToPackDialog } from "@/features/social/AddToPackDialog";
+import { LinkDialog } from "@/features/bot/LinkDialog";
 import { SendToWhatsAppButton } from "./SendToWhatsAppButton";
 
 /** A published sticker: tap the cover to hear it; send it to WhatsApp, save, use its sound, share, download. */
@@ -206,7 +209,12 @@ function Equalizer() {
 /** Less frequent actions: share, download, report (not on your own sticker). */
 function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
   const [reportOpen, setReportOpen] = useState(false);
-  const me = useMe().data;
+  const [packOpen, setPackOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const meQuery = useMe();
+  const me = meQuery.data;
+  // Only «signed out» once we know: while the session loads, the pack dialog opens (it asks if needed).
+  const signedOut = !meQuery.isPending && !me;
   const mine = Boolean(me && sticker.creator && me.handle === sticker.creator.handle);
   return (
     <>
@@ -221,6 +229,9 @@ function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
           </button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onSelect={() => (signedOut ? setLinkOpen(true) : setPackOpen(true))}>
+            <PackIcon className="size-4" /> Agregar a pack
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => void shareLink(sticker.title, sticker.stickerUrl)}>
             <Share2Icon className="size-4" /> Compartir
           </DropdownMenuItem>
@@ -240,6 +251,8 @@ function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
         </DropdownMenuContent>
       </DropdownMenu>
       <ReportDialog stickerId={sticker.id} title={sticker.title} open={reportOpen} onOpenChange={setReportOpen} />
+      {!signedOut && <AddToPackDialog stickerId={sticker.id} title={sticker.title} open={packOpen} onOpenChange={setPackOpen} />}
+      {signedOut && linkOpen && <LinkDialog open={linkOpen} onOpenChange={setLinkOpen} />}
     </>
   );
 }

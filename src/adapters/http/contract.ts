@@ -286,6 +286,10 @@ export interface CreatorProfile extends CreatorRef {
   /** ISO timestamp. */
   createdAt: string;
   stats: CreatorStats;
+  /** People following this creator. */
+  followers: number;
+  /** Only with a session: whether the viewer follows them. */
+  followedByMe?: boolean;
 }
 
 /** The signed-in user (GET /api/me). */
@@ -491,4 +495,26 @@ export interface QueueInfo {
   avgJobSec: number;
   /** New stickers are being turned away right now. */
   full: boolean;
+}
+
+// ── Packs (curated lists of community stickers) ───────────────────────────
+
+/** WhatsApp packs hold up to 30 stickers. */
+export const PACK_LIMITS = { maxStickers: 30, maxPacks: 20, maxName: 40 } as const;
+
+export interface PackSummary {
+  id: string;
+  name: string;
+  count: number;
+  /** Up to 4 sticker URLs for the cover mosaic. */
+  covers: string[];
+  owner: CreatorRef;
+  /** ISO timestamp. */
+  updatedAt: string;
+}
+
+export interface PackDetail extends PackSummary {
+  items: CommunitySticker[];
+  /** The viewer owns it (can edit). */
+  mine: boolean;
 }

@@ -54,6 +54,13 @@ describe("community tab in the URL", () => {
     expect(canonicalSearch("/comunidad", "?tab=sonidos").search).toBe("?tab=sonidos");
   });
 
+  it("«Siguiendo» is a valid order in the URL; sounds only use the ranked ones", async () => {
+    const { RANKED_SORTS } = await import("../../web/src/features/community/model.js");
+    expect(parseFilters("?orden=siguiendo").sort).toBe("siguiendo");
+    expect(serializeFilters(parseFilters("?orden=siguiendo"))).toBe("?orden=siguiendo");
+    expect(RANKED_SORTS.map((s) => s.id)).toEqual(["hot", "new", "top"]);
+  });
+
   it("filters still round-trip alone (tab is not a filter)", () => {
     const f = parseFilters("?orden=top&cat=memes&tab=sonidos");
     expect(serializeFilters(f)).toBe("?orden=top&cat=memes");

@@ -12,6 +12,15 @@ export const queryKeys = {
     me: ["account", "me"] as const,
     stickers: ["account", "stickers"] as const,
   },
+  social: {
+    all: ["social"] as const,
+    following: ["social", "following"] as const,
+    feed: ["social", "feed"] as const,
+    myPacks: (sticker?: string) => ["social", "packs", "mine", sticker ?? ""] as const,
+    pack: (id: string) => ["social", "pack", id] as const,
+    creatorPacks: (handle: string) => ["social", "packs", "creator", handle] as const,
+    tags: (category?: string | null) => ["social", "tags", category ?? ""] as const,
+  },
   creators: {
     all: ["creators"] as const,
     top: ["creators", "top"] as const,

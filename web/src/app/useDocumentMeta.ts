@@ -32,7 +32,7 @@ const META: Record<string, { title: string; description: string }> = {
 export function useDocumentMeta(): void {
   const [pathname] = useLocation();
   useEffect(() => {
-    if (pathname.startsWith("/u/")) return; // the creator page sets its own (needs the profile)
+    if (pathname.startsWith("/u/") || pathname.startsWith("/p/")) return; // creator/pack pages set their own
     const meta = META[pathname] ?? { title: "Página no encontrada · Estampido", description: "" };
     document.title = meta.title;
     if (meta.description) document.querySelector('meta[name="description"]')?.setAttribute("content", meta.description);

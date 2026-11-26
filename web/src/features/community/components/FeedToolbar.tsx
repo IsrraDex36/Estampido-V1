@@ -1,18 +1,57 @@
 import { SearchIcon, XIcon } from "@/components/icons";
+import { useQuery } from "@tanstack/react-query";
+import { useMe } from "@/features/account/api";
+import { socialQueries } from "@/features/social/api";
 import { cn } from "@/lib/utils";
 import { CATEGORIES, FEED_SORTS, TOP_PERIODS } from "../model";
 import { useCommunityStore } from "../store/communityStore";
 
 /** Filter bar: sort (+ period for Top), search, category rail. State in the community store. (The tab bar above is the sticky one.) */
 export function FeedToolbar() {
+  // «Siguiendo» is a personal list: search, categories and tags don't apply.
+  const personal = useCommunityStore((s) => s.sort === "siguiendo");
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         <SortTabs />
         <PeriodPicker />
-        <SearchBox />
+        {!personal && <SearchBox />}
       </div>
-      <CategoryRail />
+      {!personal && <CategoryRail />}
+      {!personal && <PopularTags />}
+    </div>
+  );
+}
+
+/** Popular tags (for the current category): one tap searches them. */
+function PopularTags() {
+  const category = useCommunityStore((s) => s.category);
+  const query = useCommunityStore((s) => s.query);
+  const setQuery = useCommunityStore((s) => s.setQuery);
+  const tags = useQuery(socialQueries.tags(category));
+  const items = tags.data ?? [];
+  if (items.length === 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" aria-label="Etiquetas populares">
+      <span className="shrink-0 text-[12px] text-muted-foreground">Populares:</span>
+      {items.map((t) => {
+        const active = query.trim().toLowerCase() === t.tag;
+        return (
+          <button
+            key={t.tag}
+            type="button"
+            aria-pressed={active}
+            onClick={() => setQuery(active ? "" : t.tag)}
+            className={cn(
+              "shrink-0 rounded-full px-2.5 py-1 text-[12px] transition-colors",
+              active ? "bg-foreground text-background" : "bg-muted/50 text-muted-foreground hover:text-foreground",
+            )}
+            title={`${t.count} ${t.count === 1 ? "sticker" : "stickers"}`}
+          >
+            #{t.tag}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -20,9 +59,10 @@ export function FeedToolbar() {
 function SortTabs() {
   const sort = useCommunityStore((s) => s.sort);
   const setSort = useCommunityStore((s) => s.setSort);
+  const me = useMe().data;
   return (
     <div role="tablist" aria-label="Orden" className="inline-flex rounded-full bg-muted/60 p-1">
-      {FEED_SORTS.map((s) => (
+      {FEED_SORTS.filter((s) => s.id !== "siguiendo" || me || sort === "siguiendo").map((s) => (
         <button
           key={s.id}
           type="button"

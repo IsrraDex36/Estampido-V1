@@ -48,8 +48,8 @@ export const communityQueries = {
  * Feed hook. Changing filters aborts the in-flight request (signal) and keeps
  * the previous pages on screen until the new ones arrive (no layout jump).
  */
-export function useStickerFeed(filters: CommunityFilters) {
-  return useInfiniteQuery({ ...communityQueries.feed(filters), placeholderData: keepPreviousData });
+export function useStickerFeed(filters: CommunityFilters, enabled = true) {
+  return useInfiniteQuery({ ...communityQueries.feed(filters), placeholderData: keepPreviousData, enabled });
 }
 
 export function useSoundFeed(params: SoundQuery) {

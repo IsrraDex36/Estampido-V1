@@ -72,6 +72,8 @@ const importSchema = z.object({
 });
 
 export interface AccountRoutesDeps {
+  /** To tell a signed-in viewer whether they follow a creator. */
+  isFollowing?: (followerId: string, followeeId: string) => Promise<boolean>;
   accounts: AccountRepo;
   community: CommunityRepo;
   bot: BotClient;
@@ -83,7 +85,7 @@ export interface AccountRoutesDeps {
  * creator pages. Signing in = this browser is linked to a WhatsApp (the user
  * sent the EST- code) → a session cookie for that WhatsApp's account.
  */
-export function accountRoutes({ accounts, community, bot, cookie }: AccountRoutesDeps): Hono<AppEnv> {
+export function accountRoutes({ accounts, community, bot, cookie, isFollowing }: AccountRoutesDeps): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   const needUser = (c: Context<AppEnv>): User | Response =>
@@ -254,7 +256,13 @@ export function accountRoutes({ accounts, community, bot, cookie }: AccountRoute
     const handle = c.req.param("handle").toLowerCase();
     const user = HANDLE_RE.test(handle) ? await accounts.byHandle(handle) : null;
     if (!user) return c.json(fail("not_found", "Ese creador no existe."), 404);
-    return c.json((await accounts.profile(user)) satisfies CreatorProfile);
+    const viewer = c.get("user");
+    const profile = await accounts.profile(user);
+    if (viewer && isFollowing && viewer.id !== user.id) {
+      c.header("Cache-Control", "no-store");
+      return c.json({ ...profile, followedByMe: await isFollowing(viewer.id, user.id) } satisfies CreatorProfile);
+    }
+    return c.json(profile satisfies CreatorProfile);
   });
 
   app.get("/creators/:handle/stickers", async (c) => {

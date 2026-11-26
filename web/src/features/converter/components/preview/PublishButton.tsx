@@ -6,7 +6,8 @@ import {
   type PublishShare,
 } from "@contract";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useId, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useDeferredValue, useId, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useLocation } from "wouter";
 import { ROUTES } from "@/app/routes";
@@ -22,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { LinkDialog } from "@/features/bot/LinkDialog";
+import { suggestTags } from "@/features/social/endpoints";
 import { useLinkGate } from "@/features/bot/useLinkGate";
 import { usePublish } from "@/features/community/api/mutations";
 import { ApiError } from "@/lib/api";
@@ -92,6 +94,7 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
     register,
     handleSubmit,
     control,
+    setValue,
     setError,
     formState: { errors, isValid, isSubmitting },
   } = useForm<PublishFormValues>({
@@ -99,7 +102,10 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
     mode: "onChange",
     defaultValues: { share: defaultShare(ctx), category: undefined, title: "", tags: "", owns: false },
   });
-  const [title = "", tagsRaw = "", share = defaultShare(ctx)] = useWatch({ control, name: ["title", "tags", "share"] });
+  const [title = "", tagsRaw = "", share = defaultShare(ctx), category] = useWatch({
+    control,
+    name: ["title", "tags", "share", "category"],
+  });
   const needsRights = needsAudioRights(share, ctx);
   const tagPreview = splitTags(tagsRaw).slice(0, COMMUNITY_LIMITS.maxTags);
 
@@ -222,6 +228,15 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
               aria-invalid={Boolean(errors.tags)}
               aria-describedby={errors.tags ? `${ids.tags}-err` : undefined}
               className={cn(inputClass, errors.tags && "ring-2 ring-destructive/60")}
+            />
+            <TagSuggestions
+              title={title}
+              category={category ?? null}
+              current={splitTags(tagsRaw)}
+              onPick={(t) => {
+                const next = [...splitTags(tagsRaw), t].slice(0, COMMUNITY_LIMITS.maxTags).join(", ");
+                setValue("tags", next, { shouldValidate: true, shouldDirty: true });
+              }}
             />
             {errors.tags ? (
               <FieldError id={`${ids.tags}-err`} message={errors.tags.message} />
@@ -348,5 +363,47 @@ function SharePicker({
         })}
       </div>
     </fieldset>
+  );
+}
+
+/**
+ * Tag ideas while publishing (from the title, then what's popular in the
+ * category): one tap adds one. Hidden once the tag limit is reached.
+ */
+function TagSuggestions({
+  title,
+  category,
+  current,
+  onPick,
+}: {
+  title: string;
+  category: string | null;
+  current: string[];
+  onPick: (tag: string) => void;
+}) {
+  const t = useDeferredValue(title.trim().slice(0, 60));
+  const q = useQuery({
+    queryKey: ["tags", "suggest", t, category],
+    queryFn: ({ signal }) => suggestTags(t, category, signal),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData,
+    meta: { errorMessage: false },
+  });
+  const ideas = (q.data ?? []).filter((x) => !current.includes(x)).slice(0, 6);
+  if (current.length >= COMMUNITY_LIMITS.maxTags || ideas.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-1" aria-label="Etiquetas sugeridas">
+      <span className="text-[12px] text-muted-foreground">Ideas:</span>
+      {ideas.map((tag) => (
+        <button
+          key={tag}
+          type="button"
+          onClick={() => onPick(tag)}
+          className="rounded-full bg-muted/60 px-2 py-0.5 text-[12px] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        >
+          + {tag}
+        </button>
+      ))}
+    </div>
   );
 }

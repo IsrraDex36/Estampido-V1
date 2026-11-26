@@ -39,6 +39,8 @@ import { linkGreeting } from "./linkGreeting.js";
 import { ModerationRepo } from "./moderation/repo.js";
 import { moderationRoutes } from "./moderation/routes.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
+import { SocialRepo } from "./social/repo.js";
+import { socialRoutes } from "./social/routes.js";
 
 export interface AppDeps {
   bot?: BotClient;
@@ -132,7 +134,18 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     "/community",
     communityRoutes(communityRepo, store, { canPublish, isAdmin: (c) => adminDenied(c) === null }),
   );
-  app.route("/", accountRoutes({ accounts, community: communityRepo, bot, cookie }));
+  const social = new SocialRepo(communityRepo);
+  app.route(
+    "/",
+    accountRoutes({
+      accounts,
+      community: communityRepo,
+      bot,
+      cookie,
+      isFollowing: (a, b) => social.isFollowing(a, b),
+    }),
+  );
+  app.route("/", socialRoutes({ social, accounts, community: communityRepo }));
 
   // Conversions: admission-controlled queue, sync or background jobs.
   app.route("/", convertRoutes({ store, convert, queue: conversionQueue, registry: jobRegistry }));

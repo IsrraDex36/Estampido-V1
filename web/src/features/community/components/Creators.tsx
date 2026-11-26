@@ -62,7 +62,7 @@ export function CreatorsTab() {
                       <b>{compactNumber(c.stats.uses)}</b> <span className="text-muted-foreground">usos</span>
                     </span>
                     <span>
-                      <b>{compactNumber(c.stats.saves)}</b> <span className="text-muted-foreground">guardados</span>
+                      <b>{compactNumber(c.followers)}</b> <span className="text-muted-foreground">seguidores</span>
                     </span>
                   </span>
                 </span>

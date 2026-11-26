@@ -3,11 +3,11 @@ import { SearchIcon, XIcon } from "@/components/icons";
 import { Section } from "@/components/section";
 import { cn } from "@/lib/utils";
 import { useSoundFeed } from "../api/queries";
-import { FEED_SORTS } from "../model";
+import { RANKED_SORTS } from "../model";
 import { InfiniteFooter } from "./InfiniteFooter";
 import { SoundRow, SoundRowSkeleton } from "./SoundRow";
 
-type Sort = (typeof FEED_SORTS)[number]["id"];
+type Sort = (typeof RANKED_SORTS)[number]["id"];
 const MAX_QUERY = 80;
 
 /** Every community sound: order, search, paginated (infinite + «Cargar más»). */
@@ -25,7 +25,7 @@ export function SoundsTab() {
       </p>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         <div role="tablist" aria-label="Orden de sonidos" className="inline-flex w-fit max-w-full overflow-x-auto rounded-full bg-muted/60 p-1">
-          {FEED_SORTS.map((s) => (
+          {RANKED_SORTS.map((s) => (
             <button
               key={s.id}
               type="button"

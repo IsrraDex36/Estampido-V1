@@ -23,6 +23,7 @@ import { WelcomeTour } from "@/features/onboarding/WelcomeTour";
 const CommunityPage = lazy(loadCommunityPage);
 const AccountPage = lazy(() => import("@/features/account/AccountPage"));
 const CreatorPage = lazy(() => import("@/features/account/CreatorPage"));
+const PackPage = lazy(() => import("@/features/social/PackPage"));
 
 function Shell() {
   useCanonicalUrl();
@@ -52,6 +53,11 @@ function Shell() {
           <Route path={ROUTES.creator}>
             <Suspense fallback={null}>
               <CreatorPage />
+            </Suspense>
+          </Route>
+          <Route path={ROUTES.pack}>
+            <Suspense fallback={null}>
+              <PackPage />
             </Suspense>
           </Route>
           <Route path={ROUTES.privacy} component={PrivacyPage} />

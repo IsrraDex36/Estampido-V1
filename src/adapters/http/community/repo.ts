@@ -243,6 +243,29 @@ export class CommunityRepo {
     return valid.flatMap((id) => byId.get(id) ?? []);
   }
 
+  /** Most used tags on visible stickers (optionally in one category / starting with a prefix). */
+  async popularTags(
+    opts: { category?: string | null; prefix?: string; limit?: number } = {},
+  ): Promise<{ tag: string; count: number }[]> {
+    const db = await this.db();
+    const where = ["s.hidden = 0", "s.listed = 1"];
+    const params: SQLInputValue[] = [];
+    if (opts.category) {
+      where.push("s.category = ?");
+      params.push(opts.category);
+    }
+    if (opts.prefix) {
+      where.push("t.value LIKE ? ESCAPE '\\'");
+      params.push(`${opts.prefix.replace(/[\\%_]/g, (c) => `\\${c}`)}%`);
+    }
+    params.push(Math.min(50, Math.max(1, opts.limit ?? 12)));
+    return this.stmt(
+      db,
+      `SELECT t.value AS tag, COUNT(*) AS count FROM stickers s, json_each(s.tags) t
+          WHERE ${where.join(" AND ")} GROUP BY t.value ORDER BY count DESC, t.value ASC LIMIT ?`,
+    ).all(...params) as { tag: string; count: number }[];
+  }
+
   /** Everything, newest first (owner moderation). */
   async listAll(): Promise<StoredSticker[]> {
     const db = await this.db();
@@ -274,7 +297,7 @@ export class CommunityRepo {
   async page(
     query: FeedQuery,
     pool: "stickers" | "sounds" | "all",
-    opts: { ownerId?: string; includeHidden?: boolean } = {},
+    opts: { ownerId?: string; includeHidden?: boolean; followedBy?: string } = {},
   ): Promise<FeedPage> {
     let cursor: ReturnType<typeof decodeCursor> = null;
     if (query.cursor) {
@@ -290,6 +313,11 @@ export class CommunityRepo {
     if (opts.ownerId) {
       where.push("owner_id = :ownerId");
       params.ownerId = opts.ownerId;
+    }
+    if (opts.followedBy) {
+      // «Siguiendo»: stickers by the creators this user follows.
+      where.push("owner_id IN (SELECT followee_id FROM follows WHERE follower_id = :followedBy)");
+      params.followedBy = opts.followedBy;
     }
     const period = PERIOD_MS[query.period];
     if (query.sort === "top" && Number.isFinite(period)) {

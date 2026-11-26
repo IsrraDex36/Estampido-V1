@@ -7,10 +7,13 @@ export const ROUTES = {
   account: "/cuenta",
   /** Public creator page: /u/:handle. */
   creator: "/u/:handle",
+  /** Public pack page: /p/:id. */
+  pack: "/p/:id",
   /** Owner-only (password); not linked from the UI. */
   admin: "/admin",
 } as const;
 
+export const packHref = (id: string): string => `/p/${encodeURIComponent(id)}`;
 export const creatorHref = (handle: string): string => `/u/${encodeURIComponent(handle)}`;
 
 /** Query param that opens «Crear» with a community sound loaded (remix). */

@@ -1,6 +1,11 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { Link } from "wouter";
-import { ROUTES } from "@/app/routes";
+import { creatorHref, ROUTES } from "@/app/routes";
+import { Avatar } from "@/features/account/Avatar";
+import { PackCard } from "@/features/social/PackCard";
+import { socialQueries } from "@/features/social/api";
+import { compactNumber } from "@/lib/format";
 import { useMe, useMyStickers } from "@/features/account/api";
 import { LinkDialog } from "@/features/bot/LinkDialog";
 import { Mascot } from "@/components/pixel/Mascot";
@@ -27,17 +32,23 @@ export function MySpace() {
   const published = me
     ? Object.fromEntries((mine.data?.pages[0]?.items ?? []).map((s) => [s.id, s]))
     : devicePublished;
+  // Packs and follows live in the account (signed in only).
+  const packs = useQuery({ ...socialQueries.myPacks(), enabled: Boolean(me) });
+  const following = useQuery({ ...socialQueries.following(), enabled: Boolean(me) });
+  const tabs = MY_SPACE_TABS.filter((t) => me || (t.id !== "packs" && t.id !== "following"));
   const counts: Record<Tab, number> = {
     saved: Object.keys(stickers).length,
     sounds: Object.keys(sounds).length,
     published: Object.keys(published).length,
+    packs: packs.data?.items.length ?? 0,
+    following: following.data?.length ?? 0,
   };
-  const current = MY_SPACE_TABS.find((t) => t.id === tab) ?? MY_SPACE_TABS[0];
+  const current = tabs.find((t) => t.id === tab) ?? tabs[0] ?? MY_SPACE_TABS[0];
 
   return (
     <div>
       <div role="tablist" aria-label="Tu espacio" className="inline-flex max-w-full overflow-x-auto rounded-full bg-muted/60 p-1">
-        {MY_SPACE_TABS.map((t) => (
+        {tabs.map((t) => (
           <button
             key={t.id}
             type="button"
@@ -62,6 +73,31 @@ export function MySpace() {
             <p className="font-pixel text-[11px] text-muted-foreground">AÚN NADA POR AQUÍ</p>
             <p className="max-w-sm text-[13px] text-muted-foreground">{current.empty}</p>
           </div>
+        ) : tab === "packs" ? (
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4">
+            {packs.data?.items.map((p) => (
+              <PackCard key={p.id} pack={p} showOwner={false} />
+            ))}
+          </div>
+        ) : tab === "following" ? (
+          <ul className="grid gap-2 sm:grid-cols-2">
+            {following.data?.map((c) => (
+              <li key={c.handle} className="min-w-0">
+                <Link
+                  href={creatorHref(c.handle)}
+                  className="flex min-w-0 items-center gap-3 rounded-2xl bg-muted/40 p-3 ring-1 ring-border/60 hover:ring-foreground/20"
+                >
+                  <Avatar avatar={c.avatar} size={40} />
+                  <span className="min-w-0">
+                    <span className="block truncate text-[14px] font-semibold">{c.displayName}</span>
+                    <span className="block truncate text-[12px] text-muted-foreground">
+                      @{c.handle} · {compactNumber(c.stats.stickers)} stickers
+                    </span>
+                  </span>
+                </Link>
+              </li>
+            ))}
+          </ul>
         ) : tab === "sounds" ? (
           <ul className="space-y-0.5">
             {Object.values(sounds).map((s) => (

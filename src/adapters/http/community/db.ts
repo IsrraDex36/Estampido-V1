@@ -146,6 +146,34 @@ export const MIGRATIONS: readonly string[] = [
    ) STRICT;
    CREATE INDEX feedback_status_new ON feedback (status, created_at DESC);
    CREATE INDEX feedback_sender_new ON feedback (sender, created_at DESC);`,
+
+  // 5 — social: follow creators; packs (curated lists of community stickers)
+  `CREATE TABLE follows (
+     follower_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     followee_id TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     created_at  INTEGER NOT NULL,
+     PRIMARY KEY (follower_id, followee_id),
+     CHECK (follower_id != followee_id)
+   ) STRICT, WITHOUT ROWID;
+   CREATE INDEX follows_followee ON follows (followee_id);
+
+   CREATE TABLE packs (
+     id         TEXT PRIMARY KEY,
+     owner_id   TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     name       TEXT NOT NULL,
+     created_at INTEGER NOT NULL,
+     updated_at INTEGER NOT NULL
+   ) STRICT;
+   CREATE INDEX packs_owner ON packs (owner_id, updated_at DESC);
+
+   CREATE TABLE pack_items (
+     pack_id    TEXT NOT NULL REFERENCES packs (id) ON DELETE CASCADE,
+     sticker_id TEXT NOT NULL REFERENCES stickers (id) ON DELETE CASCADE,
+     position   INTEGER NOT NULL,
+     added_at   INTEGER NOT NULL,
+     PRIMARY KEY (pack_id, sticker_id)
+   ) STRICT, WITHOUT ROWID;
+   CREATE INDEX pack_items_sticker ON pack_items (sticker_id);`,
 ];
 
 export function openCommunityDb(path: string): DatabaseSync {

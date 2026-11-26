@@ -10,11 +10,15 @@ import { InfiniteFooter } from "@/features/community/components/InfiniteFooter";
 import { StickerCard } from "@/features/community/components/StickerCard";
 import { ApiError } from "@/lib/api";
 import { notify } from "@/lib/notify";
+import { compactNumber } from "@/lib/format";
+import { FollowButton } from "@/features/social/FollowButton";
+import { PackCard } from "@/features/social/PackCard";
+import { socialQueries } from "@/features/social/api";
 import { creatorQueries, useMe } from "./api";
 import { Avatar } from "./Avatar";
 
 const joined = (iso: string) => new Date(iso).toLocaleDateString("es-MX", { month: "long", year: "numeric" });
-const n = (v: number) => new Intl.NumberFormat("es-MX", { notation: "compact" }).format(v);
+const n = (v: number) => compactNumber(v);
 
 /** Public creator page: who they are, their numbers and their stickers. */
 export default function CreatorPage() {
@@ -78,6 +82,7 @@ export default function CreatorPage() {
           )}
         </div>
         <div className="flex gap-2">
+          {p && !isMe && <FollowButton profile={p} />}
           {isMe && (
             <Button asChild variant="secondary" className="rounded-full">
               <Link href={ROUTES.account}>Editar perfil</Link>
@@ -89,21 +94,24 @@ export default function CreatorPage() {
         </div>
       </header>
 
-      <dl className="mt-6 grid grid-cols-4 gap-2 sm:max-w-lg">
+      <dl className="mt-6 grid grid-cols-3 gap-2 sm:max-w-2xl sm:grid-cols-5">
         {(
           [
+            ["Seguidores", p?.followers],
             ["Stickers", p?.stats.stickers],
             ["Usos", p?.stats.uses],
             ["Guardados", p?.stats.saves],
             ["Envíos", p?.stats.sends],
           ] as const
         ).map(([label, value]) => (
-          <div key={label} className="rounded-2xl bg-muted/50 px-3 py-2.5 text-center">
+          <div key={label} className="min-w-0 rounded-2xl bg-muted/50 px-1.5 py-2.5 text-center sm:px-3">
             <dd className="font-mono text-lg font-semibold tabular-nums">{value === undefined ? "–" : n(value)}</dd>
-            <dt className="text-[11px] text-muted-foreground">{label}</dt>
+            <dt className="truncate text-[11px] text-muted-foreground">{label}</dt>
           </div>
         ))}
       </dl>
+
+      {p && <CreatorPacks handle={p.handle} />}
 
       <section aria-label="Stickers publicados" className="mt-8">
         {stickers.isPending && profile.isSuccess ? (
@@ -142,5 +150,21 @@ export default function CreatorPage() {
         )}
       </section>
     </div>
+  );
+}
+
+/** The creator's packs (only non-empty ones are public). */
+function CreatorPacks({ handle }: { handle: string }) {
+  const packs = useQuery(socialQueries.creatorPacks(handle));
+  if (!packs.data || packs.data.length === 0) return null;
+  return (
+    <section aria-label="Packs" className="mt-8 space-y-3">
+      <h2 className="text-[15px] font-semibold">Packs</h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {packs.data.map((pk) => (
+          <PackCard key={pk.id} pack={pk} showOwner={false} />
+        ))}
+      </div>
+    </section>
   );
 }

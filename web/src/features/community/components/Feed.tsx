@@ -1,10 +1,14 @@
-import { useDeferredValue } from "react";
+import { useInfiniteQuery } from "@tanstack/react-query";
+import { useDeferredValue, useState } from "react";
 import { Link } from "wouter";
 import { useShallow } from "zustand/react/shallow";
 import { ROUTES } from "@/app/routes";
 import { Mascot } from "@/components/pixel/Mascot";
 import { Section } from "@/components/section";
 import { Button } from "@/components/ui/button";
+import { useMe } from "@/features/account/api";
+import { LinkDialog } from "@/features/bot/LinkDialog";
+import { socialQueries } from "@/features/social/api";
 import { cn } from "@/lib/utils";
 import { useStickerFeed } from "../api/queries";
 import { categoryById, FEED_SORTS, TOP_PERIODS } from "../model";
@@ -19,7 +23,11 @@ export function Feed() {
   const filters = useCommunityStore(useShallow(selectFilters));
   // Typing shouldn't fire a request per key: the query follows a deferred copy.
   const query = useDeferredValue(filters.query);
-  const feed = useStickerFeed({ ...filters, query });
+  const personal = filters.sort === "siguiendo";
+  const me = useMe();
+  const ranked = useStickerFeed({ ...filters, query }, !personal);
+  const followingFeed = useInfiniteQuery({ ...socialQueries.feed(), enabled: personal && Boolean(me.data) });
+  const feed = personal ? followingFeed : ranked;
   const hasFilters = useCommunityStore(selectHasFilters);
   const reset = useCommunityStore((s) => s.reset);
 
@@ -37,7 +45,9 @@ export function Feed() {
     <Section index="01" title={title}>
       <div className="mb-4 flex min-h-8 flex-wrap items-center justify-between gap-2">
         <p className="text-[13px] text-muted-foreground" aria-live="polite">
-          {scope ? `Filtrando por ${scope}. ` : ""}Toca un sticker para escucharlo; «Usar» lleva su sonido a tu clip.
+          {personal
+            ? "Lo nuevo de los creadores que sigues."
+            : `${scope ? `Filtrando por ${scope}. ` : ""}Toca un sticker para escucharlo; «Usar» lleva su sonido a tu clip.`}
         </p>
         {hasFilters && (
           <Button variant="ghost" size="sm" className="rounded-full" onClick={reset}>
@@ -46,7 +56,9 @@ export function Feed() {
         )}
       </div>
 
-      {feed.isPending ? (
+      {personal && !me.isPending && !me.data ? (
+        <FollowingSignedOut />
+      ) : feed.isPending ? (
         <div className={GRID} aria-busy="true">
           {Array.from({ length: 8 }, (_, i) => `sk${i}`).map((k) => (
             <StickerCardSkeleton key={k} />
@@ -60,7 +72,19 @@ export function Feed() {
           </Button>
         </div>
       ) : items.length === 0 ? (
-        <EmptyFeed filtered={hasFilters} onReset={reset} />
+        personal ? (
+          <div className="flex flex-col items-center gap-3 rounded-3xl bg-stage px-6 py-12 text-center">
+            <Mascot size={84} />
+            <p className="max-w-sm text-[14px] text-muted-foreground">
+              Aún no sigues a nadie (o no han publicado). Encuentra creadores y toca «Seguir».
+            </p>
+            <Button asChild className="rounded-full">
+              <Link href={`${ROUTES.community}?tab=creadores`}>Ver creadores</Link>
+            </Button>
+          </div>
+        ) : (
+          <EmptyFeed filtered={hasFilters} onReset={reset} />
+        )
       ) : (
         <>
           <div className={cn(GRID, "transition-opacity", feed.isPlaceholderData && "opacity-50")}>
@@ -80,6 +104,20 @@ export function Feed() {
         </>
       )}
     </Section>
+  );
+}
+
+function FollowingSignedOut() {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-3xl bg-stage px-6 py-12 text-center">
+      <Mascot size={84} />
+      <p className="max-w-sm text-[14px] text-muted-foreground">Entra con tu WhatsApp para seguir creadores y ver aquí lo que publiquen.</p>
+      <Button className="rounded-full" onClick={() => setOpen(true)}>
+        Entrar con WhatsApp
+      </Button>
+      <LinkDialog open={open} onOpenChange={setOpen} />
+    </div>
   );
 }
 

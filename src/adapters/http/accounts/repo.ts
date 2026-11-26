@@ -255,7 +255,12 @@ export class AccountRepo {
       bio: user.bio,
       createdAt: new Date(user.createdAt).toISOString(),
       stats: await this.stats(user.id, { includeHidden }),
+      followers: await this.followers(user.id),
     };
+  }
+
+  async followers(userId: string): Promise<number> {
+    return ((await this.q("SELECT COUNT(*) AS n FROM follows WHERE followee_id = ?")).get(userId) as { n: number }).n;
   }
 
   async me(user: User): Promise<Me> {
@@ -271,7 +276,8 @@ export class AccountRepo {
     const rows = (
       await this.q(
         `SELECT u.${USER_COLS.split(", ").join(", u.")},
-              COUNT(s.id) AS stickers, SUM(s.uses) AS uses, SUM(s.saves) AS saves, SUM(s.sends) AS sends
+              COUNT(s.id) AS stickers, SUM(s.uses) AS uses, SUM(s.saves) AS saves, SUM(s.sends) AS sends,
+              (SELECT COUNT(*) FROM follows f WHERE f.followee_id = u.id) AS followers
          FROM users u JOIN stickers s ON s.owner_id = u.id AND s.hidden = 0
         WHERE u.banned_at IS NULL
         GROUP BY u.id
@@ -279,7 +285,7 @@ export class AccountRepo {
         ORDER BY SUM(s.eng) + COUNT(s.id) DESC, u.created_at ASC
         LIMIT ?`,
       )
-    ).all(limit) as unknown as (UserRow & CreatorStats)[];
+    ).all(limit) as unknown as (UserRow & CreatorStats & { followers: number })[];
     return rows.map((r) => ({
       handle: r.handle,
       displayName: r.display_name,
@@ -287,6 +293,7 @@ export class AccountRepo {
       bio: r.bio,
       createdAt: new Date(r.created_at).toISOString(),
       stats: { stickers: r.stickers, uses: r.uses, saves: r.saves, sends: r.sends },
+      followers: r.followers,
     }));
   }
 

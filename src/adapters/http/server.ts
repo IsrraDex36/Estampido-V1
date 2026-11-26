@@ -63,6 +63,9 @@ const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; pa
   { name: "report", method: "POST", path: /^\/api\/community\/stickers\/[^/]+\/report$/ },
   { name: "play", method: "POST", path: /^\/api\/community\/stickers\/[^/]+\/play$/ },
   { name: "feedback", method: "POST", path: /^\/api\/feedback$/ },
+  { name: "favorite", method: "PUT", path: /^\/api\/(creators\/[^/]+\/follow|me\/packs\/)/ },
+  { name: "favorite", method: "DELETE", path: /^\/api\/(creators\/[^/]+\/follow|me\/packs\/)/ },
+  { name: "account", method: "POST", path: /^\/api\/me\/packs$/ },
 ];
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });
