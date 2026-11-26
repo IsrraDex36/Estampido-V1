@@ -8,12 +8,14 @@ import { jidDigits } from "./command.js";
 import { connect, type PairingState } from "./connection.js";
 import { startControlServer } from "./control.js";
 import { registerHandlers } from "./handlers.js";
+import { humanizer } from "./humanize.js";
 import { LinkStore } from "./links.js";
 import { installRawCapture } from "./rawCapture.js";
 import type { SendMode } from "./saudio.js";
 import { BOT_TMP_PREFIX } from "./saudio.js";
 import { installRawEncode } from "./soundSticker.js";
 import { cleanupTempDirs } from "./tempCleanup.js";
+import { BotAgeStore } from "./volume.js";
 import { Watchdog } from "./watchdog.js";
 
 /**
@@ -59,6 +61,7 @@ if (cleaned) console.log(`Limpieza: ${cleaned} carpeta(s) temporal(es) huérfana
 let current: WASocket | null = null;
 // Linking progress, served (token-protected) to the web's /admin page.
 let pairing: PairingState = { kind: "waiting" };
+const botAge = new BotAgeStore();
 // One link store per bot number (kept across reconnects; a new number starts empty).
 const stores = new Map<string, LinkStore>();
 const linksFor = (sock: WASocket | null): LinkStore | null => {
@@ -113,6 +116,16 @@ await connect({
   },
   onReady: (sock) => {
     current = sock;
+    // Warm-up: remember when this number started, so a new number sends gently.
+    const digits = jidDigits(sock.user?.id);
+    if (digits) {
+      void botAge.firstSeen(digits).then((at) => {
+        humanizer.volume.setFirstSeen(at);
+        const day = humanizer.volume.ageDays();
+        const l = humanizer.volume.limits();
+        console.log(`Ritmo: número en el día ${day} de calentamiento · máx. ${l.perMinute}/min y ${l.perHour}/h.`);
+      });
+    }
     registerHandlers(sock, {
       debug,
       links: linksFor(sock) ?? undefined,
@@ -135,6 +148,6 @@ const control = await startControlServer({
   current: live,
   links: () => linksFor(live()),
   pairing: () => pairing,
-  health: () => watchdog.health(),
+  health: () => ({ ...watchdog.health(), outbound: humanizer.volume.report() }),
 });
 console.log(`Control local en 127.0.0.1:${control.port} (para el botón de la web)`);

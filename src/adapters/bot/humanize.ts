@@ -1,4 +1,5 @@
 import type { WAMessage, WAMessageKey, WASocket } from "baileys";
+import { VolumeGovernor } from "./volume.js";
 
 /**
  * Behave like a person on WhatsApp, not like a script.
@@ -12,7 +13,11 @@ import type { WAMessage, WAMessageKey, WASocket } from "baileys";
  * - reads the message, shows «escribiendo…» for a time that depends on the
  *   length of the answer (with randomness), then sends;
  * - keeps a randomized gap between any two outgoing messages (never a fixed
- *   clock), shared by every send path.
+ *   clock), shared by every send path, that stretches as volume rises;
+ * - warms a new number up: low per-minute/hour limits the first days that
+ *   grow over a month (volume.ts); at a limit it waits instead of bursting;
+ * - sends fewer messages: status updates are coalesced and, under load, the
+ *   intermediate ones are skipped (status.ts).
  * It never starts conversations: it only answers people who wrote first.
  *
  * Everything is injectable (random source, sleep, clock) so it's testable;
@@ -60,23 +65,36 @@ export function typingDelayMs(text: string, rng: Rng = Math.random): number {
 
 /**
  * Serializes outgoing messages and keeps a random gap between any two of them
- * (minGap + up to jitter ms): no bursts, no fixed rhythm.
+ * (minGap + up to jitter ms): no bursts, no fixed rhythm. With a volume
+ * governor, the gap stretches as volume rises (up to 2.5×) and a send at a
+ * warm-up limit waits until it fits; every send is recorded.
  */
 export class SendPacer {
   private next = 0;
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
-    private readonly opts: { minGapMs?: number; jitterMs?: number; rng?: Rng; sleep?: Sleep; now?: () => number } = {},
+    private readonly opts: {
+      minGapMs?: number;
+      jitterMs?: number;
+      rng?: Rng;
+      sleep?: Sleep;
+      now?: () => number;
+      volume?: VolumeGovernor;
+    } = {},
   ) {}
 
   /** Resolves when it's this caller's turn to send. */
   turn(): Promise<void> {
-    const { minGapMs = 700, jitterMs = 900, rng = Math.random, sleep = realSleep, now = Date.now } = this.opts;
+    const { minGapMs = 700, jitterMs = 900, rng = Math.random, sleep = realSleep, now = Date.now, volume } = this.opts;
     const run = this.queue.then(async () => {
       const wait = this.next - now();
       if (wait > 0) await sleep(wait);
-      this.next = now() + minGapMs + Math.round(rng() * jitterMs);
+      const atLimit = volume?.waitMs() ?? 0;
+      if (atLimit > 0) await sleep(atLimit);
+      const stretch = 1 + Math.min(1.5, volume?.pressure() ?? 0);
+      this.next = now() + Math.round((minGapMs + rng() * jitterMs) * stretch);
+      volume?.record();
     });
     this.queue = run.catch(() => {});
     return run;
@@ -87,23 +105,44 @@ export interface Humanizer {
   enabled: boolean;
   picker: VariantPicker;
   pacer: SendPacer;
+  /** Outgoing volume + warm-up limits (always counts; only enforced when enabled). */
+  volume: VolumeGovernor;
+  /** Minimum time between two edits of the same status message. */
+  editGapMs: number;
   rng: Rng;
   sleep: Sleep;
+  now: () => number;
 }
 
 export function createHumanizer(
-  opts: { enabled?: boolean; rng?: Rng; sleep?: Sleep; now?: () => number } = {},
+  opts: { enabled?: boolean; rng?: Rng; sleep?: Sleep; now?: () => number; volume?: VolumeGovernor } = {},
 ): Humanizer {
   const enabled = opts.enabled ?? process.env.SVA_HUMANIZE !== "0";
   const rng = opts.rng ?? Math.random;
+  const now = opts.now ?? Date.now;
   const sleep = enabled ? (opts.sleep ?? realSleep) : async () => {};
+  const volume = opts.volume ?? new VolumeGovernor(now);
   return {
     enabled,
     rng,
     sleep,
+    now,
+    volume,
+    editGapMs: enabled ? 2_500 : 0,
     // Disabled → always the first variant (deterministic tests and logs).
     picker: enabled ? new VariantPicker(rng) : new VariantPicker(rng, 0, true),
-    pacer: new SendPacer(enabled ? { rng, sleep, now: opts.now } : { minGapMs: 0, jitterMs: 0, sleep, now: opts.now }),
+    pacer: new SendPacer(
+      enabled
+        ? { rng, sleep, now, volume }
+        : // Off: no waits, but sends are still counted (so /admin shows real numbers).
+          {
+            minGapMs: 0,
+            jitterMs: 0,
+            sleep,
+            now,
+            volume: { waitMs: () => 0, pressure: () => 0, record: () => volume.record() } as VolumeGovernor,
+          },
+    ),
   };
 }
 

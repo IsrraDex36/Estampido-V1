@@ -383,6 +383,14 @@ export interface AdminHealth {
   decryptFailuresRecent: number;
   reconnects24h: number;
   problems: string[];
+  /** Outgoing volume and warm-up of the bot's number (newer bots). */
+  outbound?: {
+    lastMinute: number;
+    lastHour: number;
+    last24h: number;
+    warmupDay: number | null;
+    limits: { perMinute: number; perHour: number };
+  };
 }
 
 // ── Feedback box ───────────────────────────────────────────────────────────

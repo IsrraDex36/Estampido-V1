@@ -1,4 +1,5 @@
 import { jidDecode, jidNormalizedUser, USyncQuery, USyncUser, type WASocket } from "baileys";
+import { humanizer } from "./humanize.js";
 import type { Alert, ProbeResult } from "./watchdog.js";
 
 /**
@@ -23,6 +24,7 @@ export function whatsappSink(current: () => WASocket | null): AlertSink {
   return async (a) => {
     const sock = current();
     if (!sock?.user) return;
+    await humanizer.pacer.turn(); // alerts share the pacing and the volume count
     await sock.sendMessage(jidNormalizedUser(sock.user.id), { text: `🤖 Estampido · ${a.message}` });
   };
 }

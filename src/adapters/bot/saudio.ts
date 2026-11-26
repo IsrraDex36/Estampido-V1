@@ -90,7 +90,7 @@ export function createSaudio(sock: WASocket, opts: SaudioOptions = {}) {
       const { customAudio: _c, hq, ...segment } = cmd;
       const result = await jobs.run(
         async () => {
-          await status.set(line(origin, "creating"));
+          await status.set(line(origin, "creating"), { essential: false });
           return convertToSoundSticker({
             input: inputPath,
             outDir: dir,
@@ -112,7 +112,9 @@ export function createSaudio(sock: WASocket, opts: SaudioOptions = {}) {
         {
           signal: controller.signal,
           onQueued: (position) =>
-            void status.set(`🕒 En cola · ${position === 1 ? "eres el siguiente" : `posición ${position}`}`),
+            void status.set(`🕒 En cola · ${position === 1 ? "eres el siguiente" : `posición ${position}`}`, {
+              essential: false,
+            }),
         },
       );
       const delivery = await deliver(origin, result);

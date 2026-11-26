@@ -201,7 +201,28 @@ function HealthPanel({ token }: { token: string }) {
         <dd className="text-right tabular-nums">{h.reconnects24h}</dd>
         <dt className="text-muted-foreground">Indescifrables (1 h)</dt>
         <dd className="text-right tabular-nums">{h.decryptFailuresRecent}</dd>
+        {h.outbound && (
+          <>
+            <dt className="text-muted-foreground">Mensajes enviados (1 h)</dt>
+            <dd className="text-right tabular-nums">
+              {h.outbound.lastHour}
+              <span className="text-muted-foreground"> / {h.outbound.limits.perHour}</span>
+            </dd>
+            <dt className="text-muted-foreground">Mensajes enviados (24 h)</dt>
+            <dd className="text-right tabular-nums">{h.outbound.last24h}</dd>
+            <dt className="text-muted-foreground">Calentamiento del número</dt>
+            <dd className="text-right tabular-nums">
+              {h.outbound.warmupDay === null ? "—" : h.outbound.warmupDay >= 30 ? "completo" : `día ${h.outbound.warmupDay + 1}`}
+            </dd>
+          </>
+        )}
       </dl>
+      {h.outbound && h.outbound.warmupDay !== null && h.outbound.warmupDay < 30 && (
+        <p className="text-[12px] text-muted-foreground">
+          Número nuevo: el bot envía con calma (máx. {h.outbound.limits.perMinute}/min y {h.outbound.limits.perHour}/h) y
+          sube el ritmo poco a poco durante un mes.
+        </p>
+      )}
       {h.problems.length > 0 && (
         <ul className="list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
           {h.problems.map((p) => (

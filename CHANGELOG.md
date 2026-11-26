@@ -13,6 +13,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Calentamiento de número nuevo** (`bot/volume.ts`): el bot recuerda desde cuándo usa cada número (`/data/bot-age.json`) y empieza con límites bajos (6/min y 40/h el día 1) que suben durante un mes (40/min y 600/h). El ritmo se alarga solo cuando sube el volumen y, en un límite, espera en vez de mandar en ráfaga. `/admin` muestra mensajes enviados (1 h / 24 h) y el día de calentamiento.
+- **Menos mensajes de estado**: las ediciones de `/saudio` se agrupan (mínimo 2.5 s entre ediciones; solo sale el texto más reciente) y, con carga, se omiten las intermedias (cola, «creando…»); el primero y el final siempre llegan. Las alertas al dueño también comparten el ritmo.
+
 - **Bot con ritmo humano** (`bot/humanize.ts`): marca como leído, muestra «escribiendo…» un tiempo proporcional al texto (con variación) y responde; separación aleatoria entre cualquier par de envíos (texto, stickers, notas de voz, ediciones de estado), sin intervalos fijos. Respuestas con **variantes redactadas a mano** (`bot/phrases.ts`) que no se repiten seguidas en un chat; el mensaje pre-escrito para vincular también varía por código. Sin caracteres aleatorios ni invisibles (rompen copiar/pegar y lectores de pantalla y parecen spam). `SVA_HUMANIZE=0` lo desactiva (pruebas).
 - **Ajustes en celular**: pestañas con ícono arriba (más aire para el texto), cambiar de pestaña deslizando el panel (con una vibración mínima donde se soporta; nunca sobre el recortador, el encuadre ni los sliders), pista «desliza» que se va tras usarla, y duraciones en una sola fila deslizable.
 
