@@ -13,6 +13,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Mover el texto y emojis como capa**: arrastra cada texto a donde quieras en la vista previa («Volver el texto arriba / abajo» lo regresa); agrega hasta 6 emojis desde una fila rápida, muévelos, cambia su tamaño o quítalos. Todo sale igual en el sticker final.
+
 - **Escuchar el efecto de voz antes de crear**: botón «Escuchar» en Sonido (Web Audio en el navegador, hasta 6 s, aproximado); al tocar otro efecto mientras suena cambia al instante.
 
 - **Vista previa al compartir**: los enlaces de packs (`/p/:id`) y perfiles (`/u/:handle`) en WhatsApp/redes muestran su propio título, descripción e imagen con sus stickers (1200×630, generada una vez y cacheada).

@@ -1,19 +1,30 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { PaletteIcon } from "@/components/icons";
+import { PaletteIcon, Trash2Icon } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { Slider } from "@/components/ui/slider";
 import { useShallow } from "zustand/react/shallow";
 import { CheckIcon } from "@/components/icons";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from "@/lib/utils";
 import { useClipStill } from "../../hooks/useClipStill";
 import {
+  clampPos,
   drawMemeText,
+  EMOJI_SIZE,
+  type EmojiLayer,
+  hasLayers,
   hasText,
+  type LayerBox,
+  type LayerPos,
+  layerAt,
+  MAX_EMOJIS,
   MAX_TEXT_CHARS,
   type MemeText,
   isHexColor,
   outlineFor,
   TEXT_COLORS,
   TEXT_FONTS,
+  QUICK_EMOJIS,
   TEXT_STYLES,
   type TextFont,
   type TextSize,
@@ -35,8 +46,29 @@ const SIZES: { value: TextSize; label: string }[] = [
  * The same drawing that gets uploaded, live over the sticker preview (a
  * canvas at 512 scaled down by CSS): exact preview, no surprises.
  */
-function TextLayer({ text, className }: { text: MemeText; className?: string }) {
+type Grab = { kind: "top" | "bottom" } | { kind: "emoji"; id: string };
+
+/**
+ * The same drawing that gets uploaded, live over the sticker preview (a
+ * canvas at 512 scaled down by CSS): exact preview. Drag a caption or an
+ * emoji to place it; tapping an emoji selects it (size / remove below).
+ */
+function TextLayer({
+  text,
+  disabled,
+  onMove,
+  onGrab,
+  className,
+}: {
+  text: MemeText;
+  disabled: boolean;
+  onMove: (layer: Grab, pos: LayerPos) => void;
+  onGrab: (layer: Grab | null) => void;
+  className?: string;
+}) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const boxes = useRef<LayerBox[]>([]);
+  const drag = useRef<{ layer: Grab; dx: number; dy: number; id: number } | null>(null);
   const [fontsTick, setFontsTick] = useState(0);
   useEffect(() => {
     // Redraw once the caption font finishes loading (first paint may use a fallback).
@@ -44,15 +76,55 @@ function TextLayer({ text, className }: { text: MemeText; className?: string }) 
     loadTextFont(text.font)
       .then(() => document.fonts?.load(`${f.weight} 48px ${f.family}`, "AÁÑ"))
       .then(
-      () => setFontsTick((n) => n + 1),
-      () => {},
-    );
+        () => setFontsTick((n) => n + 1),
+        () => {},
+      );
   }, [text.font]);
   useEffect(() => {
     const ctx = ref.current?.getContext("2d");
-    if (ctx) drawMemeText(ctx, text, 512);
+    if (ctx) boxes.current = drawMemeText(ctx, text, 512);
   }, [text, fontsTick]);
-  return <canvas ref={ref} width={512} height={512} aria-hidden className={cn("pointer-events-none absolute inset-0 size-full", className)} />;
+
+  /** Pointer → canvas px (0..512). */
+  const point = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    return { x: ((e.clientX - r.left) / r.width) * 512, y: ((e.clientY - r.top) / r.height) * 512 };
+  };
+  const interactive = !disabled && hasLayers(text);
+  return (
+    <canvas
+      ref={ref}
+      width={512}
+      height={512}
+      aria-hidden
+      data-no-swipe
+      className={cn(
+        "absolute inset-0 size-full",
+        interactive ? "cursor-grab touch-none active:cursor-grabbing" : "pointer-events-none",
+        className,
+      )}
+      onPointerDown={(e) => {
+        const p = point(e);
+        const hit = layerAt(boxes.current, p.x, p.y, 14);
+        onGrab(hit ? hit.layer : null);
+        if (!hit) return;
+        e.currentTarget.setPointerCapture(e.pointerId);
+        drag.current = { layer: hit.layer, dx: hit.x + hit.w / 2 - p.x, dy: hit.y + hit.h / 2 - p.y, id: e.pointerId };
+      }}
+      onPointerMove={(e) => {
+        const d = drag.current;
+        if (!d || d.id !== e.pointerId) return;
+        const p = point(e);
+        onMove(d.layer, clampPos({ x: (p.x + d.dx) / 512, y: (p.y + d.dy) / 512 }));
+      }}
+      onPointerUp={() => {
+        drag.current = null;
+      }}
+      onPointerCancel={() => {
+        drag.current = null;
+      }}
+    />
+  );
 }
 
 function Caption({
@@ -112,6 +184,8 @@ export function TextOptions() {
   );
   const still = useClipStill();
   const seg = useSegment();
+  const [selected, setSelected] = useState<string | null>(null);
+  const moved = Boolean(text.topPos || text.bottomPos);
 
   return (
     <div className="space-y-5">
@@ -130,10 +204,22 @@ export function TextOptions() {
               adjust={{ look, flip }}
               className="size-full"
             />
-            <TextLayer text={text} className="rounded-[inherit]" />
+            <TextLayer
+              text={text}
+              disabled={disabled}
+              onGrab={(l) => setSelected(l?.kind === "emoji" ? l.id : null)}
+              onMove={(layer, pos) => {
+                if (layer.kind === "top") update({ topPos: pos });
+                else if (layer.kind === "bottom") update({ bottomPos: pos });
+                else if (layer.kind === "emoji") {
+                  update({ emojis: text.emojis.map((e) => (e.id === layer.id ? { ...e, ...pos } : e)) });
+                }
+              }}
+              className="rounded-[inherit]"
+            />
           </div>
           <figcaption className="text-[12px] text-muted-foreground">
-            {hasText(text) ? "Así quedará" : "Escribe y míralo aquí"}
+            {hasLayers(text) ? "Arrastra el texto o los emojis para moverlos" : "Escribe y míralo aquí"}
           </figcaption>
         </figure>
         <div className="min-w-0 space-y-3">
@@ -153,6 +239,28 @@ export function TextOptions() {
           />
         </div>
       </div>
+
+      {moved && (
+        <div className="-mt-2 flex justify-center sm:justify-start">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="rounded-full text-muted-foreground"
+            disabled={disabled}
+            onClick={() => update({ topPos: undefined, bottomPos: undefined })}
+          >
+            Volver el texto arriba / abajo
+          </Button>
+        </div>
+      )}
+
+      <EmojiLayers
+        emojis={text.emojis}
+        selected={selected}
+        disabled={disabled}
+        onSelect={setSelected}
+        onChange={(emojis) => update({ emojis })}
+      />
 
       <div className={cn("space-y-4", !hasText(text) && "opacity-60")}>
         <FontPicker value={text.font} disabled={disabled} onChange={(font) => update({ font })} />
@@ -330,6 +438,92 @@ function ColorPicker({ value, disabled, onChange }: { value: string; disabled: b
           />
         </label>
       </div>
+    </div>
+  );
+}
+
+const newId = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
+
+/** Emojis as stickers-on-the-sticker: add from a quick row, then drag; size/remove the selected one. */
+function EmojiLayers({
+  emojis,
+  selected,
+  disabled,
+  onSelect,
+  onChange,
+}: {
+  emojis: EmojiLayer[];
+  selected: string | null;
+  disabled: boolean;
+  onSelect: (id: string | null) => void;
+  onChange: (emojis: EmojiLayer[]) => void;
+}) {
+  const current = emojis.find((e) => e.id === selected) ?? null;
+  const full = emojis.length >= MAX_EMOJIS;
+  const add = (char: string) => {
+    if (full) return;
+    // Fan new ones out a little so they don't stack exactly.
+    const k = emojis.length;
+    const e: EmojiLayer = { id: newId(), char, ...clampPos({ x: 0.5 + ((k % 3) - 1) * 0.18, y: 0.45 + Math.floor(k / 3) * 0.15 }), size: EMOJI_SIZE.initial };
+    onChange([...emojis, e]);
+    onSelect(e.id);
+  };
+  return (
+    <div className="space-y-2">
+      <p className="flex items-baseline justify-between text-[13px] font-medium">
+        Emojis
+        <span className="font-normal text-muted-foreground tabular-nums">
+          {emojis.length}/{MAX_EMOJIS}
+        </span>
+      </p>
+      <div
+        data-no-swipe
+        className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        aria-label="Agregar emoji"
+      >
+        {QUICK_EMOJIS.map((ch) => (
+          <button
+            key={ch}
+            type="button"
+            disabled={disabled || full}
+            onClick={() => add(ch)}
+            aria-label={`Agregar ${ch}`}
+            className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted/60 text-[22px] transition-transform hover:bg-muted active:scale-90 disabled:opacity-40"
+          >
+            {ch}
+          </button>
+        ))}
+      </div>
+      {current && (
+        <div className="flex items-center gap-3 rounded-2xl bg-muted/60 px-3 py-2">
+          <span className="text-[24px] leading-none" aria-hidden>
+            {current.char}
+          </span>
+          <Slider
+            min={EMOJI_SIZE.min}
+            max={EMOJI_SIZE.max}
+            step={0.01}
+            value={[current.size]}
+            disabled={disabled}
+            onValueChange={([v = current.size]) => onChange(emojis.map((e) => (e.id === current.id ? { ...e, size: v } : e)))}
+            aria-label="Tamaño del emoji"
+            className="min-w-0 flex-1"
+          />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="shrink-0 rounded-full text-muted-foreground hover:text-destructive"
+            disabled={disabled}
+            aria-label="Quitar emoji"
+            onClick={() => {
+              onChange(emojis.filter((e) => e.id !== current.id));
+              onSelect(null);
+            }}
+          >
+            <Trash2Icon className="size-4" />
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

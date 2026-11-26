@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { ApiError, convertVideo } from "@/lib/api";
 import { DEFAULT_OPTIONS, defaultDurationFor } from "../model/defaults";
-import { EMPTY_TEXT, hasText, type MemeText, renderMemeText } from "../model/memeText";
+import { EMPTY_TEXT, hasLayers, type MemeText, renderMemeText } from "../model/memeText";
 import { validateAudioFile, validateFile } from "../model/validation";
 import { type ConverterOptions, type ConverterStatus, type InputKind, inputKindOf } from "../types";
 
@@ -135,7 +135,7 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
     set({ status: { kind: "uploading", progress: 0 } });
     try {
       // Only draw when there's text (no extra tick otherwise); a cancel meanwhile stops here.
-      const overlay = hasText(text) ? await renderMemeText(text).catch(() => null) : null;
+      const overlay = hasLayers(text) ? await renderMemeText(text).catch(() => null) : null;
       if (controller.signal.aborted) return;
       const result = await convertVideo({ media: file, audio: audioFile, overlay }, options, {
         signal: controller.signal,

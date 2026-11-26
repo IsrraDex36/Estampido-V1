@@ -48,9 +48,32 @@ export const TEXT_STYLES = {
 } as const;
 export type TextStyle = keyof typeof TEXT_STYLES;
 
+/** Center of a layer, as fractions of the canvas (0..1). */
+export interface LayerPos {
+  x: number;
+  y: number;
+}
+
+/** An emoji placed on the sticker. `size` = fraction of the canvas side. */
+export interface EmojiLayer {
+  id: string;
+  char: string;
+  x: number;
+  y: number;
+  size: number;
+}
+
+export const MAX_EMOJIS = 6;
+export const EMOJI_SIZE = { min: 0.08, max: 0.5, initial: 0.22 } as const;
+export const QUICK_EMOJIS = ["😂", "🤣", "😭", "💀", "🔥", "😎", "🥵", "🤡", "👀", "💯", "❤️", "👍", "🙏", "😡", "🤯", "✨"] as const;
+
 export interface MemeText {
   top: string;
   bottom: string;
+  /** Dragged position of each caption (absent → classic top / bottom). */
+  topPos?: LayerPos;
+  bottomPos?: LayerPos;
+  emojis: EmojiLayer[];
   size: TextSize;
   color: TextColor;
   font: TextFont;
@@ -71,7 +94,37 @@ export const EMPTY_TEXT: MemeText = {
   font: "classic",
   style: "outline",
   caps: true,
+  emojis: [],
 };
+
+/** Anything to draw (captions or emojis)? */
+export const hasLayers = (t: MemeText): boolean => hasText(t) || t.emojis.length > 0;
+
+/** Keep a position on the canvas. Pure. */
+export const clampPos = (p: LayerPos): LayerPos => ({
+  x: Math.min(1, Math.max(0, p.x)),
+  y: Math.min(1, Math.max(0, p.y)),
+});
+
+/** Box drawn for a layer (canvas px), used to pick what a finger grabs. */
+export interface LayerBox {
+  layer: { kind: "top" | "bottom" } | { kind: "emoji"; id: string };
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** Topmost layer under a point (emojis are drawn last, so they win). Pure. */
+export function layerAt(boxes: readonly LayerBox[], x: number, y: number, slop = 0): LayerBox | null {
+  for (let i = boxes.length - 1; i >= 0; i--) {
+    const b = boxes[i] as LayerBox;
+    if (x >= b.x - slop && x <= b.x + b.w + slop && y >= b.y - slop && y <= b.y + b.h + slop) return b;
+  }
+  return null;
+}
+
+const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
 
 export const hasText = (t: MemeText): boolean => t.top.trim() !== "" || t.bottom.trim() !== "";
 
@@ -147,11 +200,12 @@ export function fitCaption(
 }
 
 /** Draw the captions on a `size`² canvas context (transparent elsewhere). */
-export function drawMemeText(ctx: CanvasRenderingContext2D, t: MemeText, size: number): void {
+export function drawMemeText(ctx: CanvasRenderingContext2D, t: MemeText, size: number): LayerBox[] {
   const scale = size / 512;
   const font = TEXT_FONTS[t.font];
   const pad = 16 * scale;
   const maxWidth = size - pad * 2;
+  const boxes: LayerBox[] = [];
   const setFont = (px: number) => {
     ctx.font = `${font.weight} ${px}px ${font.family}`;
   };
@@ -163,23 +217,44 @@ export function drawMemeText(ctx: CanvasRenderingContext2D, t: MemeText, size: n
   ctx.textAlign = "center";
   ctx.lineJoin = "round";
   ctx.miterLimit = 2;
-  for (const [which, raw] of [
-    ["top", t.top],
-    ["bottom", t.bottom],
+  for (const [which, raw, pos] of [
+    ["top", t.top, t.topPos],
+    ["bottom", t.bottom, t.bottomPos],
   ] as const) {
     const text = cleanCaption(raw, t.caps);
     if (!text) continue;
     const { px, lines } = fitCaption(text, TEXT_SIZES[t.size] * scale, maxWidth - (t.style === "box" ? px0(scale) : 0), measureAt);
     setFont(px);
     const lineH = px * (t.style === "box" ? 1.22 : 1.05);
+    const blockH = lines.length * lineH;
     const contrast = outlineFor(t.color);
-    // Top block hangs from the top edge; bottom block sits on the bottom edge.
-    ctx.textBaseline = which === "top" ? "top" : "bottom";
+    const widest = Math.min(maxWidth, Math.max(...lines.map((l) => ctx.measureText(l).width)) + (t.style === "box" ? px * 0.5 : 0));
+    // Classic: top block hangs from the top edge, bottom sits on the bottom edge.
+    // Dragged: the block is centered on its position, kept inside the canvas.
+    const cx = pos ? Math.min(size - pad - widest / 2, Math.max(pad + widest / 2, pos.x * size)) : size / 2;
+    const top = pos
+      ? Math.min(size - pad - blockH, Math.max(pad, pos.y * size - blockH / 2))
+      : which === "top"
+        ? pad
+        : size - pad - blockH;
+    ctx.textBaseline = "top";
     lines.forEach((line, i) => {
-      const y = which === "top" ? pad + i * lineH : size - pad - (lines.length - 1 - i) * lineH;
-      drawLine(ctx, t, line, size / 2, y, px, maxWidth, contrast, which);
+      drawLine(ctx, t, line, cx, top + i * lineH, px, maxWidth, contrast, "top");
     });
+    boxes.push({ layer: { kind: which }, x: cx - widest / 2, y: top, w: widest, h: blockH });
   }
+  for (const e of t.emojis) {
+    const px = Math.round(e.size * size);
+    const p = clampPos(e);
+    ctx.save();
+    ctx.font = `${px}px ${EMOJI_FONT}`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(e.char, p.x * size, p.y * size);
+    ctx.restore();
+    boxes.push({ layer: { kind: "emoji", id: e.id }, x: p.x * size - px / 2, y: p.y * size - px / 2, w: px, h: px });
+  }
+  return boxes;
 }
 
 /** Horizontal room the box style needs around the text (px at this scale). */
@@ -255,7 +330,7 @@ async function fontReady(t: MemeText): Promise<void> {
 
 /** The overlay PNG for upload, or null when there's no text. */
 export async function renderMemeText(t: MemeText, size = 512): Promise<Blob | null> {
-  if (!hasText(t)) return null;
+  if (!hasLayers(t)) return null;
   await fontReady(t);
   const canvas = document.createElement("canvas");
   canvas.width = size;
