@@ -335,3 +335,70 @@ describe("community → WhatsApp", () => {
     expect((await repo.get(sticker.id))?.sends).toBe(1);
   });
 });
+
+describe("publish: what to share", () => {
+  const pub = (a: ReturnType<typeof createApp>, body: unknown) =>
+    a.request("/api/community/stickers", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(body),
+    });
+
+  it("«solo el sticker»: silent copy, no rights needed, no sound kept", async () => {
+    const repo = new CommunityRepo(join(dir, "share-sticker"));
+    const a = createApp({ store: results, bot: noBot, community: repo });
+    const res = await pub(a, { resultId: await fakeResult(true), share: "sticker", category: "memes" });
+    expect(res.status).toBe(201);
+    const s = (await res.json()) as CommunitySticker;
+    expect(s.sound).toBeNull();
+    expect(s.listed).toBe(true);
+    expect(await repo.resolveFile(s.id, "sticker.ogg")).toBeNull();
+    const sounds = (await (await a.request("/api/community/sounds")).json()) as CommunityPage<CommunitySound>;
+    expect(sounds.items.map((x) => x.id)).not.toContain(s.id);
+  });
+
+  it("«solo el sonido»: needs rights, appears under Sonidos but not in the sticker feed", async () => {
+    const repo = new CommunityRepo(join(dir, "share-sound"));
+    const a = createApp({ store: results, bot: noBot, community: repo });
+    const id = await fakeResult(true);
+    expect((await pub(a, { resultId: id, share: "sound", category: "memes" })).status).toBe(400); // rights
+    const res = await pub(a, { resultId: id, share: "sound", category: "memes", ownsAudio: true });
+    expect(res.status).toBe(201);
+    const s = (await res.json()) as CommunitySticker;
+    expect(s.listed).toBe(false);
+    expect(s.title).toMatch(/^Sonido de /);
+    const feed = (await (await a.request("/api/community/stickers")).json()) as CommunityPage<CommunitySticker>;
+    expect(feed.items.map((x) => x.id)).not.toContain(s.id);
+    const sounds = (await (await a.request("/api/community/sounds")).json()) as CommunityPage<CommunitySound>;
+    expect(sounds.items.map((x) => x.id)).toContain(s.id);
+    const stats = (await (await a.request("/api/community/stats")).json()) as { stickers: number; sounds: number };
+    expect(stats).toMatchObject({ stickers: 0, sounds: 1 });
+  });
+
+  it("rejects «solo el sonido» without sound or for a community sound (duplicate)", async () => {
+    const repo = new CommunityRepo(join(dir, "share-rules"));
+    const a = createApp({ store: results, bot: noBot, community: repo });
+    const silentRes = await pub(a, { resultId: await fakeResult(false), share: "sound", category: "memes" });
+    expect(silentRes.status).toBe(400);
+    expect(((await silentRes.json()) as { error: { code: string } }).error.code).toBe("no_sound");
+
+    const original = (await (
+      await pub(a, { resultId: await fakeResult(true), category: "memes", ownsAudio: true })
+    ).json()) as CommunitySticker;
+    const dup = await pub(a, {
+      resultId: await fakeResult(true),
+      share: "sound",
+      category: "memes",
+      soundOrigin: original.id,
+    });
+    expect(((await dup.json()) as { error: { code: string } }).error.code).toBe("duplicate_sound");
+    // A silent copy of a remix drops the sound and its origin link.
+    const silentRemix = await pub(a, {
+      resultId: await fakeResult(true),
+      share: "sticker",
+      category: "memes",
+      soundOrigin: original.id,
+    });
+    expect(((await silentRemix.json()) as CommunitySticker).soundOrigin).toBeNull();
+  });
+});

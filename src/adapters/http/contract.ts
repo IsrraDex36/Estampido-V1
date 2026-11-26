@@ -177,6 +177,8 @@ export interface CommunitySticker {
   uses: number;
   /** Community sound it was made with, if any. */
   soundOrigin: string | null;
+  /** false = published as «solo el sonido»: not in the sticker feed, only under «Sonidos». */
+  listed: boolean;
 }
 
 /** A reusable sound = a published sticker's audio. */
@@ -198,8 +200,18 @@ export interface CommunityPage<T> {
   nextCursor: string | null;
 }
 
+/**
+ * What a publish shares: the sticker with its sound (default), only the
+ * sticker (silent, no rights needed), or only the sound (listed under
+ * «Sonidos», the sticker is just its cover).
+ */
+export type PublishShare = "both" | "sticker" | "sound";
+export const PUBLISH_SHARES: readonly PublishShare[] = ["both", "sticker", "sound"];
+
 export interface PublishRequest {
   resultId: string;
+  /** Default "both". */
+  share?: PublishShare;
   category: CommunityCategory;
   title?: string;
   tags?: string[];

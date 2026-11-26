@@ -46,6 +46,7 @@ const tag = z
 
 const publishSchema = z.object({
   resultId: z.string().regex(/^[0-9a-f-]{36}$/),
+  share: z.enum(["both", "sticker", "sound"]).default("both"),
   category: z.enum(categoryIds, { message: "Elige una categoría." }),
   title: z.string().trim().max(COMMUNITY_LIMITS.maxTitle).optional(),
   tags: z.array(tag).max(COMMUNITY_LIMITS.maxTags).optional(),
@@ -66,6 +67,7 @@ export const toStickerDto = (s: StoredSticker): CommunitySticker => ({
   sound: s.soundSec !== null ? { url: fileUrl(s.id, "sticker.ogg"), durationSec: s.soundSec } : null,
   uses: s.uses,
   soundOrigin: s.soundOrigin,
+  listed: s.listed !== false,
 });
 
 export const toSoundDto = (s: StoredSticker): CommunitySound => ({
@@ -79,9 +81,9 @@ export const toSoundDto = (s: StoredSticker): CommunitySound => ({
   createdAt: new Date(s.createdAt).toISOString(),
 });
 
-/** Title fallback: "Sticker de Memes". */
-const defaultTitle = (category: string) =>
-  `Sticker de ${COMMUNITY_CATEGORIES.find((c) => c.id === category)?.label ?? "la comunidad"}`;
+/** Title fallback: "Sticker de Memes" / "Sonido de Memes". */
+const defaultTitle = (category: string, soundOnly = false) =>
+  `${soundOnly ? "Sonido" : "Sticker"} de ${COMMUNITY_CATEGORIES.find((c) => c.id === category)?.label ?? "la comunidad"}`;
 
 /** Decides if this request may publish (e.g. «needs a linked WhatsApp»). null = allowed. */
 export type PublishGuard = (c: Context) => Promise<{ status: 403 | 503; body: ApiErrorBody } | null>;
@@ -97,7 +99,8 @@ export function communityRoutes(
     const parsed = listSchema.safeParse(query);
     if (!parsed.success) return { error: fail("bad_query", parsed.error.issues.map((i) => i.message).join(" ")) };
     const all = await repo.list();
-    const pool = onlySounds ? all.filter((s) => s.soundSec !== null) : all;
+    // «Solo el sonido» lives under Sonidos only; the sticker feed shows listed ones.
+    const pool = onlySounds ? all.filter((s) => s.soundSec !== null) : all.filter((s) => s.listed !== false);
     const page = pageOf(pool, { ...parsed.data, category: parsed.data.category as never });
     if ("error" in page) return { error: fail("bad_cursor", "Cursor inválido; vuelve a cargar la lista.") };
     return { page };
@@ -141,21 +144,31 @@ export function communityRoutes(
     if (req.soundOrigin && (!origin || origin.soundSec === null)) {
       return c.json(fail("bad_request", "El sonido de la comunidad ya no existe."), 400);
     }
-    if (hasAudio && !origin && req.ownsAudio !== true) {
+    // What is shared decides which rules apply.
+    const shareSound = req.share !== "sticker" && hasAudio;
+    if (req.share === "sound" && !hasAudio) {
+      return c.json(fail("no_sound", "Este sticker no tiene sonido: publícalo como «Solo el sticker»."), 400);
+    }
+    if (req.share === "sound" && origin) {
+      return c.json(fail("duplicate_sound", "Ese sonido ya está en la comunidad. Publícalo como sticker."), 400);
+    }
+    if (shareSound && !origin && req.ownsAudio !== true) {
       return c.json(fail("audio_rights", "Confirma que el audio es tuyo o que tienes permiso."), 400);
     }
 
     let item: StoredSticker;
     try {
       item = await repo.add({
-        title: req.title || defaultTitle(req.category),
+        title: req.title || defaultTitle(req.category, req.share === "sound"),
         category: req.category as never,
         tags: [...new Set((req.tags ?? []).map((t) => t.toLowerCase()))],
         animated: inspectWebp(webp).animated,
-        soundSec: hasAudio ? Math.round((await probe(oggPath)).durationSec * 10) / 10 : null,
-        soundOrigin: origin?.id ?? null,
+        soundSec: shareSound ? Math.round((await probe(oggPath)).durationSec * 10) / 10 : null,
+        // A silent copy no longer carries the sound, so it isn't linked to the sound's origin either.
+        soundOrigin: shareSound ? (origin?.id ?? null) : null,
+        listed: req.share !== "sound",
         webpPath,
-        oggPath: hasAudio ? oggPath : null,
+        oggPath: shareSound ? oggPath : null,
       });
     } catch (err) {
       if (err instanceof CommunityFullError) return c.json(fail("storage_full", err.message), 507);
@@ -173,7 +186,7 @@ export function communityRoutes(
   app.get("/stats", async (c) => {
     const all = await repo.list();
     return c.json({
-      stickers: all.length,
+      stickers: all.filter((s) => s.listed !== false).length,
       sounds: all.filter((s) => s.soundSec !== null).length,
       uses: all.reduce((n, s) => n + s.uses, 0),
     } satisfies CommunityStats);

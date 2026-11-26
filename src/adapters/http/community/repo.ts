@@ -11,6 +11,8 @@ export interface StoredSticker extends Rankable {
   /** Seconds of sound; null = silent. */
   soundSec: number | null;
   soundOrigin: string | null;
+  /** false = «solo el sonido» (hidden from the sticker feed). Older entries lack it (= listed). */
+  listed?: boolean;
   /** Times it was sent to someone's WhatsApp (trending signal; older entries lack it). */
   sends?: number;
 }
@@ -28,6 +30,8 @@ export interface NewSticker {
   animated: boolean;
   soundSec: number | null;
   soundOrigin: string | null;
+  /** false = «solo el sonido». Default true. */
+  listed?: boolean;
   /** Files to copy in (from the 30-min result dir). */
   webpPath: string;
   oggPath: string | null;
@@ -123,6 +127,7 @@ export class CommunityRepo {
           animated: input.animated,
           soundSec: input.oggPath ? input.soundSec : null,
           soundOrigin: input.soundOrigin,
+          ...(input.listed === false ? { listed: false } : {}),
         };
         const next = [...items, item];
         await this.persist(next);

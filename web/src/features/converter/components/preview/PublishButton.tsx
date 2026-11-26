@@ -1,10 +1,24 @@
-import { COMMUNITY_CATEGORIES, COMMUNITY_LIMITS, type CommunityCategory, type ConvertResponse } from "@contract";
+import {
+  COMMUNITY_CATEGORIES,
+  COMMUNITY_LIMITS,
+  type CommunityCategory,
+  type ConvertResponse,
+  type PublishShare,
+} from "@contract";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useId, useState } from "react";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { useLocation } from "wouter";
 import { ROUTES } from "@/app/routes";
-import { CheckIcon, CircleAlertIcon, CommunityIcon, Loader2Icon } from "@/components/icons";
+import {
+  AudioWaveformIcon,
+  CheckIcon,
+  CircleAlertIcon,
+  CommunityIcon,
+  ImageIcon,
+  Loader2Icon,
+  Volume2Icon,
+} from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { LinkDialog } from "@/features/bot/LinkDialog";
@@ -13,7 +27,16 @@ import { usePublish } from "@/features/community/api/mutations";
 import { ApiError } from "@/lib/api";
 import { useFavorites } from "@/features/community/store/favoritesStore";
 import { cn } from "@/lib/utils";
-import { type PublishFormValues, parseTags, publishFormSchema, splitTags } from "../../model/publish";
+import {
+  defaultShare,
+  needsAudioRights,
+  type PublishContext,
+  type PublishFormValues,
+  parseTags,
+  publishFormSchema,
+  shareOptions,
+  splitTags,
+} from "../../model/publish";
 import { useConverterStore } from "../../store/converterStore";
 import { notify } from "@/lib/notify";
 import { ActionTile } from "./ActionTile";
@@ -62,7 +85,7 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
   const publish = usePublish();
   const [, navigate] = useLocation();
   const ids = { title: useId(), tags: useId(), owns: useId(), category: useId() };
-  const needsRights = result.audio !== null && !soundOrigin;
+  const ctx: PublishContext = { hasAudio: result.audio !== null, fromCommunity: Boolean(soundOrigin) };
   const { gate, dialog } = useLinkGate();
 
   const {
@@ -72,26 +95,28 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
     setError,
     formState: { errors, isValid, isSubmitting },
   } = useForm<PublishFormValues>({
-    resolver: zodResolver(publishFormSchema(needsRights)),
+    resolver: zodResolver(publishFormSchema(ctx)),
     mode: "onChange",
-    defaultValues: { category: undefined, title: "", tags: "", owns: false },
+    defaultValues: { share: defaultShare(ctx), category: undefined, title: "", tags: "", owns: false },
   });
-  const [title = "", tagsRaw = ""] = useWatch({ control, name: ["title", "tags"] });
+  const [title = "", tagsRaw = "", share = defaultShare(ctx)] = useWatch({ control, name: ["title", "tags", "share"] });
+  const needsRights = needsAudioRights(share, ctx);
   const tagPreview = splitTags(tagsRaw).slice(0, COMMUNITY_LIMITS.maxTags);
 
   const doPublish = async (values: PublishFormValues) => {
     try {
       const sticker = await publish.mutateAsync({
         resultId: result.id,
+        share: values.share,
         category: values.category as CommunityCategory,
         title: values.title.trim() || undefined,
         tags: parseTags(values.tags),
         ownsAudio: needsRights ? values.owns : undefined,
-        soundOrigin,
+        soundOrigin: values.share === "sticker" ? null : soundOrigin,
       });
       addPublished(sticker);
       onDone(sticker.id);
-      notify.success("¡Publicado en la comunidad!", {
+      notify.success(values.share === "sound" ? "¡Sonido publicado! Ya está en Sonidos." : "¡Publicado en la comunidad!", {
         action: { label: "Ver", onClick: () => navigate(ROUTES.community) },
       });
     } catch (err) {
@@ -109,10 +134,23 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
     <form onSubmit={handleSubmit(doPublish)} noValidate className="flex min-h-0 flex-col gap-5">
       <DialogHeader>
         <DialogTitle>Publicar en la comunidad</DialogTitle>
-        <DialogDescription>Otros podrán escucharlo, guardarlo y usar su sonido en sus propios clips.</DialogDescription>
+        <DialogDescription>
+          {share === "sticker"
+            ? "Otros podrán verlo, guardarlo y mandarlo a su WhatsApp."
+            : share === "sound"
+              ? "Tu sonido quedará en «Sonidos» para que otros lo usen en sus propios clips."
+              : "Otros podrán escucharlo, guardarlo y usar su sonido en sus propios clips."}
+        </DialogDescription>
       </DialogHeader>
 
       <div className="-mx-1 min-h-0 space-y-5 overflow-y-auto px-1">
+        <Controller
+          control={control}
+          name="share"
+          render={({ field }) => <SharePicker value={field.value} onChange={field.onChange} ctx={ctx} />}
+        />
+        <FieldError id={`${ids.category}-share`} message={errors.share?.message} />
+
         <fieldset aria-describedby={errors.category ? ids.category : undefined}>
           <legend className="mb-2 text-[13px] font-medium">
             Categoría <span className="text-muted-foreground">(obligatoria)</span>
@@ -219,7 +257,7 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
             </label>
             <FieldError id={`${ids.owns}-err`} message={errors.owns?.message} />
           </div>
-        ) : soundOrigin ? (
+        ) : soundOrigin && share !== "sticker" ? (
           <p className="rounded-2xl bg-muted/50 p-3 text-[13px] text-muted-foreground">
             Usa un sonido de la comunidad: quedará enlazado a su origen.
           </p>
@@ -251,5 +289,64 @@ function FieldError({ id, message }: { id: string; message?: string }) {
     <p id={id} role="alert" className="mt-1.5 text-[12px] text-destructive">
       {message}
     </p>
+  );
+}
+
+const SHARES: { value: PublishShare; title: string; hint: string; icon: React.ReactNode }[] = [
+  { value: "both", title: "Sticker con sonido", hint: "En el feed; su sonido se puede reutilizar", icon: <Volume2Icon /> },
+  { value: "sticker", title: "Solo el sticker", hint: "En el feed, sin sonido", icon: <ImageIcon /> },
+  { value: "sound", title: "Solo el sonido", hint: "En Sonidos, para que otros lo usen", icon: <AudioWaveformIcon /> },
+];
+
+/** «¿Qué quieres publicar?»: three cards; options that don't apply are disabled with the reason. */
+function SharePicker({
+  value,
+  onChange,
+  ctx,
+}: {
+  value: PublishShare;
+  onChange: (v: PublishShare) => void;
+  ctx: PublishContext;
+}) {
+  const blocked = shareOptions(ctx);
+  return (
+    <fieldset>
+      <legend className="mb-2 text-[13px] font-medium">¿Qué quieres publicar?</legend>
+      <div className="grid gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Qué publicar">
+        {SHARES.map((o) => {
+          const reason = blocked[o.value];
+          const active = value === o.value;
+          return (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              disabled={Boolean(reason)}
+              title={reason ?? undefined}
+              onClick={() => onChange(o.value)}
+              className={cn(
+                "flex items-center gap-3 rounded-2xl border p-3 text-left transition-colors sm:flex-col sm:items-start sm:gap-2",
+                active ? "border-foreground bg-muted" : "border-border hover:border-foreground/40",
+                reason && "cursor-not-allowed opacity-45 hover:border-border",
+              )}
+            >
+              <span
+                className={cn(
+                  "grid size-9 shrink-0 place-items-center rounded-full [&_svg]:size-[18px]",
+                  active ? "bg-sound text-background" : "bg-muted text-sound",
+                )}
+              >
+                {o.icon}
+              </span>
+              <span className="min-w-0">
+                <span className="block text-[13px] font-semibold">{o.title}</span>
+                <span className="block text-[12px] leading-snug text-muted-foreground">{reason ?? o.hint}</span>
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
