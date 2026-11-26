@@ -4,6 +4,7 @@ import { Link } from "wouter";
 import { ROUTES } from "./routes";
 import { Button } from "@/components/ui/button";
 import { BotStatus } from "@/features/bot/BotStatus";
+import { TourButton } from "@/features/onboarding/TourButton";
 
 const AUTHOR = { handle: "IsrraDex36", url: "https://github.com/IsrraDex36" } as const;
 const REPO_URL = "https://github.com/IsrraDex36/Estampido-V1";
@@ -23,7 +24,10 @@ export function AppFooter() {
             <p className="font-semibold tracking-tight">Estampido</p>
             <p className="text-[13px] text-muted-foreground">Haz ruido en el chat.</p>
           </div>
-          {/* Phones: compact round button next to the brand. */}
+          {/* Phones: the guide (not in the header there) and back-to-top, next to the brand. */}
+          <span className="md:hidden">
+            <TourButton />
+          </span>
           <Button
             variant="secondary"
             size="icon"

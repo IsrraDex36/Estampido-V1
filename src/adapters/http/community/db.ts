@@ -15,7 +15,7 @@ import { popularity } from "./feed.js";
  *   computed by JS (`pop()` registered from feed.ts) when uses change, so SQL
  *   ranks with bit-identical scores to feed.ts (cursors compare exactly).
  */
-const MIGRATIONS: readonly string[] = [
+export const MIGRATIONS: readonly string[] = [
   // 1 — stickers
   `CREATE TABLE stickers (
      id           TEXT PRIMARY KEY,
@@ -41,6 +41,45 @@ const MIGRATIONS: readonly string[] = [
    -- «top» + period and category filters.
    CREATE INDEX stickers_created ON stickers (created_at);
    CREATE INDEX stickers_category ON stickers (category, created_at DESC);`,
+
+  // 2 — accounts (login with WhatsApp), sessions, synced favorites, sticker owners
+  `CREATE TABLE users (
+     id           TEXT PRIMARY KEY,
+     account_key  TEXT NOT NULL UNIQUE,         -- HMAC of the WhatsApp number (from the bot)
+     handle       TEXT NOT NULL UNIQUE COLLATE NOCASE,
+     display_name TEXT NOT NULL,
+     bio          TEXT NOT NULL DEFAULT '',
+     avatar       TEXT NOT NULL DEFAULT '',     -- "emoji color", e.g. "🐸 lime"
+     phone_hint   TEXT NOT NULL DEFAULT '',     -- "…5678", shown only to the owner
+     created_at   INTEGER NOT NULL,
+     updated_at   INTEGER NOT NULL
+   ) STRICT;
+
+   CREATE TABLE sessions (
+     token_hash   TEXT PRIMARY KEY,             -- SHA-256 of the cookie token (never the token)
+     user_id      TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     client_hash  TEXT NOT NULL DEFAULT '',     -- the browser it was opened from
+     created_at   INTEGER NOT NULL,
+     last_seen_at INTEGER NOT NULL,
+     expires_at   INTEGER NOT NULL
+   ) STRICT;
+   CREATE INDEX sessions_user ON sessions (user_id);
+   CREATE INDEX sessions_expires ON sessions (expires_at);
+
+   -- kind: 'sticker' (saved sticker) or 'sound' (saved sound) — same row, two shelves.
+   CREATE TABLE favorites (
+     user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+     sticker_id TEXT NOT NULL REFERENCES stickers (id) ON DELETE CASCADE,
+     kind       TEXT NOT NULL CHECK (kind IN ('sticker', 'sound')),
+     created_at INTEGER NOT NULL,
+     PRIMARY KEY (user_id, kind, sticker_id)
+   ) STRICT, WITHOUT ROWID;
+   CREATE INDEX favorites_user_new ON favorites (user_id, kind, created_at DESC);
+   CREATE INDEX favorites_sticker ON favorites (sticker_id);
+
+   ALTER TABLE stickers ADD COLUMN owner_id TEXT REFERENCES users (id) ON DELETE SET NULL;
+   ALTER TABLE stickers ADD COLUMN saves INTEGER NOT NULL DEFAULT 0 CHECK (saves >= 0);
+   CREATE INDEX stickers_owner_new ON stickers (owner_id, created_at DESC, id DESC) WHERE owner_id IS NOT NULL;`,
 ];
 
 export function openCommunityDb(path: string): DatabaseSync {

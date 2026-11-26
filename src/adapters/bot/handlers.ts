@@ -1,5 +1,6 @@
 import { getContentType, jidNormalizedUser, proto, type WASocket } from "baileys";
 import type { FitMode } from "../../config/limits.js";
+import { identityJid } from "./accountKey.js";
 import { saveCapture } from "./capture.js";
 import { isCancel } from "./command.js";
 import { HELP_TEXT, isHelp } from "./help.js";
@@ -66,8 +67,9 @@ export function registerHandlers(sock: WASocket, config: BotConfig): void {
       const code = config.links && !sent.has(msg.key.id) ? extractCode(textOf(msg.message)) : null;
       if (code && config.links && isDirectChat(msg.key.remoteJid) && isFresh({ ...msg, type })) {
         const jid = jidNormalizedUser(msg.key.remoteJid as string);
+        const alt = (msg.key as { remoteJidAlt?: string }).remoteJidAlt;
         try {
-          const r = await config.links.redeem(code, jid, jid);
+          const r = await config.links.redeem(code, jid, jid, identityJid(jid, alt ? jidNormalizedUser(alt) : null));
           console.log(`🔗 Código ${r.ok ? "aceptado" : `rechazado (${r.reason})`} · ${describeChat(jid, selfIds)}`);
           await sock.sendMessage(jid, { text: LINK_REPLY[r.ok ? "ok" : r.reason] }, { quoted: msg });
         } catch (err) {

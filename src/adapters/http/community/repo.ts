@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { copyFile, mkdir, readFile, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
-import type { CommunityCategory, CommunityStats } from "../contract.js";
+import type { CommunityCategory, CommunityStats, CreatorRef } from "../contract.js";
 import { openCommunityDb, transaction } from "./db.js";
 import {
   decodeCursor,
@@ -27,6 +27,12 @@ export interface StoredSticker extends Rankable {
   listed?: boolean;
   /** Times it was sent to someone's WhatsApp (trending signal). */
   sends?: number;
+  /** Times people saved it (favorites). */
+  saves?: number;
+  /** Account that published it (null: anonymous / before accounts). */
+  ownerId?: string | null;
+  /** Public info of the owner, joined on read. */
+  creator?: CreatorRef | null;
 }
 
 export const COMMUNITY_FILES = { "sticker.webp": "image/webp", "sticker.ogg": "audio/ogg" } as const;
@@ -47,6 +53,8 @@ export interface NewSticker {
   /** Files to copy in (from the 30-min result dir). */
   webpPath: string;
   oggPath: string | null;
+  /** Publishing account, if signed in. */
+  ownerId?: string | null;
 }
 
 /** The storage cap would be exceeded (→ 507). */
@@ -72,10 +80,20 @@ interface Row {
   sound_sec: number | null;
   sound_origin: string | null;
   listed: number;
+  owner_id: string | null;
+  saves: number;
+  c_handle: string | null;
+  c_name: string | null;
+  c_avatar: string | null;
 }
 
 const COLUMNS = "id, title, category, tags, created_at, uses, sends, bytes, animated, sound_sec, sound_origin, listed";
-const INSERT = `INSERT INTO stickers (${COLUMNS}, search, pop) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+const INSERT = `INSERT INTO stickers (${COLUMNS}, search, pop, owner_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+/** Sticker columns (alias s) + its creator's public fields (alias u). */
+const SELECT_FULL = `SELECT ${COLUMNS.split(", ")
+  .map((c) => `s.${c}`)
+  .join(", ")}, s.owner_id, s.saves, u.handle AS c_handle, u.display_name AS c_name, u.avatar AS c_avatar`;
+const FROM_FULL = "FROM stickers s LEFT JOIN users u ON u.id = s.owner_id";
 
 const fromRow = (r: Row): StoredSticker => ({
   id: r.id,
@@ -90,6 +108,9 @@ const fromRow = (r: Row): StoredSticker => ({
   soundSec: r.sound_sec,
   soundOrigin: r.sound_origin,
   listed: r.listed === 1,
+  ownerId: r.owner_id,
+  saves: r.saves,
+  creator: r.c_handle ? { handle: r.c_handle, displayName: r.c_name ?? r.c_handle, avatar: r.c_avatar ?? "" } : null,
 });
 
 /** Escape LIKE wildcards so «100%» or «a_b» are searched literally. */
@@ -129,6 +150,11 @@ export class CommunityRepo {
   }
 
   // ── setup ────────────────────────────────────────────────────────────────
+  /** The shared connection (accounts live in the same database). */
+  connection(): Promise<DatabaseSync> {
+    return this.db();
+  }
+
   private async db(): Promise<DatabaseSync> {
     this.ready ??= this.open();
     await this.ready;
@@ -188,14 +214,26 @@ export class CommunityRepo {
   async get(id: string): Promise<StoredSticker | null> {
     if (!isCommunityId(id)) return null;
     const db = await this.db();
-    const row = this.stmt(db, `SELECT ${COLUMNS} FROM stickers WHERE id = ?`).get(id) as Row | undefined;
+    const row = this.stmt(db, `${SELECT_FULL} ${FROM_FULL} WHERE s.id = ?`).get(id) as Row | undefined;
     return row ? fromRow(row) : null;
+  }
+
+  /** Several by id, in the given order (missing ones skipped). */
+  async getMany(ids: readonly string[]): Promise<StoredSticker[]> {
+    const valid = ids.filter(isCommunityId);
+    if (valid.length === 0) return [];
+    const db = await this.db();
+    const rows = this.stmt(db, `${SELECT_FULL} ${FROM_FULL} WHERE s.id IN (SELECT value FROM json_each(?))`).all(
+      JSON.stringify(valid),
+    ) as unknown as Row[];
+    const byId = new Map(rows.map((r) => [r.id, fromRow(r)]));
+    return valid.flatMap((id) => byId.get(id) ?? []);
   }
 
   /** Everything, newest first (owner moderation). */
   async listAll(): Promise<StoredSticker[]> {
     const db = await this.db();
-    const rows = this.stmt(db, `SELECT ${COLUMNS} FROM stickers ORDER BY created_at DESC, id DESC`).all();
+    const rows = this.stmt(db, `${SELECT_FULL} ${FROM_FULL} ORDER BY s.created_at DESC, s.id DESC`).all();
     return (rows as unknown as Row[]).map(fromRow);
   }
 
@@ -219,15 +257,25 @@ export class CommunityRepo {
    * items newer than the first page's `asOf` stay out while scrolling, and
    * (score desc, id desc) is a total order, so pages never skip or repeat.
    */
-  async page(query: FeedQuery, pool: "stickers" | "sounds"): Promise<FeedPage> {
+  async page(
+    query: FeedQuery,
+    pool: "stickers" | "sounds" | "all",
+    opts: { ownerId?: string } = {},
+  ): Promise<FeedPage> {
     let cursor: ReturnType<typeof decodeCursor> = null;
     if (query.cursor) {
       cursor = decodeCursor(query.cursor);
       if (!cursor) return { error: "bad_cursor" };
     }
     const asOf = cursor?.asOf ?? this.now();
-    const where = [pool === "stickers" ? "listed = 1" : "sound_sec IS NOT NULL", "created_at <= :asOf"];
     const params: Record<string, SQLInputValue> = { asOf, limit: query.limit + 1 };
+    const where = ["created_at <= :asOf"];
+    if (pool === "stickers") where.push("listed = 1");
+    if (pool === "sounds") where.push("sound_sec IS NOT NULL");
+    if (opts.ownerId) {
+      where.push("owner_id = :ownerId");
+      params.ownerId = opts.ownerId;
+    }
     const period = PERIOD_MS[query.period];
     if (query.sort === "top" && Number.isFinite(period)) {
       where.push("created_at >= :minCreated");
@@ -255,10 +303,8 @@ export class CommunityRepo {
       ), page AS (
         SELECT id, score FROM ranked ${after} ORDER BY score DESC, id DESC LIMIT :limit
       )
-      SELECT ${COLUMNS.split(", ")
-        .map((c) => `s.${c}`)
-        .join(", ")}
-        FROM page JOIN stickers s ON s.id = page.id
+      ${SELECT_FULL}
+        FROM page JOIN stickers s ON s.id = page.id LEFT JOIN users u ON u.id = s.owner_id
        ORDER BY page.score DESC, page.id DESC`;
     const db = await this.db();
     const rows = this.stmt(db, sql).all(params) as unknown as Row[];
@@ -303,6 +349,8 @@ export class CommunityRepo {
         soundSec: input.oggPath ? input.soundSec : null,
         soundOrigin: input.soundOrigin,
         listed: input.listed !== false,
+        ownerId: input.ownerId ?? null,
+        saves: 0,
       };
       // Files first, row last: a visible row always has its files.
       this.stmt(db, INSERT).run(...rowValues(item));
@@ -381,5 +429,6 @@ function rowValues(s: StoredSticker): SQLInputValue[] {
     s.listed === false ? 0 : 1,
     searchText({ title: s.title, tags, category: s.category }),
     popularity(Math.max(0, Math.round(s.uses ?? 0))),
+    s.ownerId ?? null,
   ];
 }

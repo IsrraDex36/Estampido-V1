@@ -1,10 +1,11 @@
-import { createHash, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { readFile, rename, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Readable } from "node:stream";
 import { type Context, Hono } from "hono";
 import { bodyLimit } from "hono/body-limit";
+import type { BlankSchema } from "hono/types";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import QRCode from "qrcode";
 import { communityRoot } from "../../config/paths.js";
@@ -16,7 +17,11 @@ import { whatsappIssues } from "../../core/whatsappCompat.js";
 import { type ConvertOptions, type ConvertResult, convertToSoundSticker } from "../../pipeline/convert.js";
 import { CommandError } from "../../utils/ffmpeg.js";
 import { Semaphore } from "../../utils/semaphore.js";
+import { AccountRepo } from "./accounts/repo.js";
+import { accountRoutes } from "./accounts/routes.js";
+import { type AppEnv, sameOrigin, sessionCookie, sessionMiddleware } from "./accounts/session.js";
 import { type BotClient, type BotPairing, BotRequestError, BotUnavailableError, createBotClient } from "./botClient.js";
+import { clientHash } from "./client.js";
 import { CommunityRepo } from "./community/repo.js";
 import { communityRoutes, type PublishGuard, toStickerDto } from "./community/routes.js";
 import {
@@ -39,7 +44,11 @@ export interface AppDeps {
   bot?: BotClient;
   store?: ResultStore;
   community?: CommunityRepo;
-  /** Public server: only browsers with a linked WhatsApp may publish (anti-spam, accountability). */
+  /** Accounts (default: on top of the community database). */
+  accounts?: AccountRepo;
+  /** HTTPS deployment: `__Host-` session cookie with Secure. */
+  secureCookies?: boolean;
+  /** Public server: only signed-in users (login with WhatsApp) may publish (anti-spam, accountability). */
   publishRequiresLink?: boolean;
   /**
    * Owner's local mode (dev default): an unlinked browser sends to the bot's
@@ -56,11 +65,7 @@ export interface AppDeps {
   maxQueue?: number;
 }
 
-/** Browser id (random UUID) → SHA-256 hex. The raw id never leaves the API. */
-export function clientHash(raw: string | undefined): string | null {
-  if (!raw || !/^[0-9a-f-]{36}$/i.test(raw)) return null;
-  return createHash("sha256").update(`estampido:${raw.toLowerCase()}`).digest("hex");
-}
+export { clientHash } from "./client.js";
 
 /** "…6863" from a JID — never the full number in responses. */
 const maskPhone = (jid: string): string => `…${(jid.split(/[:@]/)[0] ?? "").slice(-4)}`;
@@ -73,37 +78,39 @@ const fail = (code: string, message: string): ApiErrorBody => ({
   error: { code, message },
 });
 
-export function createApp(deps: AppDeps = {}): Hono {
+export type ApiApp = Hono<AppEnv, BlankSchema, "/api">;
+
+export function createApp(deps: AppDeps = {}): ApiApp {
   const store = deps.store ?? new ResultStore();
   const bot = deps.bot ?? createBotClient();
   const convert = deps.convert ?? convertToSoundSticker;
   const jobs = new Semaphore(deps.maxConcurrent ?? 2);
   const maxQueue = deps.maxQueue ?? 10;
 
-  const app = new Hono().basePath("/api");
+  const app = new Hono<AppEnv>().basePath("/api");
 
   app.get("/health", (c) => c.json({ ok: true }));
 
-  const canPublish: PublishGuard | undefined = deps.publishRequiresLink
-    ? async (c) => {
-        const client = clientHash(c.req.header(CLIENT_HEADER));
-        const need = {
-          status: 403 as const,
-          body: fail("link_required", "Vincula tu WhatsApp para publicar en la comunidad."),
-        };
-        if (!client) return need;
-        try {
-          return (await bot.linkStatus(client)).state === "linked" ? null : need;
-        } catch {
-          return {
-            status: 503,
-            body: fail("bot_unavailable", "No se puede verificar tu WhatsApp ahora; inténtalo luego."),
-          };
-        }
-      }
-    : undefined;
+  // Accounts: every request knows its user; cookie writes must be same-origin.
   const communityRepo = deps.community ?? new CommunityRepo(communityRoot());
+  const accounts = deps.accounts ?? new AccountRepo(communityRepo);
+  const cookie = sessionCookie(deps.secureCookies ?? false);
+  app.use("*", sessionMiddleware(accounts, cookie));
+  app.use("*", sameOrigin(cookie, { allowLocalhost: !deps.secureCookies }));
+
+  // Public server: publishing needs an account (login with WhatsApp): every
+  // public sticker has a creator who can be moderated.
+  const canPublish: PublishGuard | undefined = deps.publishRequiresLink
+    ? async (c) =>
+        c.get("user")
+          ? null
+          : {
+              status: 403 as const,
+              body: fail("link_required", "Entra con tu WhatsApp para publicar en la comunidad."),
+            }
+    : undefined;
   app.route("/community", communityRoutes(communityRepo, store, { canPublish }));
+  app.route("/", accountRoutes({ accounts, community: communityRepo, bot, cookie }));
 
   app.post(
     "/convert",
@@ -335,6 +342,10 @@ export function createApp(deps: AppDeps = {}): Hono {
     if (!client) return c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
     try {
       const st = await bot.linkStatus(client);
+      // The account key is server-side identity only: never sent to the browser.
+      if (st.state === "linked") {
+        return c.json({ state: "linked", phone: st.phone, linkedAt: st.linkedAt } satisfies WhatsAppLink);
+      }
       if (st.state !== "pending") return c.json(st satisfies WhatsAppLink);
       const { botNumber } = await bot.status();
       return c.json({ ...st, waLink: waLink(botNumber, st.code) } satisfies WhatsAppLink);
@@ -358,6 +369,9 @@ export function createApp(deps: AppDeps = {}): Hono {
   app.delete("/whatsapp/link", async (c) => {
     const client = clientHash(c.req.header(CLIENT_HEADER));
     if (!client) return c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
+    // Unlinking this browser also signs it out of its account.
+    await accounts.deleteSessionsForClient(client);
+    cookie.clear(c);
     try {
       await bot.unlink(client);
       return c.json({ state: "unlinked" } satisfies WhatsAppLink);

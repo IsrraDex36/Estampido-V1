@@ -36,8 +36,11 @@ interface Pending {
   expiresAt: number;
 }
 interface Link {
+  /** Chat to deliver to. */
   jid: string;
   linkedAt: number;
+  /** Who the person is (phone jid when known); older links lack it (= jid). */
+  identity?: string;
 }
 interface FileShape {
   links: Record<string, Link>;
@@ -46,7 +49,7 @@ interface FileShape {
 export type LinkStatus =
   | { state: "unlinked" }
   | { state: "pending"; code: string; expiresAt: number }
-  | { state: "linked"; jid: string; linkedAt: number };
+  | { state: "linked"; jid: string; linkedAt: number; identity?: string };
 
 export type RedeemResult = { ok: true; client: string } | { ok: false; reason: "unknown" | "expired" | "rate_limited" };
 
@@ -104,14 +107,17 @@ export class LinkStore {
   }
 
   /** A chat sent a code: link it (one use). `sender` keys the brute-force limit. */
-  redeem(code: string, jid: string, sender: string): Promise<RedeemResult> {
+  redeem(code: string, jid: string, sender: string, identity: string = jid): Promise<RedeemResult> {
     return this.exclusive(async () => {
       if (this.attempts.take(sender, this.now()) > 0) return { ok: false, reason: "rate_limited" };
       const p = this.pending.get(code);
       if (!p) return { ok: false, reason: "unknown" };
       this.pending.delete(code);
       if (p.expiresAt <= this.now()) return { ok: false, reason: "expired" };
-      const links = { ...(await this.load()), [p.client]: { jid, linkedAt: this.now() } };
+      const links = {
+        ...(await this.load()),
+        [p.client]: { jid, linkedAt: this.now(), ...(identity !== jid ? { identity } : {}) },
+      };
       await this.persist(links);
       this.links = links;
       return { ok: true, client: p.client };

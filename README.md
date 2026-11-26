@@ -56,6 +56,7 @@ _Estampa + estampido._ Estampido genera **stickers con sonido nativos** de Whats
 - **Dos caminos a WhatsApp** (ver abajo), más compartir y descargar como respaldo.
 - **Colección** de la sesión: selecciona varios stickers y envíalos todos en orden, con sonido.
 - **Comunidad**: publica sonidos reutilizables, con feed paginado (Tendencias, Nuevos, Top), 17 categorías, búsqueda, favoritos y ranking de sonidos virales. Los datos viven en **SQLite** (integrado en Node, modo WAL): el ranking, la búsqueda y la paginación se resuelven en SQL con índices.
+- **Cuentas con tu WhatsApp, sin contraseñas**: mandas un código al bot y quedas dentro. Perfil de creador (`/u/usuario`, con avatar, descripción y cifras), favoritos sincronizados entre dispositivos, «Mis stickers» para borrar lo tuyo, creadores destacados y borrado total de la cuenta. Sesiones con cookie `__Host-` (HttpOnly, Secure, SameSite=Lax) guardadas con hash; el número nunca llega a la web, solo una clave HMAC que genera el bot.
 
 ### Experiencia
 
@@ -142,16 +143,19 @@ npm run cli -- doctor                                   # diagnóstico del entor
 
 <br />
 
-| Método                | Ruta                                             | Descripción                                                                    |
-| --------------------- | ------------------------------------------------ | ------------------------------------------------------------------------------ |
-| `POST`                | `/api/convert`                                   | Multipart (`media` + `audio` opcional + opciones) → sticker WebP + sonido Opus |
-| `GET`                 | `/api/results/:id/sticker.webp` · `sticker.ogg`  | Archivos del resultado (se borran a los 30 min)                                |
-| `GET`                 | `/api/results/:id/whatsapp.mp4`                  | MP4 para el creador oficial de WhatsApp (se genera bajo demanda)               |
-| `POST`                | `/api/results/:id/whatsapp`                      | Envía el sticker al chat vinculado                                             |
-| `GET` `POST` `DELETE` | `/api/whatsapp/link`                             | Vincular o desvincular este navegador con un código                            |
-| `GET`                 | `/api/whatsapp/status`                           | Estado del bot                                                                 |
-| `GET` `POST`          | `/api/community/stickers` · `/sounds` · `/stats` | Comunidad: feed, sonidos, publicar, cifras                                     |
-| `GET`                 | `/health` · `/robots.txt` · `/sitemap.xml`       | Salud y SEO                                                                    |
+| Método                 | Ruta                                                 | Descripción                                                                    |
+| ---------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `POST`                 | `/api/convert`                                       | Multipart (`media` + `audio` opcional + opciones) → sticker WebP + sonido Opus |
+| `GET`                  | `/api/results/:id/sticker.webp` · `sticker.ogg`      | Archivos del resultado (se borran a los 30 min)                                |
+| `GET`                  | `/api/results/:id/whatsapp.mp4`                      | MP4 para el creador oficial de WhatsApp (se genera bajo demanda)               |
+| `POST`                 | `/api/results/:id/whatsapp`                          | Envía el sticker al chat vinculado                                             |
+| `GET` `POST` `DELETE`  | `/api/whatsapp/link`                                 | Vincular o desvincular este navegador con un código                            |
+| `GET`                  | `/api/whatsapp/status`                               | Estado del bot                                                                 |
+| `GET` `POST`           | `/api/community/stickers` · `/sounds` · `/stats`     | Comunidad: feed, sonidos, publicar, cifras                                     |
+| `GET` `POST`           | `/api/auth/session` · `/api/auth/logout`             | Entrar con el WhatsApp vinculado · cerrar sesión                               |
+| `GET` `PATCH` `DELETE` | `/api/me` · `/api/me/stickers` · `/api/me/favorites` | Mi perfil, mis stickers, mis favoritos, borrar mi cuenta                       |
+| `GET`                  | `/api/creators` · `/api/creators/:usuario`           | Creadores destacados y perfiles públicos                                       |
+| `GET`                  | `/health` · `/robots.txt` · `/sitemap.xml`           | Salud y SEO                                                                    |
 
 Los tipos compartidos entre la API y la web están en [`src/adapters/http/contract.ts`](src/adapters/http/contract.ts).
 

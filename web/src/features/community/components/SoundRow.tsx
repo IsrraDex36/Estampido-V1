@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { remixHref } from "@/app/routes";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { useToggleFavorite } from "@/features/account/api";
 import { useFavorites } from "../store/favoritesStore";
 import { usePreview } from "../store/previewStore";
 
@@ -40,7 +41,8 @@ export function SoundRow({
   const playing = usePreview((s) => s.playing === sound.url);
   const toggle = usePreview((s) => s.toggle);
   const saved = useFavorites((s) => sound.id in s.sounds);
-  const toggleSaved = useFavorites((s) => s.toggleSound);
+  const toggleFavorite = useToggleFavorite();
+  const toggleSaved = () => toggleFavorite("sound", sound);
 
   return (
     <li className="flex items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-muted/50">
@@ -77,7 +79,7 @@ export function SoundRow({
       </div>
       <button
         type="button"
-        onClick={() => toggleSaved(sound)}
+        onClick={toggleSaved}
         aria-label={saved ? "Quitar de sonidos guardados" : "Guardar sonido"}
         aria-pressed={saved}
         className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"

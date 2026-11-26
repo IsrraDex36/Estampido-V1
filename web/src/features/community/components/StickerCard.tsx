@@ -11,12 +11,14 @@ import {
   VolumeXIcon,
 } from "@/components/icons";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { remixHref } from "@/app/routes";
+import { creatorHref, remixHref } from "@/app/routes";
+import { Avatar } from "@/features/account/Avatar";
 import { downloadUrl } from "@/lib/api";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { shareLink } from "../share";
 import { categoryById } from "../model";
+import { useToggleFavorite } from "@/features/account/api";
 import { useFavorites } from "../store/favoritesStore";
 import { previewTime, usePreview, usePreviewMode } from "../store/previewStore";
 import { SyncedSticker } from "@/components/SyncedSticker";
@@ -25,7 +27,8 @@ import { SendToWhatsAppButton } from "./SendToWhatsAppButton";
 /** A published sticker: tap the cover to hear it; send it to WhatsApp, save, use its sound, share, download. */
 export function StickerCard({ sticker, rank, className }: { sticker: CommunitySticker; rank?: number; className?: string }) {
   const saved = useFavorites((s) => sticker.id in s.stickers);
-  const toggleSaved = useFavorites((s) => s.toggleSticker);
+  const toggleFavorite = useToggleFavorite();
+  const toggleSaved = () => toggleFavorite("sticker", sticker);
   const soundUrl = sticker.sound?.url ?? null;
   const mode = usePreviewMode(soundUrl);
   const playing = mode === "playing";
@@ -94,6 +97,15 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
           <h3 className="truncate text-[14px] font-medium tracking-tight" title={sticker.title}>
             {sticker.title}
           </h3>
+          {sticker.creator && (
+            <Link
+              href={creatorHref(sticker.creator.handle)}
+              className="mt-1 flex w-fit max-w-full items-center gap-1.5 rounded-full text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Avatar avatar={sticker.creator.avatar} size={18} />
+              <span className="truncate">@{sticker.creator.handle}</span>
+            </Link>
+          )}
           <p className="mt-0.5 flex items-center gap-1.5 truncate text-[12px] text-muted-foreground">
             {cat && (
               <span>
@@ -101,11 +113,12 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
               </span>
             )}
             {sticker.uses > 0 && <span>· {sticker.uses} {sticker.uses === 1 ? "uso" : "usos"}</span>}
+            {sticker.saves > 0 && <span>· {sticker.saves} 🔖</span>}
           </p>
         </div>
         <SendToWhatsAppButton sticker={sticker} />
         <div className="flex items-center justify-between text-muted-foreground">
-          <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={() => toggleSaved(sticker)}>
+          <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={toggleSaved}>
             <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
           </IconAction>
           {sticker.sound ? (

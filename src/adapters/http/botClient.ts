@@ -16,7 +16,8 @@ export interface SendRequest {
 export type BotLinkStatus =
   | { state: "unlinked" }
   | { state: "pending"; code: string; expiresAt: number }
-  | { state: "linked"; phone: string; linkedAt: number };
+  /** account: opaque per-person key (HMAC of the number) — the API's user identity. */
+  | { state: "linked"; phone: string; linkedAt: number; account?: string };
 
 export interface BotClient {
   status(): Promise<{ available: boolean; connected: boolean; botNumber?: string | null }>;

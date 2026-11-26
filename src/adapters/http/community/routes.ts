@@ -5,6 +5,7 @@ import { type Context, Hono } from "hono";
 import { z } from "zod";
 import { probe } from "../../../core/probe/probe.js";
 import { inspectWebp } from "../../../core/webp/inspect.js";
+import type { AppEnv } from "../accounts/session.js";
 import {
   type ApiErrorBody,
   COMMUNITY_CATEGORIES,
@@ -67,6 +68,8 @@ export const toStickerDto = (s: StoredSticker): CommunitySticker => ({
   uses: s.uses,
   soundOrigin: s.soundOrigin,
   listed: s.listed !== false,
+  saves: s.saves ?? 0,
+  creator: s.creator ?? null,
 });
 
 export const toSoundDto = (s: StoredSticker): CommunitySound => ({
@@ -85,14 +88,14 @@ const defaultTitle = (category: string, soundOnly = false) =>
   `${soundOnly ? "Sonido" : "Sticker"} de ${COMMUNITY_CATEGORIES.find((c) => c.id === category)?.label ?? "la comunidad"}`;
 
 /** Decides if this request may publish (e.g. «needs a linked WhatsApp»). null = allowed. */
-export type PublishGuard = (c: Context) => Promise<{ status: 403 | 503; body: ApiErrorBody } | null>;
+export type PublishGuard = (c: Context<AppEnv>) => Promise<{ status: 403 | 503; body: ApiErrorBody } | null>;
 
 export function communityRoutes(
   repo: CommunityRepo,
   results: ResultStore,
   opts: { canPublish?: PublishGuard } = {},
-): Hono {
-  const app = new Hono();
+): Hono<AppEnv> {
+  const app = new Hono<AppEnv>();
 
   const list = async (query: Record<string, string>, onlySounds: boolean) => {
     const parsed = listSchema.safeParse(query);
@@ -167,6 +170,7 @@ export function communityRoutes(
         // A silent copy no longer carries the sound, so it isn't linked to the sound's origin either.
         soundOrigin: shareSound ? (origin?.id ?? null) : null,
         listed: req.share !== "sound",
+        ownerId: c.get("user")?.id ?? null,
         webpPath,
         oggPath: shareSound ? oggPath : null,
       });
@@ -174,7 +178,8 @@ export function communityRoutes(
       if (err instanceof CommunityFullError) return c.json(fail("storage_full", err.message), 507);
       throw err;
     }
-    return c.json(toStickerDto(item), 201);
+    // Re-read: the response carries the creator (joined from users).
+    return c.json(toStickerDto((await repo.get(item.id)) ?? item), 201);
   });
 
   app.get("/sounds/:id", async (c) => {

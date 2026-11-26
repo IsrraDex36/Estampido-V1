@@ -14,8 +14,8 @@ import { useFiltersUrlSync } from "./store/useFiltersUrlSync";
 
 /**
  * Community: hero → sticky filters → feed (paginated) | (ranking, viral sounds)
- * → my space | creators → weekly challenge → packs. Challenge, packs and
- * creators are still placeholders (phase 4).
+ * → my space | creators → weekly challenge → packs. Challenge and packs
+ * are still placeholders (phase 4).
  */
 export default function CommunityPage() {
   useFiltersUrlSync();
@@ -40,7 +40,7 @@ export default function CommunityPage() {
         <Section index="04" title="Tu espacio">
           <MySpace />
         </Section>
-        <Section index="05" title="Creadores" aside={<SoonBadge phase={PHASE.social} />}>
+        <Section index="05" title="Creadores">
           <CreatorsList />
         </Section>
       </div>

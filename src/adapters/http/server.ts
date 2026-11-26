@@ -6,8 +6,9 @@ import { Readable } from "node:stream";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { RateLimiter } from "../../utils/rateLimit.js";
+import type { ApiApp } from "./app.js";
 import type { ApiErrorBody } from "./contract.js";
-import { robotsTxt, seoHead, sitemapXml, siteOrigin, withSeo } from "./seo.js";
+import { type DynamicSeo, robotsTxt, seoHead, sitemapXml, siteOrigin, withSeo } from "./seo.js";
 
 /**
  * Production server: one port for everything.
@@ -17,7 +18,7 @@ import { robotsTxt, seoHead, sitemapXml, siteOrigin, withSeo } from "./seo.js";
  * because nothing else can reach 127.0.0.1).
  */
 export interface ServerOptions {
-  api: Hono;
+  api: ApiApp;
   /** Built web (web/dist). null → API only. */
   webDist?: string | null;
   trustProxy?: boolean;
@@ -26,6 +27,8 @@ export interface ServerOptions {
   publicUrl?: string;
   /** Google Search Console HTML-tag token (SVA_GOOGLE_SITE_VERIFICATION). */
   googleVerification?: string;
+  /** Title/description for dynamic pages (creator profiles); null = not one. */
+  dynamicSeo?: (path: string) => Promise<DynamicSeo | null>;
 }
 
 const MIN = 60_000;
@@ -35,6 +38,8 @@ export const DEFAULT_LIMITS = {
   send: { max: 40, windowMs: 10 * MIN },
   publish: { max: 10, windowMs: 60 * MIN },
   soundUse: { max: 60, windowMs: 10 * MIN },
+  account: { max: 30, windowMs: 10 * MIN }, // sign in/out, profile edits, account deletion
+  favorite: { max: 200, windowMs: 10 * MIN },
   adminFail: { max: 10, windowMs: 10 * MIN }, // wrong /admin passwords only (polling is free)
   api: { max: 600, windowMs: 10 * MIN }, // everything else under /api
 } as const;
@@ -46,6 +51,12 @@ const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; pa
   { name: "send", method: "POST", path: /^\/api\/(results|community\/stickers)\/[^/]+\/whatsapp$/ },
   { name: "publish", method: "POST", path: /^\/api\/community\/stickers$/ },
   { name: "soundUse", method: "POST", path: /^\/api\/community\/sounds\/[^/]+\/use$/ },
+  { name: "account", method: "POST", path: /^\/api\/auth\/(session|logout)$/ },
+  { name: "account", method: "PATCH", path: /^\/api\/me$/ },
+  { name: "account", method: "DELETE", path: /^\/api\/me(\/stickers\/[^/]+)?$/ },
+  { name: "favorite", method: "PUT", path: /^\/api\/me\/favorites\// },
+  { name: "favorite", method: "DELETE", path: /^\/api\/me\/favorites\// },
+  { name: "favorite", method: "POST", path: /^\/api\/me\/favorites\/import$/ },
 ];
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });
@@ -234,7 +245,8 @@ export function createServerApp(opts: ServerOptions): Hono {
       }
       // SPA fallback: every route (/, /comunidad, /privacidad, unknown → app's 404 page),
       // with that route's title/description/canonical/preview tags for crawlers.
-      const page = withSeo(html, seoHead(origin(c), path, opts.googleVerification));
+      const dynamic = opts.dynamicSeo ? await opts.dynamicSeo(path).catch(() => null) : null;
+      const page = withSeo(html, seoHead(origin(c), path, opts.googleVerification, dynamic));
       return c.body(page, 200, { "Content-Type": MIME[".html"] as string, "Cache-Control": "no-cache" });
     });
   }

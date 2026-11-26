@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { CheckIcon, CircleCheckIcon, ExternalIcon, Loader2Icon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Link } from "wouter";
 import { ROUTES } from "@/app/routes";
+import { useMe } from "@/features/account/api";
+import { Avatar } from "@/features/account/Avatar";
 import { formatTime } from "@/lib/time";
 import { useBotStatus, useCreateLink, useLink, useUnlink } from "./api";
 
@@ -57,12 +60,13 @@ function LinkBody({ onDone }: { onDone: () => void }) {
             Los stickers que envíes desde este navegador llegan a tu chat <b className="text-foreground">{link.data.phone}</b>.
           </DialogDescription>
         </DialogHeader>
+        <SignedInAs onNavigate={onDone} />
         <div className="flex gap-2">
           <Button className="flex-1 rounded-full" onClick={onDone}>
             Listo
           </Button>
           <Button variant="ghost" className="rounded-full" disabled={unlink.isPending} onClick={() => unlink.mutate()}>
-            Desvincular
+            Cerrar sesión
           </Button>
         </div>
       </>
@@ -73,9 +77,10 @@ function LinkBody({ onDone }: { onDone: () => void }) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Vincula tu WhatsApp</DialogTitle>
+        <DialogTitle>Entra con tu WhatsApp</DialogTitle>
         <DialogDescription>
-          Una sola vez: envía este código desde tu WhatsApp y te mandaremos los stickers con sonido a ese chat.
+          Sin contraseñas: envía este código desde tu WhatsApp. Tendrás tu cuenta (perfil, favoritos y tus stickers) y te
+          mandaremos los stickers con sonido a ese chat.
         </DialogDescription>
       </DialogHeader>
 
@@ -123,6 +128,32 @@ function LinkBody({ onDone }: { onDone: () => void }) {
         </div>
       )}
     </>
+  );
+}
+
+/** Once linked, the account opens by itself: show who's signed in. */
+function SignedInAs({ onNavigate }: { onNavigate: () => void }) {
+  const me = useMe();
+  if (me.isFetching && !me.data) {
+    return (
+      <p className="flex items-center gap-2 text-[13px] text-muted-foreground" role="status">
+        <Loader2Icon className="size-4 animate-spin" /> Abriendo tu cuenta…
+      </p>
+    );
+  }
+  if (!me.data) return null;
+  return (
+    <Link
+      href={ROUTES.account}
+      onClick={onNavigate}
+      className="flex items-center gap-3 rounded-2xl bg-muted/60 p-3 transition-colors hover:bg-muted"
+    >
+      <Avatar avatar={me.data.avatar} size={40} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-[14px] font-semibold">{me.data.displayName}</span>
+        <span className="block truncate text-[12px] text-muted-foreground">@{me.data.handle} · Ver mi cuenta</span>
+      </span>
+    </Link>
   );
 }
 

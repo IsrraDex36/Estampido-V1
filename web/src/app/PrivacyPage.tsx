@@ -27,11 +27,17 @@ export function PrivacyPage() {
             número completo.
           </li>
           <li>
-            <b>Si publicas en la comunidad</b>: el sticker, su sonido, el título, la categoría y las etiquetas quedan
-            públicos para que otros los escuchen y reutilicen.
+            <b>Tu cuenta</b> (al entrar con WhatsApp): un identificador cifrado de tu número (no el número), los últimos 4
+            dígitos para mostrártelos solo a ti, tu nombre, usuario, avatar y descripción (públicos en tu perfil), tus
+            favoritos y tus sesiones. La sesión vive en una cookie segura que caduca a los 90 días sin uso.
           </li>
           <li>
-            <b>Favoritos y colección</b>: se guardan solo en tu navegador; no salen de tu dispositivo.
+            <b>Si publicas en la comunidad</b>: el sticker, su sonido, el título, la categoría, las etiquetas y tu perfil de
+            creador quedan públicos para que otros los escuchen y reutilicen.
+          </li>
+          <li>
+            <b>Favoritos y colección</b>: sin cuenta se guardan solo en tu navegador; con cuenta, en tu cuenta para verlos
+            en todos tus dispositivos.
           </li>
         </ul>
       </Block>
@@ -45,8 +51,9 @@ export function PrivacyPage() {
       </Block>
 
       <Block title="Borrar tus datos">
-        Desvincula tu WhatsApp desde el indicador «WhatsApp …» del encabezado: el vínculo se elimina al instante. Para
-        retirar algo que publicaste, escríbenos.
+        En <b>Mi cuenta</b> puedes borrar cada sticker que publicaste o <b>borrar tu cuenta</b>: se eliminan al instante
+        tu perfil, todo lo que publicaste, tus favoritos y tus sesiones. «Cerrar sesión» también desvincula tu WhatsApp de
+        ese navegador.
       </Block>
 
       <Block title="Reglas de uso">

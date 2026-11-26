@@ -10,6 +10,7 @@ import {
   sendCommunityToWhatsApp,
   sendToWhatsApp,
 } from "@/lib/api";
+import { useFavorites } from "@/features/community/store/favoritesStore";
 import { queryKeys } from "@/lib/query/keys";
 
 export const BOT_POLL_MS = 10_000;
@@ -97,7 +98,13 @@ export function useUnlink() {
   return useMutation<WhatsAppLink, Error, void>({
     mutationKey: ["whatsapp", "unlink"],
     mutationFn: () => deleteWhatsAppLink(),
-    meta: { successMessage: "WhatsApp desvinculado de este navegador." },
-    onSuccess: (link) => qc.setQueryData(queryKeys.bot.link, link),
+    meta: { successMessage: "WhatsApp desvinculado: cerraste sesión en este navegador." },
+    onSuccess: (link) => {
+      qc.setQueryData(queryKeys.bot.link, link);
+      // Unlinking also ends this browser's account session (server side).
+      qc.setQueryData(queryKeys.account.me, null);
+      qc.removeQueries({ queryKey: queryKeys.account.stickers });
+      useFavorites.getState().clearAll();
+    },
   });
 }

@@ -223,7 +223,8 @@ describe("public server rules", () => {
   const CLIENT_ID = "6f1c1d2e-3a4b-4c5d-8e9f-0a1b2c3d4e5f";
   const botWith = (state: "linked" | "unlinked") => ({
     ...noBot,
-    linkStatus: async () => (state === "linked" ? { state, phone: "…1", linkedAt: 1 } : { state }),
+    linkStatus: async () =>
+      state === "linked" ? { state, phone: "…1", linkedAt: 1, account: "a".repeat(64) } : { state },
   });
   const publish = (a: ReturnType<typeof createApp>, resultId: string, headers: Record<string, string> = {}) =>
     a.request("/api/community/stickers", {
@@ -232,7 +233,7 @@ describe("public server rules", () => {
       body: JSON.stringify({ resultId, category: "memes", ownsAudio: true }),
     });
 
-  it("publishRequiresLink: no browser id / unlinked → 403 link_required; linked → 201", async () => {
+  it("publishRequiresLink: no account → 403 link_required; signed in (WhatsApp) → 201 with creator", async () => {
     const repo = new CommunityRepo(join(dir, "guarded"));
     const unlinked = createApp({
       store: results,
@@ -250,7 +251,17 @@ describe("public server rules", () => {
       community: repo,
       publishRequiresLink: true,
     });
-    expect((await publish(linked, await fakeResult(), { "x-estampido-client": CLIENT_ID })).status).toBe(201);
+    // Linked but not signed in yet → still needs the session.
+    expect((await publish(linked, await fakeResult(), { "x-estampido-client": CLIENT_ID })).status).toBe(403);
+    const signIn = await linked.request("/api/auth/session", {
+      method: "POST",
+      headers: { "x-estampido-client": CLIENT_ID },
+    });
+    expect(signIn.status).toBe(200);
+    const cookie = (signIn.headers.get("set-cookie") ?? "").split(";")[0] as string;
+    const ok = await publish(linked, await fakeResult(), { "x-estampido-client": CLIENT_ID, cookie });
+    expect(ok.status).toBe(201);
+    expect(((await ok.json()) as CommunitySticker).creator?.handle).toMatch(/^creador_\d+$/);
   });
 
   it("storage cap → 507 storage_full, nothing half-written", async () => {

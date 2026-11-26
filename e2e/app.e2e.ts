@@ -36,7 +36,13 @@ describe("Estampido web (real browser, real API)", () => {
     await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
     await page.reload({ waitUntil: "networkidle0" });
     expect(await page.$('[role="dialog"]')).toBeNull();
-    await page.click('button[aria-label="¿Cómo funciona?"]');
+    // Header on desktop, footer on phones: click whichever is visible.
+    await page.evaluate(() => {
+      const visible = [...document.querySelectorAll<HTMLButtonElement>('button[aria-label="¿Cómo funciona?"]')].find(
+        (b) => b.offsetParent !== null,
+      );
+      visible?.click();
+    });
     await page.waitForSelector('[role="dialog"]');
     expect(problems).toEqual([]);
     await page.close();

@@ -2,6 +2,7 @@ import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { communityRoot } from "../../config/paths.js";
+import { AccountRepo } from "./accounts/repo.js";
 import { createApp } from "./app.js";
 import { CommunityRepo } from "./community/repo.js";
 import { ResultStore } from "./resultStore.js";
@@ -22,12 +23,18 @@ const port = Number(process.env.PORT ?? 8787);
 const store = new ResultStore();
 const maxMb = Number(process.env.SVA_COMMUNITY_MAX_MB ?? (production ? 2048 : 0)) || Number.POSITIVE_INFINITY;
 const community = new CommunityRepo(communityRoot(), Date.now, maxMb * 1024 * 1024);
+const accounts = new AccountRepo(community);
 // Open (and migrate) the community database now, so a problem shows at boot.
 const stats = await community.stats();
+const purge = () => accounts.purgeExpiredSessions().catch((err) => console.error("[cuentas] limpieza:", err));
+await purge();
+setInterval(purge, 6 * 3_600_000).unref();
 console.log(`Comunidad (SQLite): ${stats.stickers} stickers, ${stats.sounds} sonidos · ${community.dbPath}`);
 const api = createApp({
   store,
   community,
+  accounts,
+  secureCookies: production,
   publishRequiresLink: flag(process.env.SVA_PUBLISH_REQUIRES_LINK, production),
   // Local dev: send to your own chat without linking. Off in production (public).
   ownerSelfSend: flag(process.env.SVA_OWNER_SELF_SEND, !production),
@@ -52,6 +59,19 @@ if (production) {
     limits,
     publicUrl: process.env.SVA_PUBLIC_URL,
     googleVerification: process.env.SVA_GOOGLE_SITE_VERIFICATION,
+    // Creator profiles get their own title/description (shared links, search).
+    dynamicSeo: async (path) => {
+      const handle = /^\/u\/([a-z0-9_]{3,20})$/i.exec(path)?.[1];
+      const user = handle ? await accounts.byHandle(handle.toLowerCase()) : null;
+      if (!user) return null;
+      const stats = await accounts.stats(user.id);
+      return {
+        title: `${user.displayName} (@${user.handle}) · Creador en Estampido`,
+        description:
+          user.bio ||
+          `${stats.stickers} stickers con sonido de ${user.displayName} en Estampido. Escúchalos y mándalos a tu WhatsApp.`,
+      };
+    },
   }).fetch;
 }
 

@@ -1,4 +1,8 @@
 import { useState } from "react";
+import { Link } from "wouter";
+import { ROUTES } from "@/app/routes";
+import { useMe, useMyStickers } from "@/features/account/api";
+import { LinkDialog } from "@/features/bot/LinkDialog";
 import { Mascot } from "@/components/pixel/Mascot";
 import { cn } from "@/lib/utils";
 import { MY_SPACE_TABS } from "../model";
@@ -8,12 +12,21 @@ import { StickerCard } from "./StickerCard";
 
 type Tab = (typeof MY_SPACE_TABS)[number]["id"];
 
-/** Saved stickers, saved sounds and what this device published (stored locally). */
+/**
+ * Saved stickers, saved sounds and what I published. Signed in: synced with
+ * the account (published = my account's stickers). Signed out: this device.
+ */
 export function MySpace() {
   const [tab, setTab] = useState<Tab>("saved");
+  const [linkOpen, setLinkOpen] = useState(false);
+  const me = useMe().data;
   const stickers = useFavorites((s) => s.stickers);
   const sounds = useFavorites((s) => s.sounds);
-  const published = useFavorites((s) => s.published);
+  const devicePublished = useFavorites((s) => s.published);
+  const mine = useMyStickers(Boolean(me));
+  const published = me
+    ? Object.fromEntries((mine.data?.pages[0]?.items ?? []).map((s) => [s.id, s]))
+    : devicePublished;
   const counts: Record<Tab, number> = {
     saved: Object.keys(stickers).length,
     sounds: Object.keys(sounds).length,
@@ -62,7 +75,24 @@ export function MySpace() {
             ))}
           </div>
         )}
-        <p className="mt-3 text-[12px] text-muted-foreground">Se guarda en este dispositivo. Con las cuentas se sincronizará.</p>
+        {me ? (
+          <p className="mt-3 text-[12px] text-muted-foreground">
+            Sincronizado con tu cuenta{" "}
+            <Link href={ROUTES.account} className="font-medium text-foreground underline-offset-4 hover:underline">
+              @{me.handle}
+            </Link>
+            : lo ves igual en todos tus dispositivos.
+          </p>
+        ) : (
+          <p className="mt-3 text-[12px] text-muted-foreground">
+            Se guarda en este dispositivo.{" "}
+            <button type="button" onClick={() => setLinkOpen(true)} className="font-medium text-foreground underline underline-offset-4">
+              Entra con tu WhatsApp
+            </button>{" "}
+            para tenerlo en todos tus dispositivos.
+          </p>
+        )}
+        <LinkDialog open={linkOpen} onOpenChange={setLinkOpen} />
       </div>
     </div>
   );

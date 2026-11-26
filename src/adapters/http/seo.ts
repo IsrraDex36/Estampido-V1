@@ -79,10 +79,28 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").repl
 export const validVerification = (token: string | undefined): string | undefined =>
   token && /^[A-Za-z0-9_-]{10,100}$/.test(token) ? token : undefined;
 
-/** The <head> block for one path. Unknown paths and /admin get noindex. Pure. */
-export function seoHead(origin: string, path: string, googleVerification?: string): string {
-  const route = SEO_ROUTES[path];
-  const meta = route ?? NOT_FOUND;
+/** Pages that exist but must not be indexed (private). */
+const PRIVATE_TITLES: Record<string, string> = {
+  "/cuenta": `Mi cuenta · ${BRAND}`,
+  "/admin": `Administración · ${BRAND}`,
+};
+
+/** Per-request page info (e.g. a creator profile) resolved by the server. */
+export interface DynamicSeo {
+  title: string;
+  description: string;
+}
+
+/** The <head> block for one path. Unknown and private paths get noindex. Pure. */
+export function seoHead(
+  origin: string,
+  path: string,
+  googleVerification?: string,
+  dynamic?: DynamicSeo | null,
+): string {
+  const route: Pick<RouteSeo, "title" | "description"> | undefined = dynamic ?? SEO_ROUTES[path];
+  const privateTitle = PRIVATE_TITLES[path];
+  const meta = route ?? (privateTitle ? { ...NOT_FOUND, title: privateTitle } : NOT_FOUND);
   const url = `${origin}${path}`;
   const image = `${origin}/og-image.png`;
   const lines = [

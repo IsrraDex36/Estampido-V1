@@ -13,6 +13,10 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Cuentas con WhatsApp** (sin contraseñas): al vincular tu WhatsApp quedas dentro. Perfiles de creador públicos en `/u/usuario` (avatar emoji + color, nombre, descripción, cifras, stickers, SEO propio), «Mi cuenta» (editar perfil, mis stickers con borrado, cerrar sesión, borrar cuenta con todo lo publicado), favoritos sincronizados entre dispositivos (se importan los del navegador al entrar), contador de guardados, creadores destacados en la Comunidad y el creador en cada sticker. Publicar en el servidor público requiere cuenta.
+- Seguridad: el bot entrega una clave HMAC por número (nunca el número), sesiones de 90 días deslizantes guardadas con hash, cookie `__Host-` HttpOnly/Secure/SameSite=Lax, chequeo de origen en escrituras con cookie, límites por IP para cuenta y favoritos, usuarios reservados, validación estricta con Zod.
+- Encabezado compacto en celular (la guía y el estado del bot pasan al footer).
+
 - **Comunidad en SQLite** (`node:sqlite`, sin dependencias ni servicios nuevos): `community.db` junto a los archivos en `/data/community`. El `index.json` anterior se importa solo al arrancar y se guarda como `index.json.migrated`. Ranking, filtros, búsqueda y paginación en SQL con índices de cobertura; contadores atómicos (antes cada uso reescribía todo el JSON). Con 20 000 stickers: Nuevos 0.05 ms (antes 2.9), Tendencias 1.0 ms (antes 3.5), Top 0.2 ms, búsqueda 3.3 ms (antes 5.9).
 
 - **Estándar de 14–15 fps** en los stickers animados: para entrar en 500 KB, el optimizador baja primero la calidad y luego la nitidez (imagen interna de 448–256 px sobre el lienzo de 512×512, casi invisible al tamaño del chat) y solo al final los fps. Un clip pesado de 10 s pasa de 12 a 14 fps; uno de 8 s se queda en 15. Si un clip es demasiado largo y baja de 14 fps, se avisa. La nitidez usada aparece en los detalles del resultado.

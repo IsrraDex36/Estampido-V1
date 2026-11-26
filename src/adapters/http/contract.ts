@@ -184,7 +184,87 @@ export interface CommunitySticker {
   soundOrigin: string | null;
   /** false = published as «solo el sonido»: not in the sticker feed, only under «Sonidos». */
   listed: boolean;
+  /** Times people saved it. */
+  saves: number;
+  /** Who published it (null: anonymous, from before accounts). */
+  creator: CreatorRef | null;
 }
+
+// ── Accounts & creators (login with WhatsApp) ──────────────────────────────
+
+/** Avatar = one of these emojis on one of these colors ("🐸 lime"). */
+export const AVATAR_EMOJIS = [
+  "🐸",
+  "🐱",
+  "🐶",
+  "🦊",
+  "🐼",
+  "🐵",
+  "🦄",
+  "🐙",
+  "👾",
+  "🤖",
+  "👻",
+  "🎧",
+  "🔥",
+  "⭐",
+  "🍕",
+  "🌮",
+] as const;
+export const AVATAR_COLORS = ["lime", "pink", "sky", "amber", "violet", "coral"] as const;
+export type AvatarColor = (typeof AVATAR_COLORS)[number];
+
+/** Public handle: 3–20 lowercase letters, digits or _. */
+export const HANDLE_RE = /^[a-z0-9_]{3,20}$/;
+export const PROFILE_LIMITS = { displayName: 40, bio: 160 } as const;
+/** DELETE /api/me body must say exactly this. */
+export const DELETE_ACCOUNT_CONFIRM = "BORRAR MI CUENTA";
+
+/** What a sticker shows about its creator. */
+export interface CreatorRef {
+  handle: string;
+  displayName: string;
+  /** "emoji color" (see AVATAR_EMOJIS / AVATAR_COLORS). */
+  avatar: string;
+}
+
+export interface CreatorStats {
+  /** Published stickers (incl. «solo sonido»). */
+  stickers: number;
+  /** Times their sounds were reused. */
+  uses: number;
+  saves: number;
+  sends: number;
+}
+
+export interface CreatorProfile extends CreatorRef {
+  bio: string;
+  /** ISO timestamp. */
+  createdAt: string;
+  stats: CreatorStats;
+}
+
+/** The signed-in user (GET /api/me). */
+export interface Me extends CreatorProfile {
+  id: string;
+  /** "…5678": only ever shown to its owner. */
+  phone: string;
+}
+
+export interface MeUpdate {
+  handle?: string;
+  displayName?: string;
+  bio?: string;
+  avatar?: string;
+}
+
+/** Saved ids, newest first (GET /api/me/favorites/ids). */
+export interface FavoriteIds {
+  stickers: string[];
+  sounds: string[];
+}
+
+export type FavoriteKind = "sticker" | "sound";
 
 /** A reusable sound = a published sticker's audio. */
 export interface CommunitySound {

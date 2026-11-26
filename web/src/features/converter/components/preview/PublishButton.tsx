@@ -86,7 +86,7 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
   const [, navigate] = useLocation();
   const ids = { title: useId(), tags: useId(), owns: useId(), category: useId() };
   const ctx: PublishContext = { hasAudio: result.audio !== null, fromCommunity: Boolean(soundOrigin) };
-  const { gate, dialog } = useLinkGate();
+  const { gate, dialog } = useLinkGate({ needsAccount: true });
 
   const {
     register,
@@ -103,7 +103,7 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
   const needsRights = needsAudioRights(share, ctx);
   const tagPreview = splitTags(tagsRaw).slice(0, COMMUNITY_LIMITS.maxTags);
 
-  const doPublish = async (values: PublishFormValues) => {
+  const doPublish = async (values: PublishFormValues, retried = false) => {
     try {
       const sticker = await publish.mutateAsync({
         resultId: result.id,
@@ -120,8 +120,8 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
         action: { label: "Ver", onClick: () => navigate(ROUTES.community) },
       });
     } catch (err) {
-      // Public server: publishing needs a linked WhatsApp → link, then publish automatically.
-      if (err instanceof ApiError && err.code === "link_required") gate(() => void doPublish(values));
+      // Public server: publishing needs an account (login with WhatsApp) → sign in, then publish (once).
+      if (err instanceof ApiError && err.code === "link_required" && !retried) gate(() => void doPublish(values, true));
       // The API re-validates: show its message on the form (it stays open to retry).
       else if (err instanceof ApiError && err.status === 400) setError("root", { message: err.message });
       else notify.error(err, { fallback: "No se pudo publicar." });
@@ -131,7 +131,7 @@ function PublishForm({ result, onDone }: { result: ConvertResponse; onDone: (sti
   const busy = isSubmitting || publish.isPending;
 
   return (
-    <form onSubmit={handleSubmit(doPublish)} noValidate className="flex min-h-0 flex-col gap-5">
+    <form onSubmit={handleSubmit((values) => doPublish(values))} noValidate className="flex min-h-0 flex-col gap-5">
       <DialogHeader>
         <DialogTitle>Publicar en la comunidad</DialogTitle>
         <DialogDescription>

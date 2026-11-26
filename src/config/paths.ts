@@ -13,6 +13,9 @@ export const controlFile = (): string => join(authDir(), "control.json");
 /** Published community stickers/sounds (persistent, git-ignored). */
 export const communityRoot = (): string => resolve(process.env.SVA_COMMUNITY_DIR ?? ".data/community");
 
+/** Secret behind account keys (HMAC of the WhatsApp number). Never changes once created. */
+export const accountSecretFile = (): string => resolve(process.env.SVA_DATA_DIR ?? ".data", "account.secret");
+
 /** "Browser ↔ WhatsApp chat" links, one file per bot number (git-ignored .data/). */
 export const linksFile = (botDigits: string): string =>
   resolve(process.env.SVA_DATA_DIR ?? ".data", "links", `${botDigits.replace(/\D/g, "") || "unknown"}.json`);

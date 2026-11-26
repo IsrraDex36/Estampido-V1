@@ -3,9 +3,15 @@ export const ROUTES = {
   create: "/",
   community: "/comunidad",
   privacy: "/privacidad",
+  /** Signed-in user's account (profile, my stickers, sign out, delete). */
+  account: "/cuenta",
+  /** Public creator page: /u/:handle. */
+  creator: "/u/:handle",
   /** Owner-only (password); not linked from the UI. */
   admin: "/admin",
 } as const;
+
+export const creatorHref = (handle: string): string => `/u/${encodeURIComponent(handle)}`;
 
 /** Query param that opens «Crear» with a community sound loaded (remix). */
 export const SOUND_PARAM = "sonido";

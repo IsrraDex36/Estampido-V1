@@ -9,6 +9,7 @@ import { z } from "zod";
 import { STICKER_LIMITS } from "../../config/limits.js";
 import { communityRoot, controlFile, RESULTS_ROOT } from "../../config/paths.js";
 import { RateLimiter } from "../../utils/rateLimit.js";
+import { accountKeyFor, loadAccountSecret } from "./accountKey.js";
 import { jidDigits } from "./command.js";
 import type { PairingState } from "./connection.js";
 import { isClientHash, type LinkStore, maskJid } from "./links.js";
@@ -85,7 +86,12 @@ const tokenMatches = (header: string | undefined, token: string): boolean => {
   return given.length === want.length && timingSafeEqual(given, want);
 };
 
-export function createControlApp(bot: BotHandle, token: string, roots: string | string[] = sendableRoots()): Hono {
+export function createControlApp(
+  bot: BotHandle,
+  token: string,
+  roots: string | string[] = sendableRoots(),
+  accountSecret: Buffer | null = null,
+): Hono {
   const app = new Hono();
   app.use("*", async (c, next) => {
     if (!tokenMatches(c.req.header("authorization"), token)) return c.json({ error: "unauthorized" }, 401);
@@ -125,8 +131,15 @@ export function createControlApp(bot: BotHandle, token: string, roots: string | 
     const client = c.req.param("client");
     if (!isClientHash(client)) return c.json({ error: "cliente inválido" }, 400);
     const st = await store.status(client);
-    // Never return the full number: the browser only needs "…5678".
-    return c.json(st.state === "linked" ? { state: "linked", phone: maskJid(st.jid), linkedAt: st.linkedAt } : st);
+    // Never return the full number: the browser only needs "…5678"; the API
+    // gets an opaque account key (HMAC) to recognize the same person.
+    if (st.state !== "linked") return c.json(st);
+    return c.json({
+      state: "linked",
+      phone: maskJid(st.jid),
+      linkedAt: st.linkedAt,
+      ...(accountSecret ? { account: accountKeyFor(st.identity ?? st.jid, accountSecret) } : {}),
+    });
   });
 
   app.delete("/links/:client", async (c) => {
@@ -212,7 +225,12 @@ const freePort = (): Promise<number> =>
 export async function startControlServer(bot: BotHandle): Promise<{ port: number; close: () => Promise<void> }> {
   const token = randomBytes(32).toString("hex");
   const port = Number(process.env.SVA_CONTROL_PORT) || (await freePort());
-  const server = serve({ fetch: createControlApp(bot, token).fetch, port, hostname: "127.0.0.1" });
+  const secret = await loadAccountSecret();
+  const server = serve({
+    fetch: createControlApp(bot, token, sendableRoots(), secret).fetch,
+    port,
+    hostname: "127.0.0.1",
+  });
   const file = controlFile();
   await writeFile(file, JSON.stringify({ port, token, pid: process.pid }), { mode: 0o600 });
 
