@@ -1,6 +1,6 @@
 import type { Browser, Page } from "puppeteer-core";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { clickButtonWithText, launch, openPage } from "./browser.js";
+import { clickButtonWithText, gotoSettled, launch, openPage } from "./browser.js";
 
 let browser: Browser;
 const url = inject("webUrl");
@@ -56,7 +56,7 @@ describe("Community (real browser, real API)", () => {
     await bodyHas(page, "Publicado");
 
     // Feed shows it; save it.
-    await page.goto(community, { waitUntil: "networkidle0" });
+    await gotoSettled(page, community);
     await bodyHas(page, "Prueba e2e");
     await page.click('article button[aria-label="Guardar"]');
     expect(
@@ -103,7 +103,7 @@ describe("Community (real browser, real API)", () => {
       }
     }, resultId);
 
-    await page.goto(`${community}?orden=new&cat=anime`, { waitUntil: "networkidle0" });
+    await gotoSettled(page, `${community}?orden=new&cat=anime`);
     await page.waitForSelector("article");
     // Only the feed (Tu espacio also renders saved cards).
     const count = () =>

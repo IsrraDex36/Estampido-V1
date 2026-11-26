@@ -47,7 +47,7 @@ export async function openPage(
   });
   await page.setViewport({ width, height });
   await page.emulateMediaFeatures([{ name: "prefers-color-scheme", value: scheme }]);
-  await page.goto(url, { waitUntil: "networkidle0" });
+  await gotoSettled(page, url);
   return { page, problems };
 }
 
@@ -62,4 +62,38 @@ export async function clickButtonWithText(page: Page, text: string, selector = "
     }
   }
   throw new Error(`button "${text}" not found`);
+}
+
+/**
+ * Navigate and wait until the app has settled. «networkidle0» alone (zero
+ * connections for 500 ms) was flaky on slow CI runners: one slow request kept
+ * the whole navigation from ever resolving. Now: wait for `load`, then for a
+ * quiet network as best effort (bounded); if it never gets quiet, log which
+ * requests were still open (diagnosis) and go on — tests then wait for the
+ * specific content they need.
+ */
+export async function gotoSettled(page: Page, url: string, quietTimeoutMs = 15_000): Promise<void> {
+  const open = new Map<unknown, string>();
+  const onReq = (r: { url(): string }) => open.set(r, r.url());
+  const onDone = (r: unknown) => open.delete(r);
+  page.on("request", onReq);
+  page.on("requestfinished", onDone);
+  page.on("requestfailed", onDone);
+  try {
+    await page.goto(url, { waitUntil: "load", timeout: 60_000 });
+    await page.waitForNetworkIdle({ idleTime: 500, timeout: quietTimeoutMs }).catch(() => {
+      console.warn(
+        `[e2e] la red no se calmó en ${quietTimeoutMs} ms (${url}); abiertas: ${[...open.values()].join(", ") || "ninguna"}`,
+      );
+    });
+  } finally {
+    page.off("request", onReq);
+    page.off("requestfinished", onDone);
+    page.off("requestfailed", onDone);
+  }
+}
+
+/** Reload with the same settling rules as gotoSettled. */
+export async function reloadSettled(page: Page): Promise<void> {
+  await gotoSettled(page, page.url());
 }

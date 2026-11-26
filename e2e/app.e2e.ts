@@ -1,6 +1,6 @@
 import type { Browser } from "puppeteer-core";
 import { afterAll, beforeAll, describe, expect, inject, it } from "vitest";
-import { clickButtonWithText, horizontalOverflow, launch, openPage } from "./browser.js";
+import { clickButtonWithText, gotoSettled, horizontalOverflow, launch, openPage, reloadSettled } from "./browser.js";
 
 let browser: Browser;
 const url = inject("webUrl");
@@ -34,7 +34,7 @@ describe("Estampido web (real browser, real API)", () => {
     await dialogHas("los borra a los 30 minutos");
     await clickButtonWithText(page, "Empezar", '[role="dialog"] button');
     await page.waitForFunction(() => !document.querySelector('[role="dialog"]'));
-    await page.reload({ waitUntil: "networkidle0" });
+    await reloadSettled(page);
     expect(await page.$('[role="dialog"]')).toBeNull();
     // Header on desktop, footer on phones: click whichever is visible.
     await page.evaluate(() => {
@@ -100,7 +100,7 @@ describe("Estampido web (real browser, real API)", () => {
       );
     }
     expect(await page.$$eval('button[aria-pressed="true"][aria-label^="Sticker"]', (els) => els.length)).toBe(2);
-    await page.reload({ waitUntil: "networkidle0" });
+    await reloadSettled(page);
     await page.waitForFunction(() => document.body.innerText.includes("2 de 2 seleccionados"));
     expect(problems).toEqual([]);
     await page.close();
@@ -135,7 +135,7 @@ describe("Estampido web (real browser, real API)", () => {
     await page.goBack();
     await page.waitForFunction(() => location.search === "?tab=creadores");
     // Shared link straight to a tab.
-    await page.goto(new URL("/comunidad?tab=sonidos", url).href, { waitUntil: "networkidle0" });
+    await gotoSettled(page, new URL("/comunidad?tab=sonidos", url).href);
     expect((await titles()).some((t) => t.includes("Sonidos"))).toBe(true);
     // No dev placeholders shown to people anymore.
     expect(
@@ -144,7 +144,7 @@ describe("Estampido web (real browser, real API)", () => {
     expect(await page.$eval('nav a[href="/comunidad"]', (a) => a.getAttribute("aria-current"))).toBe("page");
     await page.click('nav a[href="/"]');
     await page.waitForSelector('input[type=file][accept="video/*,image/*"]');
-    await page.goto(new URL("/no-existe", url).href, { waitUntil: "networkidle0" });
+    await gotoSettled(page, new URL("/no-existe", url).href);
     await page.waitForFunction(() => document.body.innerText.includes("Página no encontrada"));
     expect(problems).toEqual([]);
     await page.close();
@@ -163,7 +163,7 @@ describe("Estampido web (real browser, real API)", () => {
         return dest.stream;
       };
     });
-    await page.reload({ waitUntil: "networkidle0" });
+    await reloadSettled(page);
     const input = await page.$('input[type=file][accept="video/*,image/*"]');
     await input?.uploadFile(inject("clip"));
     await page.waitForSelector("video");
@@ -213,7 +213,7 @@ describe("Estampido web (real browser, real API)", () => {
     for (const item of await page.$$('[role="menuitemradio"]')) {
       if ((await item.evaluate((e) => e.textContent ?? "")).includes("Oscuro")) await item.click();
     }
-    await page.reload({ waitUntil: "networkidle0" });
+    await reloadSettled(page);
     expect(await page.evaluate(() => document.documentElement.classList.contains("dark"))).toBe(true);
     await page.close();
   });
