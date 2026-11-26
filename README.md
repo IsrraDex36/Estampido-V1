@@ -260,6 +260,7 @@ La **CI** de GitHub Actions corre todo lo anterior en cada push, construye la im
 | [DEPLOY-COOLIFY.md](docs/DEPLOY-COOLIFY.md)                    | Despliegue actual (Hetzner + Coolify), respaldos, alertas |
 | [DEPLOY-RAILWAY.md](docs/DEPLOY-RAILWAY.md)                    | Railway (referencia), vigilante, límites y SEO            |
 | [MONETIZACION.md](docs/MONETIZACION.md)                        | Plan de anuncios y donaciones                             |
+| [SEGURIDAD.md](docs/SEGURIDAD.md)                              | Defensa contra ataques (Cloudflare, firewall, escudo)     |
 | [COMUNIDAD.md](docs/COMUNIDAD.md)                              | Diseño de la comunidad: feed, ranking, moderación         |
 | [ESTADO.md](docs/ESTADO.md)                                    | Estado en la web: TanStack Query + Zustand                |
 | [PLAN.md](docs/PLAN.md) · [INVESTIGACION.md](INVESTIGACION.md) | Plan por fases e investigación inicial                    |

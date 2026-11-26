@@ -1,4 +1,3 @@
-import { rm } from "node:fs/promises";
 import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState, type WASocket } from "baileys";
 import pino from "pino";
 import qrcode from "qrcode-terminal";

@@ -12,6 +12,7 @@ import { BotMonitor } from "./botMonitor.js";
 import { CommunityRepo } from "./community/repo.js";
 import { ResultStore } from "./resultStore.js";
 import { createServerApp, parseLimits } from "./server.js";
+import { Shield } from "./shield.js";
 import { SocialRepo } from "./social/repo.js";
 
 /**
@@ -66,6 +67,7 @@ const api = createApp({
 });
 
 let fetch = api.fetch;
+let shield: Shield | undefined;
 if (production) {
   const webDist = resolve(process.env.SVA_WEB_DIST ?? "web/dist");
   if (!existsSync(resolve(webDist, "index.html"))) {
@@ -75,10 +77,14 @@ if (production) {
   const { limits, ignored } = parseLimits(process.env.SVA_LIMITS);
   if (ignored.length) console.warn(`SVA_LIMITS: ignoro ${ignored.join(", ")} (formato: nombre=N/10m)`);
   if (limits && Object.keys(limits).length) console.log(`Límites personalizados: ${Object.keys(limits).join(", ")}`);
+  // Flood shield shared with the logs below (see docs/SEGURIDAD.md).
+  shield = new Shield();
   fetch = createServerApp({
     api,
     webDist,
+    shield,
     trustProxy: flag(process.env.SVA_TRUST_PROXY, true),
+    behindCloudflare: flag(process.env.SVA_BEHIND_CLOUDFLARE, false),
     limits,
     publicUrl: process.env.SVA_PUBLIC_URL,
     googleVerification: process.env.SVA_GOOGLE_SITE_VERIFICATION,
@@ -132,10 +138,35 @@ setInterval(() => void store.sweep(), 5 * 60 * 1000).unref();
 
 // 127.0.0.1 unless told otherwise: in Docker/Railway SVA_HOST=0.0.0.0 (the platform's proxy is the entry).
 const hostname = process.env.SVA_HOST ?? "127.0.0.1";
-serve({ fetch, port, hostname }, ({ port }) => {
+const server = serve({ fetch, port, hostname }, ({ port }) => {
   console.log(
     production
       ? `Estampido (producción) → http://${hostname}:${port}  · web + API · límites por IP · publicar requiere WhatsApp`
       : `sva api → http://${hostname}:${port}/api`,
   );
 });
+
+// Slow-client attacks (slowloris): drop connections that dribble headers or
+// never finish. Uploads (≤ 50 MB) still get minutes; idle keep-alives close fast.
+const http = server as unknown as import("node:http").Server;
+http.headersTimeout = 15_000;
+http.requestTimeout = 180_000;
+http.keepAliveTimeout = 5_000;
+http.maxConnections = num(process.env.SVA_MAX_CONNECTIONS) ?? 2_000;
+
+// Under attack, say so in the logs once a minute (Coolify → Logs).
+if (shield) {
+  const s = shield;
+  let last = { ...s.stats };
+  setInterval(() => {
+    const busy = s.stats.rejectedBusy - last.rejectedBusy;
+    const ip = s.stats.rejectedIp - last.rejectedIp;
+    const jailed = s.stats.jailedTotal - last.jailedTotal;
+    if (busy || ip || jailed) {
+      console.warn(
+        `[escudo] último minuto: ${ip} frenadas por IP, ${busy} por saturación, ${jailed} IPs bloqueadas (activas: ${s.jailedIps().length})`,
+      );
+    }
+    last = { ...s.stats };
+  }, 60_000).unref();
+}

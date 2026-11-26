@@ -34,7 +34,8 @@ const api = () => {
   a.notFound((c) => c.json({ error: { code: "not_found", message: "x" } }, 404));
   return a;
 };
-const ip = (addr: string) => ({ "cf-connecting-ip": addr });
+// The proxy (Traefik) appends the real client IP to X-Forwarded-For.
+const ip = (addr: string) => ({ "x-forwarded-for": addr });
 
 describe("share target (Android «Compartir» → Estampido)", () => {
   it("POST /compartir without the service worker just opens the app; sw.js is never cached", async () => {

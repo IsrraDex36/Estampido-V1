@@ -6,6 +6,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **Seguridad**: la IP del visitante se podía falsificar con el encabezado `CF-Connecting-IP` y así saltarse todos los límites. Ahora solo se cree con `SVA_BEHIND_CLOUDFLARE=1` y si la petición viene de un rango oficial de Cloudflare.
+
 - **Con el envío directo en pausa**, el botón principal ya no comparte una imagen sin sonido: ahora es «Crear con sonido en WhatsApp» (MP4 listo + pasos para el creador de stickers de WhatsApp, Android con WhatsApp Beta). Compartir como imagen queda como opción secundaria, marcada «sin sonido».
 
 - **«Compartir» volvió a estar visible** en el resultado (quedaba escondido cuando el bot estaba conectado y en computadora). En celular abre el menú de compartir con el sticker; en computadora lo descarga y explica cómo mandarlo por WhatsApp Web.
@@ -18,6 +20,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 - En la web, imagen y audio van juntos al reproducir, pausar y continuar (Comunidad y Resultado).
 
 ### Agregado
+
+- **Escudo contra ataques para tirar la página**: tope global de peticiones en curso (503 instantáneo en vez de ahogarse), tope por IP de simultáneas y de ritmo (incluye páginas y archivos), bloqueo automático de 15 min a quien insiste, tiempos de espera contra conexiones lentas, y aviso en los logs. Guía `docs/SEGURIDAD.md` (Cloudflare + firewall de Hetzner).
 
 - **«Sin límite de publicaciones» en /admin**: escribe tu @ (o el de alguien de confianza) y esa cuenta ya no tiene el límite de 30/h y 150/día. Se guarda en la base (sobrevive a los despliegues).
 

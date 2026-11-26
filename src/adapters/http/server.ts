@@ -9,6 +9,7 @@ import { RateLimiter } from "../../utils/rateLimit.js";
 import type { ApiApp } from "./app.js";
 import type { ApiErrorBody } from "./contract.js";
 import { type DynamicSeo, robotsTxt, seoHead, sitemapXml, siteOrigin, withSeo } from "./seo.js";
+import { isCloudflareIp, Shield } from "./shield.js";
 
 /**
  * Production server: one port for everything.
@@ -22,6 +23,10 @@ export interface ServerOptions {
   /** Built web (web/dist). null → API only. */
   webDist?: string | null;
   trustProxy?: boolean;
+  /** Behind Cloudflare (SVA_BEHIND_CLOUDFLARE=1): use CF-Connecting-IP, verified against Cloudflare's ranges. */
+  behindCloudflare?: boolean;
+  /** Flood shield (defaults: DEFAULT_SHIELD). */
+  shield?: Shield;
   limits?: Partial<Record<LimitName, { max: number; windowMs: number }>>;
   /** Canonical public origin for SEO (SVA_PUBLIC_URL); default: the request's host. */
   publicUrl?: string;
@@ -79,10 +84,19 @@ const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, 
  * to X-Forwarded-For, so the trustworthy entry is the rightmost one (anything
  * to its left was sent by the client and can be forged).
  */
-export function clientIp(c: Context, trustProxy: boolean): string {
+export function clientIp(c: Context, trustProxy: boolean, behindCloudflare = false): string {
   if (trustProxy) {
+    // CF-Connecting-IP is only believable when the request really came through
+    // Cloudflare (the hop our proxy saw is a Cloudflare edge). Otherwise anyone
+    // could send a fake one per request and walk around every limit.
     const cf = c.req.header("cf-connecting-ip");
-    if (cf) return cf.trim();
+    const hop = c.req
+      .header("x-forwarded-for")
+      ?.split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .at(-1);
+    if (behindCloudflare && cf && hop && isCloudflareIp(hop)) return cf.trim();
     const xff = c.req
       .header("x-forwarded-for")
       ?.split(",")
@@ -106,7 +120,7 @@ function rateLimits(opts: ServerOptions): MiddlewareHandler {
   return async (c, next) => {
     const path = c.req.path;
     if (!path.startsWith("/api/")) return next();
-    const ip = clientIp(c, opts.trustProxy ?? false);
+    const ip = clientIp(c, opts.trustProxy ?? false, opts.behindCloudflare);
     if (path.startsWith("/api/admin/")) {
       // Brute-force guard: only WRONG passwords count, so the owner's live polling never trips it.
       const wait = limiters.adminFail.peek(ip);
@@ -122,6 +136,7 @@ function rateLimits(opts: ServerOptions): MiddlewareHandler {
     const name: LimitName = rule?.name ?? "api";
     const wait = limiters[name].take(ip);
     if (wait > 0) {
+      opts.shield?.strike(ip); // insisting after a limit leads to a temporary block
       c.header("Retry-After", String(Math.ceil(wait / 1000)));
       return c.json(
         fail("rate_limited", `Demasiadas solicitudes. Intenta de nuevo en ${Math.ceil(wait / 1000)} s.`),
@@ -224,6 +239,13 @@ export function createServerApp(opts: ServerOptions): Hono {
   const csp = contentSecurityPolicy(inlineScriptHashes(html));
 
   const app = new Hono();
+  // Flood shield first: cheap rejections before any other work.
+  const shield = opts.shield ?? new Shield();
+  opts.shield = shield;
+  app.use(
+    "*",
+    shield.middleware((c) => clientIp(c, opts.trustProxy ?? false, opts.behindCloudflare)),
+  );
   app.use("*", securityHeaders(csp, opts.trustProxy ?? false));
   app.use("*", rateLimits(opts));
   app.route("/", opts.api);
