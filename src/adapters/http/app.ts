@@ -37,6 +37,8 @@ import {
   type WhatsAppLink,
   type WhatsAppStatus,
 } from "./contract.js";
+import { FeedbackRepo } from "./feedback/repo.js";
+import { feedbackRoutes } from "./feedback/routes.js";
 import { ModerationRepo } from "./moderation/repo.js";
 import { moderationRoutes } from "./moderation/routes.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
@@ -50,6 +52,8 @@ export interface AppDeps {
   accounts?: AccountRepo;
   /** Reports and bans (default: on top of the community database). */
   moderation?: ModerationRepo;
+  /** Feedback box (default: on top of the community database). */
+  feedback?: FeedbackRepo;
   /** HTTPS deployment: `__Host-` session cookie with Secure. */
   secureCookies?: boolean;
   /** Public server: only signed-in users (login with WhatsApp) may publish (anti-spam, accountability). */
@@ -297,6 +301,8 @@ export function createApp(deps: AppDeps = {}): ApiApp {
   // Reports (public) + review queue and creator blocking (admin).
   const moderation = deps.moderation ?? new ModerationRepo(communityRepo);
   app.route("/", moderationRoutes({ moderation, accounts, adminDenied }));
+  // Feedback box (anyone) + admin inbox.
+  app.route("/", feedbackRoutes({ feedback: deps.feedback ?? new FeedbackRepo(communityRepo), adminDenied }));
 
   app.get("/admin/community", async (c) => {
     const denied = adminDenied(c);

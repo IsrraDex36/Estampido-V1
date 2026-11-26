@@ -42,6 +42,7 @@ export const DEFAULT_LIMITS = {
   favorite: { max: 200, windowMs: 10 * MIN },
   report: { max: 20, windowMs: 60 * MIN },
   play: { max: 400, windowMs: 10 * MIN }, // counted once per person/day anyway
+  feedback: { max: 10, windowMs: 60 * MIN },
   adminFail: { max: 10, windowMs: 10 * MIN }, // wrong /admin passwords only (polling is free)
   api: { max: 600, windowMs: 10 * MIN }, // everything else under /api
 } as const;
@@ -61,6 +62,7 @@ const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; pa
   { name: "favorite", method: "POST", path: /^\/api\/me\/favorites\/import$/ },
   { name: "report", method: "POST", path: /^\/api\/community\/stickers\/[^/]+\/report$/ },
   { name: "play", method: "POST", path: /^\/api\/community\/stickers\/[^/]+\/play$/ },
+  { name: "feedback", method: "POST", path: /^\/api\/feedback$/ },
 ];
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });

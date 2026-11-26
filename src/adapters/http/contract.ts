@@ -384,3 +384,46 @@ export interface AdminHealth {
   reconnects24h: number;
   problems: string[];
 }
+
+// ── Feedback box ───────────────────────────────────────────────────────────
+
+export const FEEDBACK_KINDS = [
+  { id: "idea", label: "Idea", emoji: "💡" },
+  { id: "problema", label: "Problema", emoji: "🐞" },
+  { id: "otro", label: "Otro", emoji: "💬" },
+] as const;
+export type FeedbackKind = (typeof FEEDBACK_KINDS)[number]["id"];
+export const FEEDBACK_LIMITS = { minMessage: 5, maxMessage: 1000, maxContact: 120, perHour: 5 } as const;
+export type FeedbackStatus = "nuevo" | "leido" | "hecho";
+
+export interface FeedbackRequest {
+  kind: FeedbackKind;
+  message: string;
+  /** Optional way to reply (email, @usuario…). Not needed when signed in. */
+  contact?: string;
+  /** Where it was sent from (path only). */
+  page?: string;
+  /** Web version, for bug reports. */
+  app?: string;
+  /** Honeypot: humans never see or fill it. */
+  website?: string;
+}
+
+export interface FeedbackItem {
+  id: string;
+  kind: FeedbackKind;
+  message: string;
+  contact: string;
+  page: string;
+  app: string;
+  /** Signed-in sender. */
+  author: CreatorRef | null;
+  status: FeedbackStatus;
+  createdAt: string;
+}
+
+export interface AdminFeedback {
+  items: FeedbackItem[];
+  /** Unread count (badge). */
+  unread: number;
+}

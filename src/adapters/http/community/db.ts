@@ -130,6 +130,22 @@ export const MIGRATIONS: readonly string[] = [
    CREATE INDEX reports_new ON reports (created_at DESC);
 
    ALTER TABLE users ADD COLUMN banned_at INTEGER;`,
+
+  // 4 — feedback box (ideas, problems, comments for the site owner)
+  `CREATE TABLE feedback (
+     id         TEXT PRIMARY KEY,
+     kind       TEXT NOT NULL CHECK (kind IN ('idea', 'problema', 'otro')),
+     message    TEXT NOT NULL,
+     contact    TEXT NOT NULL DEFAULT '',
+     page       TEXT NOT NULL DEFAULT '',
+     app        TEXT NOT NULL DEFAULT '',        -- web version + short user agent, for bug reports
+     user_id    TEXT REFERENCES users (id) ON DELETE SET NULL,
+     sender     TEXT NOT NULL,                   -- "u:<id>" / "c:<browser hash>" (rate limit)
+     status     TEXT NOT NULL DEFAULT 'nuevo' CHECK (status IN ('nuevo', 'leido', 'hecho')),
+     created_at INTEGER NOT NULL
+   ) STRICT;
+   CREATE INDEX feedback_status_new ON feedback (status, created_at DESC);
+   CREATE INDEX feedback_sender_new ON feedback (sender, created_at DESC);`,
 ];
 
 export function openCommunityDb(path: string): DatabaseSync {

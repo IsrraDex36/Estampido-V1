@@ -5,6 +5,7 @@ import { CircleCheckIcon, Loader2Icon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ApiError, readJson } from "@/lib/api";
 import { CommunityAdmin } from "./CommunityAdmin";
+import { FeedbackAdmin } from "./FeedbackAdmin";
 import { ReportsAdmin } from "./ReportsAdmin";
 
 const KEY = "estampido-admin";
@@ -90,6 +91,7 @@ export function AdminPage() {
           <Status data={pairing.data} loading={pairing.isPending} />
           <HealthPanel token={token} />
           <ReportsAdmin token={token} />
+          <FeedbackAdmin token={token} />
           <CommunityAdmin token={token} />
           <Button variant="ghost" size="sm" className="rounded-full" onClick={logout}>
             Salir

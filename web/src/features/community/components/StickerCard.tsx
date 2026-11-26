@@ -10,7 +10,6 @@ import {
   PlayIcon,
   Share2Icon,
   UseSoundIcon,
-  Volume2Icon,
   VolumeXIcon,
 } from "@/components/icons";
 import {
@@ -60,9 +59,11 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
           alt={sticker.title}
           mode={mode}
           getTime={() => (soundUrl ? previewTime(soundUrl) : 0)}
-          className="size-full object-contain p-3"
+          className="size-full object-contain px-3 pt-3 pb-10"
         />
         {sticker.sound ? (
+          // The whole cover is the play target (big, thumb-friendly); the only
+          // visible control is a small corner pill, so the sticker stays clean.
           <button
             type="button"
             onClick={() => {
@@ -72,42 +73,43 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
             }}
             aria-label={playing ? `Pausar «${sticker.title}»` : mode === "paused" ? `Continuar «${sticker.title}»` : `Escuchar «${sticker.title}»`}
             aria-pressed={playing}
-            className="absolute inset-0 grid place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+            className="absolute inset-0 rounded-t-3xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
           >
             <span
               className={cn(
-                "grid size-11 place-items-center rounded-full bg-background/80 text-foreground shadow-lg backdrop-blur transition-opacity",
-                mode !== "idle" ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+                "absolute bottom-2 left-2 flex h-7 items-center gap-1.5 rounded-full pr-2.5 pl-1 text-[12px] font-semibold tabular-nums shadow-sm backdrop-blur transition-colors",
+                playing ? "bg-sound text-white" : "bg-card/90 text-foreground ring-1 ring-border",
               )}
             >
-              {playing ? <PauseIcon className="size-5" weight="fill" /> : <PlayIcon className="size-5 translate-x-px" weight="fill" />}
+              <span
+                className={cn(
+                  "grid size-5 place-items-center rounded-full",
+                  playing ? "bg-white/25" : "bg-foreground text-background",
+                )}
+                aria-hidden
+              >
+                {playing ? <PauseIcon className="size-3" weight="fill" /> : <PlayIcon className="size-3 translate-x-px" weight="fill" />}
+              </span>
+              {playing ? <Equalizer /> : null}
+              {shortDuration(sticker.sound.durationSec)}
             </span>
           </button>
-        ) : null}
-        <span
-          className={cn(
-            "pointer-events-none absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full px-2 py-0.5 font-mono text-[11px] tabular-nums",
-            playing ? "bg-sound text-white" : "bg-card/85 text-muted-foreground",
-          )}
-        >
-          {sticker.sound ? (
-            <>
-              <Volume2Icon className={cn("size-3", !playing && "text-sound")} weight="fill" />
-              {formatTime(sticker.sound.durationSec)}
-            </>
-          ) : (
-            <>
-              <VolumeXIcon className="size-3" /> mudo
-            </>
-          )}
-        </span>
+        ) : (
+          <span
+            className="pointer-events-none absolute bottom-2 left-2 grid size-7 place-items-center rounded-full bg-card/90 text-muted-foreground backdrop-blur"
+            title="Sin sonido"
+          >
+            <VolumeXIcon className="size-3.5" />
+            <span className="sr-only">Sin sonido</span>
+          </span>
+        )}
         {sticker.hidden && (
-          <span className="pointer-events-none absolute right-2.5 bottom-2.5 rounded-full bg-retro-a/90 px-2 py-0.5 text-[11px] font-medium text-black">
+          <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-retro-a/90 px-2 py-0.5 text-[11px] font-medium text-black">
             En revisión
           </span>
         )}
         {rank !== undefined && (
-          <span className="pointer-events-none absolute top-2.5 right-2.5 font-pixel text-[11px] text-muted-foreground">
+          <span className="pointer-events-none absolute top-2 right-2.5 font-pixel text-[11px] text-muted-foreground">
             #{rank}
           </span>
         )}
@@ -163,6 +165,24 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
         </div>
       </div>
     </article>
+  );
+}
+
+/** «2 s» / «1:05»: short enough for a phone card (the exact length is in the sound editor). */
+const shortDuration = (sec: number) => (sec < 60 ? `${Math.max(1, Math.round(sec))} s` : formatTime(Math.round(sec)));
+
+/** Three bouncing bars while it plays (CSS only; still when reduced motion is on). */
+function Equalizer() {
+  return (
+    <span className="flex h-3 items-end gap-px" aria-hidden>
+      {[0, 150, 300].map((d) => (
+        <span
+          key={d}
+          className="w-0.5 origin-bottom animate-[eq_0.9s_ease-in-out_infinite] rounded-full bg-white motion-reduce:animate-none"
+          style={{ animationDelay: `${d}ms`, height: "100%" }}
+        />
+      ))}
+    </span>
   );
 }
 

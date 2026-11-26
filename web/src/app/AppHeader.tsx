@@ -19,12 +19,14 @@ export function AppHeader() {
         </Link>
         <AppNav className="ml-1 sm:ml-4" />
         <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
-          {/* Phones: bot status lives in the footer (with its label), the guide too. */}
+          {/* Phones: bot status and the theme switch live in the footer; the guide stays here. */}
           <span className="hidden sm:contents">
             <BotStatus />
-            <TourButton />
           </span>
-          <ThemeToggle />
+          <TourButton />
+          <span className="hidden sm:contents">
+            <ThemeToggle />
+          </span>
           <AccountMenu />
         </div>
       </div>

@@ -5,6 +5,8 @@ import { createApp } from "../../src/adapters/http/app.js";
 import { clientHash } from "../../src/adapters/http/client.js";
 import { CommunityRepo } from "../../src/adapters/http/community/repo.js";
 import type { CommunitySticker, Me } from "../../src/adapters/http/contract.js";
+import { FeedbackRepo } from "../../src/adapters/http/feedback/repo.js";
+import { ModerationRepo } from "../../src/adapters/http/moderation/repo.js";
 import { ResultStore } from "../../src/adapters/http/resultStore.js";
 import { ffmpegPath, run } from "../../src/utils/ffmpeg.js";
 
@@ -48,6 +50,8 @@ export async function makeHarness(dir: string, start = Date.UTC(2026, 10, 25, 12
     bot: bot as never,
     community,
     accounts,
+    moderation: new ModerationRepo(community, () => clock.now),
+    feedback: new FeedbackRepo(community, () => clock.now),
     publishRequiresLink: true,
     adminToken: ADMIN,
   });

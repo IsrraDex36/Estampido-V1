@@ -4,7 +4,8 @@ import { Link } from "wouter";
 import { ROUTES } from "./routes";
 import { Button } from "@/components/ui/button";
 import { BotStatus } from "@/features/bot/BotStatus";
-import { TourButton } from "@/features/onboarding/TourButton";
+import { FeedbackButton } from "@/features/feedback/FeedbackButton";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const AUTHOR = { handle: "IsrraDex36", url: "https://github.com/IsrraDex36" } as const;
 const REPO_URL = "https://github.com/IsrraDex36/Estampido-V1";
@@ -24,9 +25,9 @@ export function AppFooter() {
             <p className="font-semibold tracking-tight">Estampido</p>
             <p className="text-[13px] text-muted-foreground">Haz ruido en el chat.</p>
           </div>
-          {/* Phones: the guide (not in the header there) and back-to-top, next to the brand. */}
-          <span className="md:hidden">
-            <TourButton />
+          {/* Phones: the theme switch (not in the header there) and back-to-top, next to the brand. */}
+          <span className="sm:hidden">
+            <ThemeToggle />
           </span>
           <Button
             variant="secondary"
@@ -58,7 +59,8 @@ export function AppFooter() {
           © {YEAR} Estampido ·{" "}
           <Link href={ROUTES.privacy} className="underline-offset-4 hover:text-foreground hover:underline">
             Privacidad y términos
-          </Link>
+          </Link>{" "}
+          · <FeedbackButton>Enviar comentarios</FeedbackButton>
         </p>
         <a
           href={AUTHOR.url}

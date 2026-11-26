@@ -13,6 +13,10 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Caja de comentarios**: «Enviar comentarios» en el footer y en el menú de cuenta (idea, problema u otro; contacto opcional; se adjunta la página y el dispositivo). Anti-spam con campo trampa, 5 por persona por hora y límite por IP. En `/admin`, buzón con filtros (nuevos, leídos, hechos), marcar y borrar.
+- **Tarjetas de la Comunidad más limpias en celular**: sin botón encima del sticker; una sola píldora en la esquina (▶ + duración corta, verde con ecualizador mientras suena); toda la imagen sigue siendo el área para tocar.
+- La guía («¿Cómo funciona?») vuelve al encabezado en celular; el cambio de tema pasa al footer ahí.
+
 - **Tendencias con puntaje combinado**: usos ×3, guardados ×2, envíos ×1.5 y escuchas ×0.2 (una por persona al día), con caída por antigüedad en «Tendencias» y suma en «Top». Triggers SQL mantienen el puntaje en cada cambio; el Top de la semana y los creadores destacados usan la misma fórmula.
 - **Moderación**: reportar desde el menú ⋯ de cada sticker (motivo + nota); con 3 reportes distintos se oculta del feed, los sonidos, el perfil, los favoritos, WhatsApp y sus archivos (su dueño lo ve «En revisión»). En `/admin`, cola de reportes: mantener, borrar o bloquear al creador (sesiones cerradas, no puede entrar ni publicar, perfil y stickers ocultos; desbloquear lo revierte).
 

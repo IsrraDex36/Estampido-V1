@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useBotStatus } from "@/features/bot/api";
 import { LinkDialog } from "@/features/bot/LinkDialog";
+import { FeedbackDialog } from "@/features/feedback/FeedbackDialog";
 import { useLogout, useMe } from "./api";
 import { Avatar } from "./Avatar";
 
@@ -22,11 +23,17 @@ export function AccountMenu() {
   const bot = useBotStatus();
   const logout = useLogout();
   const [linkOpen, setLinkOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [, navigate] = useLocation();
 
   // The dialog lives outside the branches: once the link lands and the session
   // opens, the button turns into the avatar but the dialog stays to confirm.
-  const dialog = <LinkDialog open={linkOpen} onOpenChange={setLinkOpen} />;
+  const dialog = (
+    <>
+      <LinkDialog open={linkOpen} onOpenChange={setLinkOpen} />
+      <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+    </>
+  );
 
   if (me.data) {
     const user = me.data;
@@ -50,6 +57,7 @@ export function AccountMenu() {
             <DropdownMenuSeparator />
             <DropdownMenuItem onSelect={() => navigate(creatorHref(user.handle))}>Mi perfil público</DropdownMenuItem>
             <DropdownMenuItem onSelect={() => navigate(ROUTES.account)}>Mi cuenta</DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => setFeedbackOpen(true)}>Enviar comentarios</DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem disabled={logout.isPending} onSelect={() => logout.mutate()}>
               Cerrar sesión

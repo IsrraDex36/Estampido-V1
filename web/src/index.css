@@ -391,3 +391,14 @@
   .pum-frame-a, .pum-mouth-a { animation: none; opacity: 1; }
   .pum-frame-b, .pum-mouth-b { opacity: 0; }
 }
+
+/* Community card «playing» bars. */
+@keyframes eq {
+  0%,
+  100% {
+    transform: scaleY(0.35);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
