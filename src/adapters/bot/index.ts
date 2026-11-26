@@ -150,5 +150,22 @@ const control = await startControlServer({
   links: () => linksFor(live()),
   pairing: () => pairing,
   health: () => ({ ...watchdog.health(), outbound: humanizer.volume.report() }),
+  // /admin «Desvincular bot»: a real logout (the phone drops the device too), then a
+  // fresh QR. If WhatsApp can't be told (not linked/offline), wipe locally the same way.
+  unlinkBot: async () => {
+    const sock = current;
+    if (sock?.user) {
+      try {
+        await sock.logout("Desvinculado desde /admin");
+        return; // the loggedOut close wipes the session and shows a new QR
+      } catch (err) {
+        console.warn("[admin] No se pudo cerrar sesión en WhatsApp; borro la sesión local.", err);
+      }
+    }
+    current = null;
+    pairing = { kind: "waiting" };
+    sock?.end(new Error("admin: unlink"));
+    await wipeSession(authDir());
+  },
 });
 console.log(`Control local en 127.0.0.1:${control.port} (para el botón de la web)`);

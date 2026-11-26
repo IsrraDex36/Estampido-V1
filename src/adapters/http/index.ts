@@ -3,8 +3,11 @@ import { availableParallelism } from "node:os";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { communityRoot } from "../../config/paths.js";
+import { consoleSink, fanOut, webhookSink } from "../../utils/alerts.js";
 import { AccountRepo } from "./accounts/repo.js";
 import { createApp } from "./app.js";
+import { createBotClient } from "./botClient.js";
+import { BotMonitor } from "./botMonitor.js";
 import { CommunityRepo } from "./community/repo.js";
 import { ResultStore } from "./resultStore.js";
 import { createServerApp, parseLimits } from "./server.js";
@@ -84,6 +87,15 @@ if (production) {
       };
     },
   }).fetch;
+}
+
+// Bot monitor (production + SVA_ALERT_WEBHOOK): alerts if the bot process dies
+// or WhatsApp stays disconnected > 5 min — the bot's own watchdog can't report that.
+const alertWebhook = process.env.SVA_ALERT_WEBHOOK?.trim();
+if (production && alertWebhook) {
+  const botClient = createBotClient(undefined, 10_000);
+  new BotMonitor({ status: () => botClient.status(), alert: fanOut(consoleSink, webhookSink(alertWebhook)) }).start();
+  console.log("Monitor del bot: alertas por webhook si se cae más de 5 min.");
 }
 
 // Periodic cleanup of expired results.

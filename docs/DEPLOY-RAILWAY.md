@@ -90,6 +90,13 @@ La salud se ve en **`/admin` → Vigilante**.
 
 También acepta webhooks de Discord. Las alertas además llegan a tu chat de WhatsApp contigo mismo, cuando el bot puede enviar (`SVA_ALERT_WHATSAPP=0` para apagarlas). Cada tipo de alerta se repite como máximo cada 30 min, y avisa cuando el bot se recupera.
 
+Con `SVA_ALERT_WEBHOOK` puesto, la **web también vigila al bot**: si el proceso del bot muere o WhatsApp queda desconectado más de 5 minutos, manda una alerta (una sola) y otra cuando vuelve. Esto cubre lo que el vigilante del propio bot no puede avisar (su propia caída).
+
+**Si se cae la página entera** (el servidor apagado), nada dentro del servidor puede avisar. Para eso:
+
+- El contenedor tiene un `HEALTHCHECK` (`/api/health` cada 30 s): si la web deja de responder ~2 min, Docker/Coolify lo marca como enfermo y lo reinicia.
+- Un monitor externo gratis (UptimeRobot, Better Stack o el propio ntfy con healthchecks.io) que abra `https://<tu-dominio>/api/health` cada 5 min y te avise si falla. En UptimeRobot: _Add New Monitor_ → HTTP(s) → la URL → alerta por correo o por la app.
+
 ## Límites por IP (ajustables)
 
 Por defecto, cada IP puede hacer en 10 minutos (publicar: por hora):
@@ -97,7 +104,7 @@ Por defecto, cada IP puede hacer en 10 minutos (publicar: por hora):
 | Nombre      | Acción                              | Límite       |
 | ----------- | ----------------------------------- | ------------ |
 | `convert`   | crear stickers                      | 15 / 10 min  |
-| `linkCode`  | pedir códigos de vinculación        | 10 / 10 min  |
+| `linkCode`  | pedir códigos de vinculación        | 30 / 10 min  |
 | `send`      | enviar a WhatsApp                   | 40 / 10 min  |
 | `publish`   | publicar                            | 10 / 1 h     |
 | `soundUse`  | usar sonidos                        | 60 / 10 min  |

@@ -232,6 +232,40 @@ describe("admin pairing (owner links the bot from /admin)", () => {
     });
     expect(await (await down.request("/api/admin/pairing", { headers: auth })).json()).toEqual({ state: "offline" });
   });
+
+  it("«Desvincular bot»: owner only, typed confirmation, then the bot logs out", async () => {
+    const unlinkBot = vi.fn(async () => {});
+    const app = createApp({
+      store: new ResultStore(root),
+      bot: fakeBot({ unlinkBot } as Partial<BotClient>),
+      adminToken: TOKEN,
+    });
+    const post = (body: unknown, headers: Record<string, string> = auth) =>
+      app.request("/api/admin/bot/unlink", {
+        method: "POST",
+        headers: { ...headers, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    expect((await post({ confirm: "DESVINCULAR" }, {})).status).toBe(401);
+    expect((await post({ confirm: "desvincular" })).status).toBe(400);
+    expect((await post({})).status).toBe(400);
+    expect(unlinkBot).not.toHaveBeenCalled();
+    const ok = await post({ confirm: "DESVINCULAR" });
+    expect(ok.status).toBe(200);
+    expect(unlinkBot).toHaveBeenCalledTimes(1);
+
+    const down = createApp({
+      store: new ResultStore(root),
+      bot: fakeBot({ unlinkBot: () => Promise.reject(new BotUnavailableError()) } as Partial<BotClient>),
+      adminToken: TOKEN,
+    });
+    const r = await down.request("/api/admin/bot/unlink", {
+      method: "POST",
+      headers: { ...auth, "content-type": "application/json" },
+      body: JSON.stringify({ confirm: "DESVINCULAR" }),
+    });
+    expect(r.status).toBe(503);
+  });
 });
 
 describe("admin health (watchdog)", () => {

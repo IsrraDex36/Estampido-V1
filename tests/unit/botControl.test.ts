@@ -206,3 +206,17 @@ describe("control app", () => {
     expect((await post(off, "/links", { client: CLIENT })).status).toBe(503);
   });
 });
+
+describe("control: admin unlink", () => {
+  it("calls the bot's unlink; 404 when the bot doesn't support it; needs the token", async () => {
+    const results = await mkdtemp(join(tmpdir(), "sva-ctl-"));
+    const unlinkBot = vi.fn(async () => {});
+    const app = createControlApp({ current: () => null, links: () => null, unlinkBot }, TOKEN, results);
+    expect((await app.request("/admin/unlink", { method: "POST" })).status).toBe(401);
+    expect((await app.request("/admin/unlink", { method: "POST", headers: auth })).status).toBe(200);
+    expect(unlinkBot).toHaveBeenCalledTimes(1);
+    const old = createControlApp({ current: () => null, links: () => null }, TOKEN, results);
+    expect((await old.request("/admin/unlink", { method: "POST", headers: auth })).status).toBe(404);
+    await rm(results, { recursive: true, force: true });
+  });
+});

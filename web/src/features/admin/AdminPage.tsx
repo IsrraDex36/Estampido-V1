@@ -1,4 +1,4 @@
-import type { AdminHealth, AdminPairing } from "@contract";
+import { ADMIN_UNLINK_CONFIRM, type AdminHealth, type AdminPairing } from "@contract";
 import { useQuery } from "@tanstack/react-query";
 import { type FormEvent, useState } from "react";
 import { CircleCheckIcon, Loader2Icon } from "@/components/icons";
@@ -88,7 +88,7 @@ export function AdminPage() {
         </form>
       ) : (
         <div className="mt-8 space-y-5">
-          <Status data={pairing.data} loading={pairing.isPending} />
+          <Status data={pairing.data} loading={pairing.isPending} token={token} onUnlinked={() => void pairing.refetch()} />
           <HealthPanel token={token} />
           <ReportsAdmin token={token} />
           <FeedbackAdmin token={token} />
@@ -102,7 +102,17 @@ export function AdminPage() {
   );
 }
 
-function Status({ data, loading }: { data: AdminPairing | undefined; loading: boolean }) {
+function Status({
+  data,
+  loading,
+  token,
+  onUnlinked,
+}: {
+  data: AdminPairing | undefined;
+  loading: boolean;
+  token: string;
+  onUnlinked: () => void;
+}) {
   if (loading || !data) {
     return (
       <div className="grid h-64 place-items-center rounded-3xl bg-stage">
@@ -112,12 +122,15 @@ function Status({ data, loading }: { data: AdminPairing | undefined; loading: bo
   }
   if (data.state === "connected") {
     return (
-      <div className="flex items-center gap-3 rounded-3xl bg-stage p-6">
-        <CircleCheckIcon className="size-8 text-sound" weight="fill" />
-        <div>
-          <p className="font-semibold">Bot conectado</p>
-          <p className="text-[13px] text-muted-foreground">WhatsApp {data.phone}. Ya puedes cerrar esta página.</p>
+      <div className="space-y-4 rounded-3xl bg-stage p-6">
+        <div className="flex items-center gap-3">
+          <CircleCheckIcon className="size-8 shrink-0 text-sound" weight="fill" />
+          <div className="min-w-0">
+            <p className="font-semibold">Bot conectado</p>
+            <p className="text-[13px] text-muted-foreground">WhatsApp {data.phone}. Ya puedes cerrar esta página.</p>
+          </div>
         </div>
+        <UnlinkBot token={token} phone={data.phone} onDone={onUnlinked} />
       </div>
     );
   }
@@ -231,5 +244,74 @@ function HealthPanel({ token }: { token: string }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * «Desvincular bot»: logs the bot's WhatsApp out (the old phone drops the
+ * device by itself) and shows a new QR here to link another number.
+ * Typed confirmation: every linked person depends on this number.
+ */
+function UnlinkBot({ token, phone, onDone }: { token: string; phone: string; onDone: () => void }) {
+  const [open, setOpen] = useState(false);
+  const [typed, setTyped] = useState("");
+  const [state, setState] = useState<{ kind: "idle" | "busy" } | { kind: "error"; message: string }>({ kind: "idle" });
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    setState({ kind: "busy" });
+    try {
+      await readJson(
+        await fetch("/api/admin/bot/unlink", {
+          method: "POST",
+          headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+          body: JSON.stringify({ confirm: typed.trim() }),
+        }),
+      );
+      setOpen(false);
+      setTyped("");
+      setState({ kind: "idle" });
+      onDone();
+    } catch (err) {
+      setState({ kind: "error", message: err instanceof ApiError ? err.message : "No se pudo desvincular." });
+    }
+  };
+  if (!open) {
+    return (
+      <Button variant="ghost" size="sm" className="rounded-full text-destructive" onClick={() => setOpen(true)}>
+        Desvincular bot (cambiar de número)
+      </Button>
+    );
+  }
+  return (
+    <form onSubmit={submit} className="space-y-3 rounded-2xl bg-background/60 p-4">
+      <p className="text-[13px]">
+        Se cierra la sesión de WhatsApp {phone} en el bot y aquí aparece un QR nuevo para vincular otro número. Las
+        personas tendrán que volver a «Entrar con WhatsApp» con el número nuevo.
+      </p>
+      <label className="block space-y-1 text-[12px] text-muted-foreground">
+        Escribe <b className="text-foreground">{ADMIN_UNLINK_CONFIRM}</b> para confirmar
+        <input
+          value={typed}
+          onChange={(e) => setTyped(e.target.value)}
+          autoComplete="off"
+          aria-label="Confirmación"
+          className="h-10 w-full rounded-xl bg-muted/60 px-3 text-[15px] text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+      </label>
+      {state.kind === "error" && <p className="text-[13px] text-destructive">{state.message}</p>}
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" className="rounded-full" onClick={() => setOpen(false)}>
+          Cancelar
+        </Button>
+        <Button
+          type="submit"
+          variant="destructive"
+          className="rounded-full"
+          disabled={typed.trim() !== ADMIN_UNLINK_CONFIRM || state.kind === "busy"}
+        >
+          {state.kind === "busy" && <Loader2Icon className="size-4 animate-spin" />} Desvincular
+        </Button>
+      </div>
+    </form>
   );
 }

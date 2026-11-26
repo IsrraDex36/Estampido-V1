@@ -20,6 +20,7 @@ import { clientHash } from "./client.js";
 import { CommunityRepo } from "./community/repo.js";
 import { communityRoutes, type PublishGuard, toStickerDto } from "./community/routes.js";
 import {
+  ADMIN_UNLINK_CONFIRM,
   ADMIN_WIPE_CONFIRM,
   type AdminCommunity,
   type AdminHealth,
@@ -238,6 +239,24 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     const removed = await communityRepo.clear();
     console.log(`[admin] comunidad vaciada: ${removed} stickers borrados`);
     return c.json({ removed });
+  });
+
+  // Owner: unlink the bot's WhatsApp (change number) without touching the old phone.
+  app.post("/admin/bot/unlink", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    const body = (await c.req.json().catch(() => null)) as { confirm?: string } | null;
+    if (body?.confirm !== ADMIN_UNLINK_CONFIRM) {
+      return c.json(fail("confirm_required", `Escribe «${ADMIN_UNLINK_CONFIRM}» para confirmar.`), 400);
+    }
+    if (!bot.unlinkBot) return c.json(fail("bot_unavailable", "No disponible."), 503);
+    try {
+      await bot.unlinkBot();
+    } catch (err) {
+      return botFailure(c, err, "admin-unlink");
+    }
+    console.log("[admin] bot desvinculado desde /admin");
+    return c.json({ ok: true });
   });
 
   app.get("/admin/pairing", async (c) => {

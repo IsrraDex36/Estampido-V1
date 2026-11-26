@@ -34,6 +34,8 @@ export interface BotHandle {
   pairing?(): PairingState;
   /** Watchdog report for the admin page. */
   health?(): HealthReport;
+  /** Log the bot's WhatsApp out and start a fresh pairing (owner, from /admin). */
+  unlinkBot?(): Promise<void>;
 }
 
 export const SENDS_PER_MINUTE = 10;
@@ -110,6 +112,12 @@ export function createControlApp(
   app.get("/health", (c) => (bot.health ? c.json(bot.health()) : c.json({ error: "sin vigilante" }, 404)));
 
   app.get("/pairing", (c) => c.json(bot.pairing?.() ?? ({ kind: "waiting" } satisfies PairingState)));
+
+  app.post("/admin/unlink", async (c) => {
+    if (!bot.unlinkBot) return c.json({ error: "No disponible." }, 404);
+    await bot.unlinkBot();
+    return c.json({ ok: true });
+  });
 
   // ── Links ────────────────────────────────────────────────────────────────
   const storeOr503 = () => bot.links();

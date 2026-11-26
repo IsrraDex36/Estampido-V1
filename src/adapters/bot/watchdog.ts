@@ -21,13 +21,9 @@
 
 export type HealthStatus = "ok" | "degraded" | "down" | "unlinked" | "starting";
 export type ProbeResult = "present" | "missing" | "unknown";
-export type AlertLevel = "warn" | "critical" | "recovered";
+export type { Alert, AlertLevel } from "../../utils/alerts.js";
 
-export interface Alert {
-  level: AlertLevel;
-  kind: string;
-  message: string;
-}
+import type { Alert, AlertLevel } from "../../utils/alerts.js";
 
 export interface WatchdogDeps {
   now: () => number;

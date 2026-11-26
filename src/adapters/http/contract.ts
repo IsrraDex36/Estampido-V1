@@ -379,6 +379,9 @@ export interface CommunityStats {
 }
 
 /** /api/admin/pairing — bot linking for the owner (token-protected). */
+/** Typed by the owner to confirm «Desvincular bot» in /admin. */
+export const ADMIN_UNLINK_CONFIRM = "DESVINCULAR";
+
 export type AdminPairing =
   | { state: "offline" }
   | { state: "waiting" }

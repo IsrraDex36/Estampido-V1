@@ -13,6 +13,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Monitoreo**: con `SVA_ALERT_WEBHOOK`, la web avisa (ntfy/Discord) si el bot se cae o WhatsApp queda desconectado más de 5 min, y cuando vuelve; el contenedor tiene `HEALTHCHECK` para que Coolify lo reinicie si la web deja de responder. Guía de monitor externo en `docs/DEPLOY-RAILWAY.md`.
+- **Desvincular bot desde /admin** (para cambiar de número sin tocar el teléfono viejo): confirmación escrita, cierra la sesión en WhatsApp y muestra el QR nuevo.
+
 - **Info del sticker que invita**: al tocar un sticker en WhatsApp ahora dice «Busca o crea más en • estampido.isrradev.com» (en vez de «Estampido • estampido») cuando dejas el pack vacío.
 - **Duración guiada**: 3/5/10 s arriba (10 s es lo máximo que anima WhatsApp); 30 s–3 min aparte como «Más largo · solo para descargar».
 

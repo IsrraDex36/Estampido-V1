@@ -43,6 +43,10 @@ EXPOSE 8787
 # volumes are configured in its dashboard); plain Docker: use -v <vol>:/data.
 RUN mkdir -p /data
 
+# Coolify/Docker restart the container if the web stops answering (≈ 2 min of failures).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=4 \
+  CMD curl -fsS "http://127.0.0.1:${PORT:-8787}/api/health" > /dev/null || exit 1
+
 ENTRYPOINT ["/usr/bin/tini", "--"]
 # API (production) + bot, supervised with restart backoff. No tunnel: the platform's proxy is the entry.
 CMD ["npx", "tsx", "scripts/start.ts", "--skip-build"]

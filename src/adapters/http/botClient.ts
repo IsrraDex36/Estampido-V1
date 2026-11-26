@@ -27,6 +27,8 @@ export interface BotClient {
   send(req: SendRequest): Promise<{ delivered: "native" | "separate" | "sticker" }>;
   /** Bot linking progress (raw QR data / code / connected). */
   pairing(): Promise<BotPairing>;
+  /** Log the bot's WhatsApp out → new QR (owner). */
+  unlinkBot?(): Promise<void>;
   /** Watchdog report. */
   health(): Promise<Omit<AdminHealth, "status"> & { status: Exclude<AdminHealth["status"], "offline"> }>;
 }
@@ -122,6 +124,9 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
     },
     async pairing() {
       return json<BotPairing>(await call("/pairing", { signal: AbortSignal.timeout(3_000) }));
+    },
+    async unlinkBot() {
+      await json(await call("/admin/unlink", { method: "POST", signal: AbortSignal.timeout(15_000) }));
     },
     async send(req) {
       const body = await json<{ delivered?: "native" | "separate" | "sticker" }>(
