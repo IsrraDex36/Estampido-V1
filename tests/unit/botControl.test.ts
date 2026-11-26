@@ -61,6 +61,8 @@ describe("assertResultFile: results + community folders", () => {
       "sticker.ogg",
     );
     await expect(assertResultFile(join(community, "index.json"), roots, /\.webp$/i)).rejects.toThrow(/type/);
+    await writeFile(join(community, "community.db"), "SQLite format 3");
+    await expect(assertResultFile(join(community, "community.db"), roots, /\.webp$/i)).rejects.toThrow(/type/);
     await expect(assertResultFile(join(community, "abc", "sticker.webp"), roots, /\.ogg$/i)).rejects.toThrow(/type/);
     await expect(assertResultFile(outside, roots)).rejects.toThrow(/outside/);
     await expect(assertResultFile(join(community, "..", "secret.txt"), roots)).rejects.toThrow();

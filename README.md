@@ -55,7 +55,7 @@ _Estampa + estampido._ Estampido genera **stickers con sonido nativos** de Whats
 
 - **Dos caminos a WhatsApp** (ver abajo), más compartir y descargar como respaldo.
 - **Colección** de la sesión: selecciona varios stickers y envíalos todos en orden, con sonido.
-- **Comunidad**: publica sonidos reutilizables, con feed paginado (Tendencias, Nuevos, Top), 17 categorías, búsqueda, favoritos y ranking de sonidos virales.
+- **Comunidad**: publica sonidos reutilizables, con feed paginado (Tendencias, Nuevos, Top), 17 categorías, búsqueda, favoritos y ranking de sonidos virales. Los datos viven en **SQLite** (integrado en Node, modo WAL): el ranking, la búsqueda y la paginación se resuelven en SQL con índices.
 
 ### Experiencia
 
@@ -159,7 +159,7 @@ Los tipos compartidos entre la API y la web están en [`src/adapters/http/contra
 
 ## 🌍 Despliegue
 
-Un **solo contenedor Docker** sirve la web, la API y el bot, con un volumen persistente en `/data` (sesión de WhatsApp, vínculos y comunidad). Se despliega igual en Railway, Hetzner + Coolify o cualquier host de Docker.
+Un **solo contenedor Docker** sirve la web, la API y el bot, con un volumen persistente en `/data` (sesión de WhatsApp, vínculos y comunidad: `community.db` + archivos). Se despliega igual en Railway, Hetzner + Coolify o cualquier host de Docker.
 
 - Guía paso a paso: [docs/DEPLOY-RAILWAY.md](docs/DEPLOY-RAILWAY.md)
 - Pendientes, incluida la mudanza a Hetzner: [docs/PENDIENTES.md](docs/PENDIENTES.md)
@@ -211,7 +211,7 @@ src/
 ├── core/        probe · video · audio · image · frame (encuadre/fondos) · optimize · metadata · webp
 ├── pipeline/    valida, extrae el sonido, optimiza, agrega metadatos y cancela
 ├── adapters/
-│   ├── http/    API Hono, servidor de producción, SEO, comunidad
+│   ├── http/    API Hono, servidor de producción, SEO, comunidad (SQLite)
 │   ├── bot/     Baileys: sticker con sonido nativo, cola, vigilante, captura
 │   └── cli/     sva convert · sva doctor
 └── utils/       ffmpeg, semáforo cancelable, protobuf crudo, límites

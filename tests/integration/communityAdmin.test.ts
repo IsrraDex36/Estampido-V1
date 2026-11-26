@@ -68,7 +68,7 @@ const feed = async () =>
   ((await (await app.request("/api/community/stickers")).json()) as CommunityPage<CommunitySticker>).items;
 const adminList = async () =>
   (await (await app.request("/api/admin/community", { headers: asAdmin() })).json()) as AdminCommunity;
-const stickerDirs = async () => (await readdir(communityDir)).filter((f) => f !== "index.json");
+const stickerDirs = async () => (await readdir(communityDir)).filter((f) => !f.startsWith("community.db"));
 
 beforeAll(async () => {
   dir = await makeTempDir();
@@ -158,7 +158,7 @@ describe("admin community moderation", () => {
 describe("CommunityRepo.remove / clear survive a restart", () => {
   it("the index on disk reflects deletions", async () => {
     const reopened = new CommunityRepo(communityDir);
-    expect((await reopened.list()).map((s) => s.title)).toEqual(["Después"]);
+    expect((await reopened.listAll()).map((s) => s.title)).toEqual(["Después"]);
     expect(await reopened.remove("not-an-id")).toBe(false);
   });
 });

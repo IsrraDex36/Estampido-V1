@@ -22,6 +22,9 @@ const port = Number(process.env.PORT ?? 8787);
 const store = new ResultStore();
 const maxMb = Number(process.env.SVA_COMMUNITY_MAX_MB ?? (production ? 2048 : 0)) || Number.POSITIVE_INFINITY;
 const community = new CommunityRepo(communityRoot(), Date.now, maxMb * 1024 * 1024);
+// Open (and migrate) the community database now, so a problem shows at boot.
+const stats = await community.stats();
+console.log(`Comunidad (SQLite): ${stats.stickers} stickers, ${stats.sounds} sonidos · ${community.dbPath}`);
 const api = createApp({
   store,
   community,

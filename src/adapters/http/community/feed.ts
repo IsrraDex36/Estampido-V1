@@ -28,7 +28,7 @@ interface Cursor {
 }
 
 const HOUR = 3_600_000;
-const PERIOD_MS: Record<CommunityPeriod, number> = {
+export const PERIOD_MS: Record<CommunityPeriod, number> = {
   day: 24 * HOUR,
   week: 7 * 24 * HOUR,
   all: Number.POSITIVE_INFINITY,
@@ -43,9 +43,16 @@ const PERIOD_MS: Record<CommunityPeriod, number> = {
 export function scoreOf(item: Rankable, sort: CommunitySort, asOf: number): number {
   if (sort === "new") return item.createdAt;
   if (sort === "top") return item.uses;
-  const ageHours = Math.max(0, (asOf - item.createdAt) / HOUR);
-  return Math.log10(1 + item.uses) - ageHours / 36;
+  return hotScore(item.uses, item.createdAt, asOf);
 }
+
+/** «hot»: log-uses minus age (1 point per 36 h). Also registered as SQL `hot()`. */
+export function hotScore(uses: number, createdAt: number, asOf: number): number {
+  return popularity(uses) - Math.max(0, (asOf - createdAt) / HOUR) / 36;
+}
+
+/** log10(1 + uses): stored per row so SQL never calls back into JS to rank. */
+export const popularity = (uses: number): number => Math.log10(1 + uses);
 
 /** Lowercase, no accents: "Cumpleaños" ~ "cumpleanos". */
 export const normalize = (s: string): string =>
@@ -57,13 +64,19 @@ export const normalize = (s: string): string =>
 
 const LABEL = new Map<string, string>(COMMUNITY_CATEGORIES.map((c) => [c.id, normalize(c.label)]));
 
+/** What the search looks in (stored precomputed in the database). */
+export const searchText = (item: Pick<Rankable, "title" | "tags" | "category">): string =>
+  normalize([item.title, ...item.tags, LABEL.get(item.category) ?? ""].join(" "));
+
+/** Normalized search words (max 80 chars of query). */
+export const searchWords = (q: string): string[] => normalize(q.slice(0, 80)).split(/\s+/).filter(Boolean).slice(0, 8);
+
 export function matches(item: Rankable, category: CommunityCategory | null | undefined, q: string): boolean {
   if (category && item.category !== category) return false;
-  if (!q) return true;
-  const hay = normalize([item.title, ...item.tags, LABEL.get(item.category) ?? ""].join(" "));
-  return normalize(q)
-    .split(/\s+/)
-    .every((word) => hay.includes(word));
+  const words = searchWords(q);
+  if (words.length === 0) return true;
+  const hay = searchText(item);
+  return words.every((word) => hay.includes(word));
 }
 
 export function encodeCursor(c: Cursor): string {

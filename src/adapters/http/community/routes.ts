@@ -16,7 +16,6 @@ import {
   type CommunitySticker,
 } from "../contract.js";
 import type { ResultStore } from "../resultStore.js";
-import { pageOf } from "./feed.js";
 import {
   COMMUNITY_FILES,
   type CommunityFile,
@@ -98,10 +97,11 @@ export function communityRoutes(
   const list = async (query: Record<string, string>, onlySounds: boolean) => {
     const parsed = listSchema.safeParse(query);
     if (!parsed.success) return { error: fail("bad_query", parsed.error.issues.map((i) => i.message).join(" ")) };
-    const all = await repo.list();
     // «Solo el sonido» lives under Sonidos only; the sticker feed shows listed ones.
-    const pool = onlySounds ? all.filter((s) => s.soundSec !== null) : all.filter((s) => s.listed !== false);
-    const page = pageOf(pool, { ...parsed.data, category: parsed.data.category as never });
+    const page = await repo.page(
+      { ...parsed.data, category: parsed.data.category as never },
+      onlySounds ? "sounds" : "stickers",
+    );
     if ("error" in page) return { error: fail("bad_cursor", "Cursor inválido; vuelve a cargar la lista.") };
     return { page };
   };
@@ -184,12 +184,7 @@ export function communityRoutes(
   });
 
   app.get("/stats", async (c) => {
-    const all = await repo.list();
-    return c.json({
-      stickers: all.filter((s) => s.listed !== false).length,
-      sounds: all.filter((s) => s.soundSec !== null).length,
-      uses: all.reduce((n, s) => n + s.uses, 0),
-    } satisfies CommunityStats);
+    return c.json((await repo.stats()) satisfies CommunityStats);
   });
 
   // Someone picked this sound for a new sticker.

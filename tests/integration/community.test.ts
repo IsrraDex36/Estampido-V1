@@ -147,7 +147,7 @@ describe("community API", () => {
     expect((await app.request("/api/community/files/../index.json")).status).toBe(404);
   });
 
-  it("index survives a restart (persisted atomically)", async () => {
+  it("database survives a restart; a stray corrupt index.json is ignored", async () => {
     const fresh = createApp({ store: results, bot: noBot, community: new CommunityRepo(join(dir, "community")) });
     const page = (await (
       await fresh.request("/api/community/stickers?sort=new&limit=48")
@@ -155,7 +155,10 @@ describe("community API", () => {
     expect(page.items.length).toBe(8);
     await writeFile(join(dir, "community", "index.json"), "{corrupt");
     const broken = createApp({ store: results, bot: noBot, community: new CommunityRepo(join(dir, "community")) });
-    expect((await broken.request("/api/community/stickers")).status).toBe(200);
+    const again = (await (
+      await broken.request("/api/community/stickers?sort=new&limit=48")
+    ).json()) as CommunityPage<CommunitySticker>;
+    expect(again.items.length).toBe(8); // the data lives in SQLite now
   });
 });
 
@@ -256,7 +259,7 @@ describe("public server rules", () => {
     const r = await publish(app, await fakeResult());
     expect(r.status).toBe(507);
     expect(await r.json()).toMatchObject({ error: { code: "storage_full" } });
-    expect(await repo.list()).toHaveLength(0);
+    expect(await repo.listAll()).toHaveLength(0);
   });
 });
 

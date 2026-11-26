@@ -283,7 +283,7 @@ export function createApp(deps: AppDeps = {}): Hono {
   app.get("/admin/community", async (c) => {
     const denied = adminDenied(c);
     if (denied) return denied;
-    const all = [...(await communityRepo.list())].sort((a, b) => b.createdAt - a.createdAt);
+    const all = await communityRepo.listAll();
     return c.json({
       items: all.map((s) => ({ ...toStickerDto(s), sends: s.sends ?? 0 })),
       usedBytes: await communityRepo.usedBytes(),

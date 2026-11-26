@@ -1,19 +1,31 @@
 import { randomUUID } from "node:crypto";
-import { copyFile, mkdir, readFile, rename, rm, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, rename, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
-import type { CommunityCategory } from "../contract.js";
-import type { Rankable } from "./feed.js";
+import type { DatabaseSync, SQLInputValue, StatementSync } from "node:sqlite";
+import type { CommunityCategory, CommunityStats } from "../contract.js";
+import { openCommunityDb, transaction } from "./db.js";
+import {
+  decodeCursor,
+  encodeCursor,
+  type FeedQuery,
+  PERIOD_MS,
+  popularity,
+  type Rankable,
+  scoreOf,
+  searchText,
+  searchWords,
+} from "./feed.js";
 
 export interface StoredSticker extends Rankable {
-  /** webp + ogg size (for the storage cap). Older entries may lack it. */
+  /** webp + ogg size (for the storage cap). */
   bytes?: number;
   animated: boolean;
   /** Seconds of sound; null = silent. */
   soundSec: number | null;
   soundOrigin: string | null;
-  /** false = «solo el sonido» (hidden from the sticker feed). Older entries lack it (= listed). */
+  /** false = «solo el sonido» (hidden from the sticker feed). */
   listed?: boolean;
-  /** Times it was sent to someone's WhatsApp (trending signal; older entries lack it). */
+  /** Times it was sent to someone's WhatsApp (trending signal). */
   sends?: number;
 }
 
@@ -37,12 +49,6 @@ export interface NewSticker {
   oggPath: string | null;
 }
 
-/**
- * Local file-backed community store: <root>/index.json + <root>/<id>/sticker.{webp,ogg}.
- * All mutations run one at a time and the index is written atomically
- * (tmp + rename), so a crash never leaves a half-written index.
- * Swappable for a database later behind the same methods.
- */
 /** The storage cap would be exceeded (→ 507). */
 export class CommunityFullError extends Error {
   constructor() {
@@ -51,8 +57,64 @@ export class CommunityFullError extends Error {
   }
 }
 
+export type FeedPage = { items: StoredSticker[]; nextCursor: string | null } | { error: "bad_cursor" };
+
+interface Row {
+  id: string;
+  title: string;
+  category: string;
+  tags: string;
+  created_at: number;
+  uses: number;
+  sends: number;
+  bytes: number;
+  animated: number;
+  sound_sec: number | null;
+  sound_origin: string | null;
+  listed: number;
+}
+
+const COLUMNS = "id, title, category, tags, created_at, uses, sends, bytes, animated, sound_sec, sound_origin, listed";
+const INSERT = `INSERT INTO stickers (${COLUMNS}, search, pop) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+const fromRow = (r: Row): StoredSticker => ({
+  id: r.id,
+  title: r.title,
+  category: r.category as CommunityCategory,
+  tags: JSON.parse(r.tags) as string[],
+  createdAt: r.created_at,
+  uses: r.uses,
+  sends: r.sends,
+  bytes: r.bytes,
+  animated: r.animated === 1,
+  soundSec: r.sound_sec,
+  soundOrigin: r.sound_origin,
+  listed: r.listed === 1,
+});
+
+/** Escape LIKE wildcards so «100%» or «a_b» are searched literally. */
+const likeWord = (w: string) => `%${w.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+
+/** SQL expression for each ordering (must equal feed.ts `scoreOf`). */
+const SCORE_SQL = {
+  new: "created_at",
+  top: "uses",
+  // Same operations, same order as feed.ts hotScore → bit-identical doubles.
+  hot: "pop - MAX(0, (:asOf - created_at) / 3600000.0) / 36",
+} as const;
+
+/**
+ * Community store: metadata in SQLite (<root>/community.db), files on disk
+ * (<root>/<id>/sticker.{webp,ogg}). Feed pages are ranked, filtered and
+ * paginated in SQL (keyset on score + id), so nothing loads the whole table.
+ * An older `index.json` is imported once on first open and kept as
+ * `index.json.migrated`.
+ */
 export class CommunityRepo {
-  private items: StoredSticker[] | null = null;
+  private dbHandle: DatabaseSync | null = null;
+  private ready: Promise<void> | null = null;
+  private readonly stmts = new Map<string, StatementSync>();
+  /** Serializes add(): the space check and the file copy must not interleave. */
   private queue: Promise<unknown> = Promise.resolve();
 
   constructor(
@@ -62,137 +124,235 @@ export class CommunityRepo {
     private readonly maxBytes = Number.POSITIVE_INFINITY,
   ) {}
 
-  async usedBytes(): Promise<number> {
-    return (await this.load()).reduce((n, s) => n + (s.bytes ?? 0), 0);
+  get dbPath(): string {
+    return join(this.root, "community.db");
   }
 
-  private get indexPath(): string {
-    return join(this.root, "index.json");
+  // ── setup ────────────────────────────────────────────────────────────────
+  private async db(): Promise<DatabaseSync> {
+    this.ready ??= this.open();
+    await this.ready;
+    return this.dbHandle as DatabaseSync;
   }
 
-  private async load(): Promise<StoredSticker[]> {
-    if (this.items) return this.items;
-    const raw = await readFile(this.indexPath, "utf8").catch(() => "[]");
-    try {
-      const parsed = JSON.parse(raw);
-      this.items = Array.isArray(parsed) ? (parsed as StoredSticker[]) : [];
-    } catch {
-      this.items = [];
-    }
-    return this.items;
-  }
-
-  private async persist(items: StoredSticker[]): Promise<void> {
+  private async open(): Promise<void> {
     await mkdir(this.root, { recursive: true });
-    const tmp = `${this.indexPath}.${process.pid}.tmp`;
-    await writeFile(tmp, JSON.stringify(items));
-    await rename(tmp, this.indexPath);
+    const db = openCommunityDb(this.dbPath);
+    this.dbHandle = db;
+    await this.importLegacyIndex(db);
   }
 
-  /** Serialize mutations (read-modify-write of the index). */
-  private exclusive<T>(fn: () => Promise<T>): Promise<T> {
-    const run = this.queue.then(fn, fn);
+  /** One-time import of the old JSON index (same files, same ids). */
+  private async importLegacyIndex(db: DatabaseSync): Promise<void> {
+    const legacy = join(this.root, "index.json");
+    const raw = await readFile(legacy, "utf8").catch(() => null);
+    if (raw === null) return;
+    let items: unknown[];
+    try {
+      const parsed = JSON.parse(raw) as unknown;
+      items = Array.isArray(parsed) ? parsed : [];
+    } catch {
+      console.error("[community] index.json ilegible: no se importó (se deja como está).");
+      return;
+    }
+    const insert = db.prepare(INSERT.replace("INSERT", "INSERT OR IGNORE"));
+    let imported = 0;
+    transaction(db, () => {
+      for (const s of items as StoredSticker[]) {
+        if (!s || typeof s.id !== "string" || !isCommunityId(s.id) || typeof s.title !== "string") continue;
+        imported += Number(insert.run(...rowValues(s)).changes);
+      }
+    });
+    await rename(legacy, `${legacy}.migrated`);
+    console.log(`[community] ${imported} stickers importados de index.json a SQLite.`);
+  }
+
+  /** Prepared once, reused (the SQL text is the key). */
+  private stmt(db: DatabaseSync, sql: string): StatementSync {
+    let s = this.stmts.get(sql);
+    if (!s) {
+      s = db.prepare(sql);
+      this.stmts.set(sql, s);
+    }
+    return s;
+  }
+
+  close(): void {
+    this.stmts.clear();
+    this.dbHandle?.close();
+    this.dbHandle = null;
+    this.ready = null;
+  }
+
+  // ── reads ────────────────────────────────────────────────────────────────
+  async get(id: string): Promise<StoredSticker | null> {
+    if (!isCommunityId(id)) return null;
+    const db = await this.db();
+    const row = this.stmt(db, `SELECT ${COLUMNS} FROM stickers WHERE id = ?`).get(id) as Row | undefined;
+    return row ? fromRow(row) : null;
+  }
+
+  /** Everything, newest first (owner moderation). */
+  async listAll(): Promise<StoredSticker[]> {
+    const db = await this.db();
+    const rows = this.stmt(db, `SELECT ${COLUMNS} FROM stickers ORDER BY created_at DESC, id DESC`).all();
+    return (rows as unknown as Row[]).map(fromRow);
+  }
+
+  async usedBytes(): Promise<number> {
+    const db = await this.db();
+    return (this.stmt(db, "SELECT COALESCE(SUM(bytes), 0) AS n FROM stickers").get() as { n: number }).n;
+  }
+
+  async stats(): Promise<CommunityStats> {
+    const db = await this.db();
+    const r = this.stmt(
+      db,
+      "SELECT COALESCE(SUM(listed), 0) AS stickers, COUNT(sound_sec) AS sounds, COALESCE(SUM(uses), 0) AS uses FROM stickers",
+    ).get() as { stickers: number; sounds: number; uses: number };
+    return { stickers: r.stickers, sounds: r.sounds, uses: r.uses };
+  }
+
+  /**
+   * One ranked page. `pool`: the sticker feed (listed) or the sounds tab
+   * (has sound). Same semantics as feed.ts `pageOf` (tests compare both):
+   * items newer than the first page's `asOf` stay out while scrolling, and
+   * (score desc, id desc) is a total order, so pages never skip or repeat.
+   */
+  async page(query: FeedQuery, pool: "stickers" | "sounds"): Promise<FeedPage> {
+    let cursor: ReturnType<typeof decodeCursor> = null;
+    if (query.cursor) {
+      cursor = decodeCursor(query.cursor);
+      if (!cursor) return { error: "bad_cursor" };
+    }
+    const asOf = cursor?.asOf ?? this.now();
+    const where = [pool === "stickers" ? "listed = 1" : "sound_sec IS NOT NULL", "created_at <= :asOf"];
+    const params: Record<string, SQLInputValue> = { asOf, limit: query.limit + 1 };
+    const period = PERIOD_MS[query.period];
+    if (query.sort === "top" && Number.isFinite(period)) {
+      where.push("created_at >= :minCreated");
+      params.minCreated = asOf - period;
+    }
+    if (query.category) {
+      where.push("category = :category");
+      params.category = query.category;
+    }
+    searchWords(query.q ?? "").forEach((w, i) => {
+      where.push(`search LIKE :w${i} ESCAPE '\\'`);
+      params[`w${i}`] = likeWord(w);
+    });
+    let after = "";
+    if (cursor) {
+      after = "WHERE score < :cScore OR (score = :cScore AND id < :cId)";
+      params.cScore = cursor.score;
+      params.cId = cursor.id;
+    }
+    // The score is computed once per row in the subquery, then compared and sorted.
+    // Rank only (id, score) — small rows sort fast — then fetch the columns of
+    // the page's rows by primary key. Each score is computed once per row.
+    const sql = `WITH ranked AS (
+        SELECT id, ${SCORE_SQL[query.sort]} AS score FROM stickers WHERE ${where.join(" AND ")}
+      ), page AS (
+        SELECT id, score FROM ranked ${after} ORDER BY score DESC, id DESC LIMIT :limit
+      )
+      SELECT ${COLUMNS.split(", ")
+        .map((c) => `s.${c}`)
+        .join(", ")}
+        FROM page JOIN stickers s ON s.id = page.id
+       ORDER BY page.score DESC, page.id DESC`;
+    const db = await this.db();
+    const rows = this.stmt(db, sql).all(params) as unknown as Row[];
+    const items = rows.slice(0, query.limit).map(fromRow);
+    const last = items.at(-1);
+    return {
+      items,
+      nextCursor:
+        rows.length > query.limit && last
+          ? encodeCursor({ asOf, score: scoreOf(last, query.sort, asOf), id: last.id })
+          : null,
+    };
+  }
+
+  // ── writes ───────────────────────────────────────────────────────────────
+  add(input: NewSticker): Promise<StoredSticker> {
+    const run = this.queue.then(() => this.addNow(input));
     this.queue = run.catch(() => {});
     return run;
   }
 
-  async list(): Promise<readonly StoredSticker[]> {
-    return this.load();
-  }
-
-  async get(id: string): Promise<StoredSticker | null> {
-    if (!isCommunityId(id)) return null;
-    return (await this.load()).find((s) => s.id === id) ?? null;
-  }
-
-  add(input: NewSticker): Promise<StoredSticker> {
-    return this.exclusive(async () => {
-      const items = await this.load();
-      const incoming = (await stat(input.webpPath)).size + (input.oggPath ? (await stat(input.oggPath)).size : 0);
-      if (items.reduce((n, s) => n + (s.bytes ?? 0), 0) + incoming > this.maxBytes) throw new CommunityFullError();
-      const id = randomUUID();
-      const dir = join(this.root, id);
-      await mkdir(dir, { recursive: true });
-      try {
-        await copyFile(input.webpPath, join(dir, "sticker.webp"));
-        if (input.oggPath) await copyFile(input.oggPath, join(dir, "sticker.ogg"));
-        const item: StoredSticker = {
-          id,
-          title: input.title,
-          category: input.category,
-          tags: input.tags,
-          createdAt: this.now(),
-          uses: 0,
-          bytes: incoming,
-          animated: input.animated,
-          soundSec: input.oggPath ? input.soundSec : null,
-          soundOrigin: input.soundOrigin,
-          ...(input.listed === false ? { listed: false } : {}),
-        };
-        const next = [...items, item];
-        await this.persist(next);
-        this.items = next;
-        return item;
-      } catch (err) {
-        await rm(dir, { recursive: true, force: true });
-        throw err;
-      }
-    });
+  private async addNow(input: NewSticker): Promise<StoredSticker> {
+    const db = await this.db();
+    const incoming = (await stat(input.webpPath)).size + (input.oggPath ? (await stat(input.oggPath)).size : 0);
+    if ((await this.usedBytes()) + incoming > this.maxBytes) throw new CommunityFullError();
+    const id = randomUUID();
+    const dir = join(this.root, id);
+    await mkdir(dir, { recursive: true });
+    try {
+      await copyFile(input.webpPath, join(dir, "sticker.webp"));
+      if (input.oggPath) await copyFile(input.oggPath, join(dir, "sticker.ogg"));
+      const item: StoredSticker = {
+        id,
+        title: input.title,
+        category: input.category,
+        tags: input.tags,
+        createdAt: this.now(),
+        uses: 0,
+        sends: 0,
+        bytes: incoming,
+        animated: input.animated,
+        soundSec: input.oggPath ? input.soundSec : null,
+        soundOrigin: input.soundOrigin,
+        listed: input.listed !== false,
+      };
+      // Files first, row last: a visible row always has its files.
+      this.stmt(db, INSERT).run(...rowValues(item));
+      return item;
+    } catch (err) {
+      await rm(dir, { recursive: true, force: true });
+      throw err;
+    }
   }
 
   /** +1 «sent to WhatsApp». Returns the new count, or null if there is no such sticker. */
-  recordSend(id: string): Promise<number | null> {
-    return this.exclusive(async () => {
-      const items = await this.load();
-      const i = items.findIndex((s) => s.id === id);
-      if (i === -1) return null;
-      const next = items.map((s, j) => (j === i ? { ...s, sends: (s.sends ?? 0) + 1 } : s));
-      await this.persist(next);
-      this.items = next;
-      return next[i]?.sends ?? null;
-    });
+  async recordSend(id: string): Promise<number | null> {
+    if (!isCommunityId(id)) return null;
+    const db = await this.db();
+    const row = this.stmt(db, "UPDATE stickers SET sends = sends + 1 WHERE id = ? RETURNING sends").get(id);
+    return (row as { sends: number } | undefined)?.sends ?? null;
   }
 
   /** +1 use of a sound. Returns the new count, or null if there is no such sound. */
-  recordUse(id: string): Promise<number | null> {
-    return this.exclusive(async () => {
-      const items = await this.load();
-      const i = items.findIndex((s) => s.id === id && s.soundSec !== null);
-      if (i === -1) return null;
-      const next = items.map((s, j) => (j === i ? { ...s, uses: s.uses + 1 } : s));
-      await this.persist(next);
-      this.items = next;
-      return next[i]?.uses ?? null;
-    });
+  async recordUse(id: string): Promise<number | null> {
+    if (!isCommunityId(id)) return null;
+    const db = await this.db();
+    const row = this.stmt(
+      db,
+      "UPDATE stickers SET uses = uses + 1, pop = pop(uses + 1) WHERE id = ? AND sound_sec IS NOT NULL RETURNING uses",
+    ).get(id);
+    return (row as { uses: number } | undefined)?.uses ?? null;
   }
 
-  /** Owner moderation: delete one sticker (index entry + files). false if it doesn't exist. */
-  remove(id: string): Promise<boolean> {
-    return this.exclusive(async () => {
-      if (!isCommunityId(id)) return false;
-      const items = await this.load();
-      if (!items.some((s) => s.id === id)) return false;
-      const next = items.filter((s) => s.id !== id);
-      await this.persist(next); // index first: a crash leaves orphan files, never a broken entry
-      this.items = next;
-      await rm(join(this.root, id), { recursive: true, force: true });
-      return true;
-    });
+  /** Owner moderation: delete one sticker (row + files). false if it doesn't exist. */
+  async remove(id: string): Promise<boolean> {
+    if (!isCommunityId(id)) return false;
+    const db = await this.db();
+    const { changes } = this.stmt(db, "DELETE FROM stickers WHERE id = ?").run(id);
+    if (Number(changes) === 0) return false;
+    // Row first: a crash leaves orphan files, never a row without files.
+    await rm(join(this.root, id), { recursive: true, force: true });
+    return true;
   }
 
   /** Owner moderation: delete every sticker. Returns how many were removed. */
-  clear(): Promise<number> {
-    return this.exclusive(async () => {
-      const items = await this.load();
-      await this.persist([]);
-      this.items = [];
-      await Promise.all(
-        items
-          .filter((s) => isCommunityId(s.id))
-          .map((s) => rm(join(this.root, s.id), { recursive: true, force: true })),
-      );
-      return items.length;
+  async clear(): Promise<number> {
+    const db = await this.db();
+    const ids = transaction(db, () => {
+      const rows = this.stmt(db, "SELECT id FROM stickers").all() as unknown as { id: string }[];
+      this.stmt(db, "DELETE FROM stickers").run();
+      return rows.map((r) => r.id);
     });
+    await Promise.all(ids.filter(isCommunityId).map((id) => rm(join(this.root, id), { recursive: true, force: true })));
+    return ids.length;
   }
 
   /** Absolute path of a servable file that exists, else null. */
@@ -202,4 +362,24 @@ export class CommunityRepo {
     const info = await stat(path).catch(() => null);
     return info ? { path, size: info.size } : null;
   }
+}
+
+function rowValues(s: StoredSticker): SQLInputValue[] {
+  const tags = Array.isArray(s.tags) ? s.tags.filter((t) => typeof t === "string") : [];
+  return [
+    s.id,
+    s.title,
+    s.category,
+    JSON.stringify(tags),
+    Math.round(Number(s.createdAt) || 0),
+    Math.max(0, Math.round(s.uses ?? 0)),
+    Math.max(0, Math.round(s.sends ?? 0)),
+    Math.max(0, Math.round(s.bytes ?? 0)),
+    s.animated ? 1 : 0,
+    typeof s.soundSec === "number" ? s.soundSec : null,
+    s.soundOrigin ?? null,
+    s.listed === false ? 0 : 1,
+    searchText({ title: s.title, tags, category: s.category }),
+    popularity(Math.max(0, Math.round(s.uses ?? 0))),
+  ];
 }
