@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useBotStatus } from "@/features/bot/api";
 import { LinkDialog } from "@/features/bot/LinkDialog";
-import { FeedbackDialog } from "@/features/feedback/FeedbackDialog";
+import { FeedbackDialog } from "@/features/feedback/LazyFeedbackDialog";
 import { useLogout, useMe } from "./api";
 import { Avatar } from "./Avatar";
 

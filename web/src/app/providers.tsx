@@ -1,6 +1,6 @@
 import { IconContext } from "@phosphor-icons/react";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { domAnimation, LazyMotion, MotionConfig } from "motion/react";
+import { LazyMotion, MotionConfig } from "motion/react";
 import { lazy, type ReactNode, Suspense } from "react";
 import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster } from "@/components/ui/sonner";
@@ -23,12 +23,14 @@ const QueryDevtools = import.meta.env.DEV
  * default weight), motion (lazy feature bundle; respects reduced motion),
  * tooltips, and the single global <Toaster /> used by lib/notify.
  */
+const loadMotionFeatures = () => import("./motionFeatures").then((m) => m.default);
+
 export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <IconContext.Provider value={ICONS}>
-          <LazyMotion features={domAnimation} strict>
+          <LazyMotion features={loadMotionFeatures} strict>
             <MotionConfig reducedMotion="user">
               <TooltipProvider delayDuration={250}>
                 {children}

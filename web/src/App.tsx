@@ -1,9 +1,9 @@
-import { lazy, Suspense } from "react";
+import { useTourStore } from "@/features/onboarding/tourStore";
+import { lazy, Suspense, useState } from "react";
 import { Route, Switch } from "wouter";
 import { AppFooter } from "@/app/AppFooter";
 import { AppHeader } from "@/app/AppHeader";
 import { NotFound } from "@/app/NotFound";
-import { AdminPage } from "@/features/admin/AdminPage";
 import { PrivacyPage } from "@/app/PrivacyPage";
 import { Providers } from "@/app/providers";
 import { RouteErrorBoundary } from "@/app/RouteErrorBoundary";
@@ -16,7 +16,6 @@ import { CommunitySkeleton } from "@/features/community/components/CommunitySkel
 import { loadCommunityPage } from "@/features/community/prefetch";
 import { useAccountSync } from "@/features/account/useAccountSync";
 import { ConverterPage } from "@/features/converter/ConverterPage";
-import { WelcomeTour } from "@/features/onboarding/WelcomeTour";
 
 // Community is a separate chunk: the tool stays as light as before.
 // Same loader the nav prefetch uses → one shared chunk.
@@ -24,6 +23,9 @@ const CommunityPage = lazy(loadCommunityPage);
 const AccountPage = lazy(() => import("@/features/account/AccountPage"));
 const CreatorPage = lazy(() => import("@/features/account/CreatorPage"));
 const PackPage = lazy(() => import("@/features/social/PackPage"));
+// Owner-only and first-visit-only code: never in the main bundle.
+const AdminPage = lazy(() => import("@/features/admin/AdminPage").then((m) => ({ default: m.AdminPage })));
+const WelcomeTour = lazy(() => import("@/features/onboarding/WelcomeTour").then((m) => ({ default: m.WelcomeTour })));
 
 function Shell() {
   useCanonicalUrl();
@@ -61,13 +63,17 @@ function Shell() {
             </Suspense>
           </Route>
           <Route path={ROUTES.privacy} component={PrivacyPage} />
-          <Route path={ROUTES.admin} component={AdminPage} />
+          <Route path={ROUTES.admin}>
+            <Suspense fallback={null}>
+              <AdminPage />
+            </Suspense>
+          </Route>
           <Route component={NotFound} />
         </Switch>
         </RouteErrorBoundary>
       </main>
       <AppFooter />
-      <WelcomeTour />
+      <LazyTour />
     </div>
   );
 }
@@ -77,5 +83,18 @@ export default function App() {
     <Providers>
       <Shell />
     </Providers>
+  );
+}
+
+/** The tour's code loads only when it opens (first visit, or «?» in the header). */
+function LazyTour() {
+  const open = useTourStore((st) => st.open);
+  const [used, setUsed] = useState(open);
+  if (open && !used) setUsed(true);
+  if (!used) return null;
+  return (
+    <Suspense fallback={null}>
+      <WelcomeTour />
+    </Suspense>
   );
 }

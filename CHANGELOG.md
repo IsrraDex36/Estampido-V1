@@ -45,6 +45,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Carga más rápida en celular**: el JS inicial bajó de 1.09 MB a 674 KB (331 → 201 KB comprimido). El formulario de publicar, el de comentarios, el panel de admin, el tour y las animaciones se descargan solo cuando se usan (publicar se precarga al acercar el dedo).
+
 - **Calidad alta** ahora llega hasta 1 MB (antes 5 MB) y se presenta como «para descargar»: por encima de 500 KB WhatsApp suele trabar o congelar el sticker. El medidor de fluidez ya no empuja a Calidad alta.
 
 ### Corregido

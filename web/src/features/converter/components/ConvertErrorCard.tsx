@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleAlertIcon, Loader2Icon, TimerIcon, TriangleAlertIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
-import { FeedbackDialog } from "@/features/feedback/FeedbackDialog";
+import { FeedbackDialog } from "@/features/feedback/LazyFeedbackDialog";
 import { cn } from "@/lib/utils";
 import { describeFailure, type FailureAction, type FailureTone } from "../model/failure";
 import { useConverterStore } from "../store/converterStore";

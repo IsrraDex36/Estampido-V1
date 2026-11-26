@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { FeedbackDialog } from "./FeedbackDialog";
+import { FeedbackDialog } from "./LazyFeedbackDialog";
 
 /** Text button that opens the feedback box (footer and menus). */
 export function FeedbackButton({ className, children = "Enviar comentarios" }: { className?: string; children?: React.ReactNode }) {
