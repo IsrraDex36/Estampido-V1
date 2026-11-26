@@ -159,6 +159,9 @@ export const COMMUNITY_LIMITS = {
   maxQuery: 80,
 } as const;
 
+/** A community tag: letters (any language), digits, - and _. Shared by the API and the web form. */
+export const COMMUNITY_TAG_RE = /^[\p{L}\p{N}_-]+$/u;
+
 export interface CommunitySticker {
   id: string;
   title: string;

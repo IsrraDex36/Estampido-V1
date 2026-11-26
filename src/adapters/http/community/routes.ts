@@ -9,6 +9,7 @@ import {
   type ApiErrorBody,
   COMMUNITY_CATEGORIES,
   COMMUNITY_LIMITS,
+  COMMUNITY_TAG_RE,
   type CommunityPage,
   type CommunitySound,
   type CommunityStats,
@@ -41,7 +42,7 @@ const tag = z
   .trim()
   .min(1)
   .max(COMMUNITY_LIMITS.maxTagLength)
-  .regex(/^[\p{L}\p{N}_-]+$/u, "Etiquetas: solo letras, números, - y _.");
+  .regex(COMMUNITY_TAG_RE, "Etiquetas: solo letras, números, - y _.");
 
 const publishSchema = z.object({
   resultId: z.string().regex(/^[0-9a-f-]{36}$/),
