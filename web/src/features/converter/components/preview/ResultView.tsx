@@ -16,9 +16,9 @@ import { StickerStage } from "./StickerStage";
 
 /** Finished sticker: headline, player, WhatsApp + actions, notes, specs. */
 export function ResultView({ result }: { result: ConvertResponse }) {
-  const player = useStickerPlayer(result.sticker.url, result.audio?.url ?? null);
+  const player = useStickerPlayer(result.audio?.url ?? null);
   return (
-    <ResultLayout stage={<StickerStage player={player} />}>
+    <ResultLayout stage={<StickerStage player={player} stickerUrl={result.sticker.url} />}>
       <m.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

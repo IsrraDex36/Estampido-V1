@@ -18,14 +18,17 @@ import { cn } from "@/lib/utils";
 import { shareLink } from "../share";
 import { categoryById } from "../model";
 import { useFavorites } from "../store/favoritesStore";
-import { usePreview } from "../store/previewStore";
+import { previewTime, usePreview, usePreviewMode } from "../store/previewStore";
+import { SyncedSticker } from "@/components/SyncedSticker";
 import { SendToWhatsAppButton } from "./SendToWhatsAppButton";
 
 /** A published sticker: tap the cover to hear it; send it to WhatsApp, save, use its sound, share, download. */
 export function StickerCard({ sticker, rank, className }: { sticker: CommunitySticker; rank?: number; className?: string }) {
   const saved = useFavorites((s) => sticker.id in s.stickers);
   const toggleSaved = useFavorites((s) => s.toggleSticker);
-  const playing = usePreview((s) => sticker.sound !== null && s.playing === sticker.sound.url);
+  const soundUrl = sticker.sound?.url ?? null;
+  const mode = usePreviewMode(soundUrl);
+  const playing = mode === "playing";
   const togglePlay = usePreview((s) => s.toggle);
   const cat = categoryById(sticker.category);
 
@@ -37,19 +40,25 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
       )}
     >
       <div className="relative aspect-square bg-stage">
-        <img src={sticker.stickerUrl} alt={sticker.title} loading="lazy" decoding="async" className="size-full object-contain p-3" />
+        <SyncedSticker
+          src={sticker.stickerUrl}
+          alt={sticker.title}
+          mode={mode}
+          getTime={() => (soundUrl ? previewTime(soundUrl) : 0)}
+          className="size-full object-contain p-3"
+        />
         {sticker.sound ? (
           <button
             type="button"
             onClick={() => sticker.sound && togglePlay(sticker.sound.url)}
-            aria-label={playing ? `Pausar «${sticker.title}»` : `Escuchar «${sticker.title}»`}
+            aria-label={playing ? `Pausar «${sticker.title}»` : mode === "paused" ? `Continuar «${sticker.title}»` : `Escuchar «${sticker.title}»`}
             aria-pressed={playing}
             className="absolute inset-0 grid place-items-center outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
           >
             <span
               className={cn(
                 "grid size-11 place-items-center rounded-full bg-background/80 text-foreground shadow-lg backdrop-blur transition-opacity",
-                playing ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
+                mode !== "idle" ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100",
               )}
             >
               {playing ? <PauseIcon className="size-5" weight="fill" /> : <PlayIcon className="size-5 translate-x-px" weight="fill" />}

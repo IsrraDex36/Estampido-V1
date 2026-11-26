@@ -13,8 +13,8 @@ export function PlayerBar({ player, fallbackDuration }: { player: StickerPlayer;
     <div className="flex items-center gap-3">
       <button
         type="button"
-        onClick={player.playing ? player.pause : player.play}
-        aria-label={player.playing ? "Pausar" : "Reproducir"}
+        onClick={player.toggle}
+        aria-label={player.playing ? "Pausar" : player.status === "paused" ? "Continuar" : "Reproducir"}
         className="grid size-11 shrink-0 place-items-center rounded-full bg-primary text-primary-foreground transition-transform active:scale-95"
       >
         {player.playing ? <PauseIcon className="size-4.5" weight="fill" /> : <PlayIcon className="size-4.5 translate-x-px" weight="fill" />}

@@ -2,7 +2,8 @@ import type { CommunitySticker } from "@contract";
 import { VoteIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useRanking } from "../api/queries";
-import { usePreview } from "../store/previewStore";
+import { previewTime, usePreview, usePreviewMode } from "../store/previewStore";
+import { SyncedSticker } from "@/components/SyncedSticker";
 
 const PODIUM = [
   { place: 2, height: "h-16", tint: "bg-foreground/10" },
@@ -70,7 +71,9 @@ function Uses({ n }: { n: number }) {
 }
 
 function Thumb({ sticker, className }: { sticker: CommunitySticker; className?: string }) {
-  const playing = usePreview((s) => sticker.sound !== null && s.playing === sticker.sound.url);
+  const soundUrl = sticker.sound?.url ?? null;
+  const mode = usePreviewMode(soundUrl);
+  const playing = mode === "playing";
   const toggle = usePreview((s) => s.toggle);
   return (
     <button
@@ -81,11 +84,18 @@ function Thumb({ sticker, className }: { sticker: CommunitySticker; className?: 
       aria-pressed={playing}
       className={cn(
         "grid aspect-square place-items-center overflow-hidden rounded-2xl bg-stage transition-shadow disabled:cursor-default",
-        playing && "ring-2 ring-sound",
+        mode !== "idle" && "ring-2 ring-sound",
+        mode === "paused" && "ring-sound/50",
         className,
       )}
     >
-      <img src={sticker.stickerUrl} alt="" loading="lazy" className="size-full object-contain p-1.5" />
+      <SyncedSticker
+        src={sticker.stickerUrl}
+        alt=""
+        mode={mode}
+        getTime={() => (soundUrl ? previewTime(soundUrl) : 0)}
+        className="size-full object-contain p-1.5"
+      />
     </button>
   );
 }
