@@ -1,5 +1,5 @@
 import type { CommunitySticker } from "@contract";
-import { CheckIcon, Loader2Icon, SendIcon } from "@/components/icons";
+import { CheckIcon, Loader2Icon, PauseIcon, SendIcon } from "@/components/icons";
 import { useBotStatus, useSendToWhatsApp } from "@/features/bot/api";
 import { LinkDialog } from "@/features/bot/LinkDialog";
 import { useLinkGate } from "@/features/bot/useLinkGate";
@@ -54,15 +54,24 @@ export function SendToWhatsAppButton({ sticker, className }: { sticker: Communit
           className,
         )}
       >
-        {sending ? (
+        {bot !== undefined && !connected ? (
+          <PauseIcon className="size-4" weight="fill" />
+        ) : sending ? (
           <Loader2Icon className="size-4 animate-spin" />
         ) : sent ? (
           <CheckIcon className="size-4" weight="bold" />
         ) : (
           <SendIcon className="size-4" weight="fill" />
         )}
-        <span className="sm:hidden">{sending ? "Enviando…" : sent ? "Enviado" : "Enviar"}</span>
-        <span className="hidden sm:inline">{sending ? "Enviando…" : sent ? "Enviado a tu chat" : "Enviar a WhatsApp"}</span>
+        {bot !== undefined && !connected ? (
+          // Say why it can't be used, instead of a mute grey button.
+          <span>Envío en pausa</span>
+        ) : (
+          <>
+            <span className="sm:hidden">{sending ? "Enviando…" : sent ? "Enviado" : "Enviar"}</span>
+            <span className="hidden sm:inline">{sending ? "Enviando…" : sent ? "Enviado a tu chat" : "Enviar a WhatsApp"}</span>
+          </>
+        )}
       </button>
       <LinkDialog {...dialog} />
     </>

@@ -10,6 +10,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Card de sticker de la comunidad pulida**: el sticker ocupa todo el cuadro (sin hueco abajo), la duración va como etiqueta arriba a la izquierda y ▶ es un botón redondo discreto abajo a la derecha (verde mientras suena); texto en 3 líneas (título · @creador y categoría · cifras), acciones alineadas; con el bot en pausa el botón dice «Envío en pausa».
+
 - **Publicar sin la casilla de derechos del audio**: solo categoría, título, etiquetas y publicar (en uno y en varios). El servidor ya no la exige.
 
 - Con texto + audio + archivo al límite, la subida podía rebasar el tope por no contar la capa de texto.

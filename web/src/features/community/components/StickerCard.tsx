@@ -12,6 +12,7 @@ import {
   PlayIcon,
   Share2Icon,
   UseSoundIcon,
+  Volume2Icon,
   VolumeXIcon,
 } from "@/components/icons";
 import {
@@ -66,11 +67,11 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
           alt={sticker.title}
           mode={mode}
           getTime={() => (soundUrl ? previewTime(soundUrl) : 0)}
-          className="size-full object-contain px-3 pt-3 pb-10"
+          className="size-full object-contain p-3"
         />
         {sticker.sound ? (
-          // The whole cover is the play target (big, thumb-friendly); the only
-          // visible control is a small corner pill, so the sticker stays clean.
+          // The whole cover plays (big, thumb-friendly target). Visible cues stay small and
+          // in the corners: the length top-left, a round play button bottom-right.
           <button
             type="button"
             onClick={() => {
@@ -84,71 +85,74 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
           >
             <span
               className={cn(
-                "absolute bottom-2 left-2 flex h-7 items-center gap-1.5 rounded-full pr-2.5 pl-1 text-[12px] font-semibold tabular-nums shadow-sm backdrop-blur transition-colors",
-                playing ? "bg-sound text-white" : "bg-card/90 text-foreground ring-1 ring-border",
+                "absolute top-2 left-2 flex h-6 items-center gap-1 rounded-full px-2 text-[11px] font-semibold tabular-nums backdrop-blur transition-colors",
+                playing ? "bg-sound text-white" : "bg-black/55 text-white",
               )}
             >
-              <span
-                className={cn(
-                  "grid size-5 place-items-center rounded-full",
-                  playing ? "bg-white/25" : "bg-foreground text-background",
-                )}
-                aria-hidden
-              >
-                {playing ? <PauseIcon className="size-3" weight="fill" /> : <PlayIcon className="size-3 translate-x-px" weight="fill" />}
-              </span>
-              {playing ? <Equalizer /> : null}
+              {playing ? <Equalizer /> : <Volume2Icon className="size-3" weight="fill" />}
               {shortDuration(sticker.sound.durationSec)}
+            </span>
+            <span
+              className={cn(
+                "absolute right-2 bottom-2 grid size-8 place-items-center rounded-full text-white shadow-sm backdrop-blur transition-transform group-hover:scale-105 active:scale-95",
+                playing ? "bg-sound" : "bg-black/55",
+              )}
+              aria-hidden
+            >
+              {playing ? <PauseIcon className="size-3.5" weight="fill" /> : <PlayIcon className="size-3.5 translate-x-px" weight="fill" />}
             </span>
           </button>
         ) : (
           <span
-            className="pointer-events-none absolute bottom-2 left-2 grid size-7 place-items-center rounded-full bg-card/90 text-muted-foreground backdrop-blur"
+            className="pointer-events-none absolute top-2 left-2 flex h-6 items-center gap-1 rounded-full bg-black/55 px-2 text-[11px] font-medium text-white backdrop-blur"
             title="Sin sonido"
           >
-            <VolumeXIcon className="size-3.5" />
+            <VolumeXIcon className="size-3" />
             <span className="sr-only">Sin sonido</span>
           </span>
         )}
         {sticker.hidden && (
-          <span className="pointer-events-none absolute top-2 left-2 rounded-full bg-retro-a/90 px-2 py-0.5 text-[11px] font-medium text-black">
+          <span className="pointer-events-none absolute bottom-2 left-2 rounded-full bg-retro-a/90 px-2 py-0.5 text-[11px] font-medium text-black">
             En revisión
           </span>
         )}
         {rank !== undefined && (
-          <span className="pointer-events-none absolute top-2 right-2.5 font-pixel text-[11px] text-muted-foreground">
+          <span className="pointer-events-none absolute top-2 right-2 grid h-6 min-w-6 place-items-center rounded-full bg-black/55 px-1.5 font-pixel text-[10px] text-white backdrop-blur">
             #{rank}
           </span>
         )}
       </div>
 
-      {/* Fixed layout: title + three reserved lines (creator · category · counts), then
-          the actions pinned to the bottom — every card lines up, whatever its text. */}
-      <div className="flex flex-1 flex-col gap-2 p-3">
-        <div className="min-w-0 space-y-0.5">
-          <h3 className="truncate text-[14px] leading-5 font-medium tracking-tight" title={sticker.title}>
+      {/* Three fixed lines (title · who & what · numbers) and the actions pinned to
+          the bottom: every card in a row lines up, whatever its text. */}
+      <div className="flex flex-1 flex-col gap-2.5 p-3">
+        <div className="min-w-0 space-y-1">
+          <h3 className="truncate text-[14px] leading-5 font-semibold tracking-tight" title={sticker.title}>
             {sticker.title}
           </h3>
-          {sticker.creator ? (
-            <Link
-              href={creatorHref(sticker.creator.handle)}
-              className="flex h-[18px] w-fit max-w-full items-center gap-1.5 rounded-full text-[12px] text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Avatar avatar={sticker.creator.avatar} size={16} />
-              <span className="truncate">@{sticker.creator.handle}</span>
-            </Link>
-          ) : (
-            <p className="flex h-[18px] items-center gap-1.5 text-[12px] text-muted-foreground/70">
-              <span className="grid size-4 place-items-center rounded-full bg-muted text-[9px]" aria-hidden>
-                ✦
-              </span>
+          <p className="flex h-[18px] min-w-0 items-center gap-1.5 text-[12px] text-muted-foreground">
+            {sticker.creator ? (
+              <Link
+                href={creatorHref(sticker.creator.handle)}
+                className="flex min-w-0 items-center gap-1.5 transition-colors hover:text-foreground"
+              >
+                <Avatar avatar={sticker.creator.avatar} size={16} />
+                <span className="truncate">@{sticker.creator.handle}</span>
+              </Link>
+            ) : (
               <span className="truncate">Comunidad</span>
-            </p>
-          )}
-          <p className="h-[18px] truncate text-[12px] leading-[18px] text-muted-foreground">
-            {cat ? `${cat.emoji} ${cat.label}` : "\u00a0"}
+            )}
+            {cat && (
+              <>
+                <span aria-hidden>·</span>
+                <span className="shrink-0" title={cat.label}>
+                  {cat.emoji}
+                  <span className="ml-1 hidden min-[420px]:inline">{cat.label}</span>
+                </span>
+              </>
+            )}
           </p>
-          <p className="h-[18px] truncate text-[12px] leading-[18px] text-muted-foreground tabular-nums">
+          <p className="h-[18px] truncate text-[12px] leading-[18px] text-muted-foreground/80 tabular-nums">
             {sticker.uses > 0 || sticker.saves > 0
               ? [
                   sticker.uses > 0 && countLabel(sticker.uses, "uso", "usos"),
@@ -156,34 +160,38 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
                 ]
                   .filter(Boolean)
                   .join(" · ")
-              : "Sin usos aún"}
+              : "Nuevo"}
           </p>
         </div>
-        <div className="mt-auto space-y-2">
-        <SendToWhatsAppButton sticker={sticker} />
-        <div className="flex items-center justify-between text-muted-foreground">
-          <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={toggleSaved}>
-            <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
-          </IconAction>
-          {sticker.sound ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href={remixHref(sticker.id)}
-                  aria-label="Usar este sonido en mi clip"
-                  className="flex items-center gap-1 rounded-full px-2 py-1.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted"
-                >
-                  <UseSoundIcon className="size-[18px] text-sound" weight="duotone" />
-                  Usar
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent>Usar este sonido en tu video, GIF o foto</TooltipContent>
-            </Tooltip>
-          ) : (
-            <span className="w-14" />
-          )}
-          <MoreMenu sticker={sticker} />
-        </div>
+        <div className="mt-auto space-y-1.5">
+          <SendToWhatsAppButton sticker={sticker} />
+          <div className="grid grid-cols-3 items-center text-muted-foreground">
+            <span className="justify-self-start">
+              <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={toggleSaved}>
+                <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
+              </IconAction>
+            </span>
+            <span className="justify-self-center">
+              {sticker.sound ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Link
+                      href={remixHref(sticker.id)}
+                      aria-label="Usar este sonido en mi clip"
+                      className="flex h-8 items-center gap-1 rounded-full px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted"
+                    >
+                      <UseSoundIcon className="size-[17px] text-sound" weight="duotone" />
+                      Usar
+                    </Link>
+                  </TooltipTrigger>
+                  <TooltipContent>Usar este sonido en tu video, GIF o foto</TooltipContent>
+                </Tooltip>
+              ) : null}
+            </span>
+            <span className="justify-self-end">
+              <MoreMenu sticker={sticker} />
+            </span>
+          </div>
         </div>
       </div>
     </article>
