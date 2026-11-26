@@ -15,6 +15,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Compartir directo a Estampido (Android)**: con la app instalada, «Compartir» desde WhatsApp o la galería → Estampido abre el video/GIF/foto como clip, o el audio (p. ej. una nota de voz) como sonido. Botón «Instalar app» cuando el navegador lo permite.
+
 - **Tiempo estimado al enviar un pack**: antes de enviar, si va a tardar, avisa «Tardará ~X min» (el bot envía con calma y, con número nuevo, con límites por minuto/hora); durante el envío muestra «N/M enviados · faltan ~X», con el ritmo real.
 
 - **Packs con la marca de la app**: al enviar un pack, cada sticker llega como «<pack> · @creador • Crea más en estampido.isrradev.com» (el autor lo fija la app, no se puede cambiar) y todos comparten el mismo pack en WhatsApp. Se aplica a una copia; el sticker publicado no cambia.

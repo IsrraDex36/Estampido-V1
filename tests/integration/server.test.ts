@@ -22,6 +22,7 @@ beforeAll(async () => {
   );
   await writeFile(join(dist, "assets", "app-abc.js"), "console.log(1)");
   await writeFile(join(dist, "favicon.svg"), "<svg/>");
+  await writeFile(join(dist, "sw.js"), "self.addEventListener('fetch', () => {});");
   await writeFile(join(dist, ".env"), "SECRET=1");
 });
 afterAll(() => rm(dist, { recursive: true, force: true }));
@@ -34,6 +35,29 @@ const api = () => {
   return a;
 };
 const ip = (addr: string) => ({ "cf-connecting-ip": addr });
+
+describe("share target (Android «Compartir» → Estampido)", () => {
+  it("POST /compartir without the service worker just opens the app; sw.js is never cached", async () => {
+    const app = createServerApp({ api: api(), webDist: dist, trustProxy: true });
+    const fd = new FormData();
+    fd.set("media", new File([new Uint8Array(10)], "v.mp4", { type: "video/mp4" }));
+    const r = await app.request("/compartir", { method: "POST", body: fd });
+    expect(r.status).toBe(303);
+    expect(r.headers.get("location")).toBe("/");
+    const sw = await app.request("/sw.js");
+    expect(sw.status).toBe(200);
+    expect(sw.headers.get("cache-control")).toBe("no-cache");
+  });
+
+  it("the manifest declares the share target for videos, images and audio", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const m = JSON.parse(await readFile(new URL("../../web/public/manifest.webmanifest", import.meta.url), "utf8"));
+    expect(m.share_target).toMatchObject({ action: "/compartir", method: "POST", enctype: "multipart/form-data" });
+    const files = m.share_target.params.files[0];
+    expect(files.name).toBe("media");
+    for (const t of ["video/*", "image/*", "audio/*", ".opus"]) expect(files.accept).toContain(t);
+  });
+});
 
 describe("production server", () => {
   it("SEO: per-route head with absolute URLs from the proxy host; robots.txt + sitemap.xml", async () => {

@@ -242,13 +242,22 @@ export function createServerApp(opts: ServerOptions): Hono {
       }),
     );
 
+    // Android share sheet → Estampido. The service worker normally answers this;
+    // without it (not installed yet / old browser) just open the app.
+    app.post("/compartir", (c) => c.redirect("/", 303));
+
     app.on(["GET", "HEAD"], "*", async (c) => {
       const path = c.req.path;
       if (path.startsWith("/api/")) return c.notFound();
       const file = path === "/" ? null : resolveStatic(root, path);
       if (file) {
         // Vite fingerprints /assets/* → cache forever; everything else revalidates.
-        const cache = path.startsWith("/assets/") ? "public, max-age=31536000, immutable" : "public, max-age=300";
+        // The service worker must always be fresh (browsers compare it byte by byte).
+        const cache = path.startsWith("/assets/")
+          ? "public, max-age=31536000, immutable"
+          : path === "/sw.js"
+            ? "no-cache"
+            : "public, max-age=300";
         const res = await sendFile(c, file, cache);
         if (res) return res;
         if (extname(path)) return c.text("Not found", 404); // a missing asset is a real 404
