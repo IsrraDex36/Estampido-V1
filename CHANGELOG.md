@@ -15,6 +15,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Respaldos diarios de la base** (`/data/backups`, 7 diarios + 4 semanales, copia consistente con `VACUUM INTO` y comprimida); en `/admin`: «Respaldar ahora» y «Descargar último».
+- **Guía de despliegue actual** (`docs/DEPLOY-COOLIFY.md`) y README al día con todo lo nuevo.
+
 - **Varios archivos a la vez** (hasta 5, sin anunciarlo): el primero queda como clip y los demás se crean solos, uno tras otro, con los mismos ajustes («+N en fila» en la tarjeta del archivo). Si uno falla, la fila se detiene.
 - **Publicar varios desde la Colección**: con 2 o más seleccionados, «Publicar N» con un solo formulario (categoría, etiquetas, derechos del audio), con progreso; se detiene si el error se repetiría (sesión, límite).
 

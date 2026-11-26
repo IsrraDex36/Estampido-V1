@@ -16,6 +16,7 @@ import { Semaphore } from "../../utils/semaphore.js";
 import { AccountRepo } from "./accounts/repo.js";
 import { accountRoutes } from "./accounts/routes.js";
 import { type AppEnv, sameOrigin, sessionCookie, sessionMiddleware } from "./accounts/session.js";
+import type { Backups } from "./backups.js";
 import { type BotClient, type BotPairing, BotRequestError, BotUnavailableError, createBotClient } from "./botClient.js";
 import { clientHash } from "./client.js";
 import { CommunityRepo } from "./community/repo.js";
@@ -70,6 +71,8 @@ export interface AppDeps {
    * random secret; unset or short → the endpoint doesn't exist (404).
    */
   adminToken?: string;
+  /** Daily database backups (production); /admin lists, runs and downloads them. */
+  backups?: Backups;
   convert?: (opts: ConvertOptions) => Promise<ConvertResult>;
   maxConcurrent?: number;
   maxQueue?: number;
@@ -189,6 +192,34 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     c.header("Cache-Control", "no-store");
     return null;
   };
+
+  // ── backups (owner) ────────────────────────────────────────────────────────
+  app.get("/admin/backups", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    return c.json({ items: deps.backups ? await deps.backups.list() : [], enabled: Boolean(deps.backups) });
+  });
+  app.post("/admin/backups", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    if (!deps.backups) return c.json(fail("not_found", "Los respaldos no están activos."), 404);
+    return c.json(await deps.backups.run());
+  });
+  app.get("/admin/backups/:name", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    const path = deps.backups?.pathOf(c.req.param("name"));
+    const info = path ? await stat(path).catch(() => null) : null;
+    if (!path || !info) return c.json(fail("not_found", "Ese respaldo no existe."), 404);
+    return new Response(Readable.toWeb(createReadStream(path)) as ReadableStream, {
+      headers: {
+        "Content-Type": "application/gzip",
+        "Content-Length": String(info.size),
+        "Content-Disposition": `attachment; filename="estampido-${c.req.param("name")}"`,
+        "Cache-Control": "no-store",
+      },
+    });
+  });
 
   app.get("/admin/health", async (c) => {
     const denied = adminDenied(c);

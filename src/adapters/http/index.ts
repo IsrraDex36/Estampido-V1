@@ -6,6 +6,7 @@ import { communityRoot } from "../../config/paths.js";
 import { consoleSink, fanOut, webhookSink } from "../../utils/alerts.js";
 import { AccountRepo } from "./accounts/repo.js";
 import { createApp } from "./app.js";
+import { Backups } from "./backups.js";
 import { createBotClient } from "./botClient.js";
 import { BotMonitor } from "./botMonitor.js";
 import { CommunityRepo } from "./community/repo.js";
@@ -41,7 +42,11 @@ const purge = () =>
 await purge();
 setInterval(purge, 6 * 3_600_000).unref();
 console.log(`Comunidad (SQLite): ${stats.stickers} stickers, ${stats.sounds} sonidos · ${community.dbPath}`);
+const backups = production
+  ? new Backups(resolve(process.env.SVA_DATA_DIR ?? ".data", "backups"), community)
+  : undefined;
 const api = createApp({
+  backups,
   store,
   community,
   accounts,
@@ -103,6 +108,12 @@ if (production) {
       };
     },
   }).fetch;
+}
+
+// Daily database backups (production): /data/backups, 7 daily + 4 weekly, downloadable in /admin.
+if (production && backups) {
+  backups.start();
+  console.log(`Respaldos diarios en ${backups.dir}`);
 }
 
 // Bot monitor (production + SVA_ALERT_WEBHOOK): alerts if the bot process dies

@@ -4,6 +4,7 @@ import { type FormEvent, useState } from "react";
 import { CircleCheckIcon, Loader2Icon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ApiError, readJson } from "@/lib/api";
+import { BackupsAdmin } from "./BackupsAdmin";
 import { CommunityAdmin } from "./CommunityAdmin";
 import { FeedbackAdmin } from "./FeedbackAdmin";
 import { ReportsAdmin } from "./ReportsAdmin";
@@ -90,6 +91,7 @@ export function AdminPage() {
         <div className="mt-8 space-y-5">
           <Status data={pairing.data} loading={pairing.isPending} token={token} onUnlinked={() => void pairing.refetch()} />
           <HealthPanel token={token} />
+          <BackupsAdmin token={token} />
           <ReportsAdmin token={token} />
           <FeedbackAdmin token={token} />
           <CommunityAdmin token={token} />

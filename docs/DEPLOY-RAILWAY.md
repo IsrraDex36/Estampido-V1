@@ -1,5 +1,7 @@
 # Desplegar Estampido en Railway
 
+> **Producción ya no corre en Railway**: la guía actual es [DEPLOY-COOLIFY.md](DEPLOY-COOLIFY.md). Las secciones de vigilante, límites por IP y SEO de aquí siguen aplicando.
+
 Un solo servicio con la web, la API y el bot de WhatsApp, y un volumen en `/data` para lo que debe sobrevivir a cada despliegue.
 
 > ⚠️ **Nunca** corras el bot en tu Mac y en Railway a la vez: se pelean la sesión de WhatsApp.
