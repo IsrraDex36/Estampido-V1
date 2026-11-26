@@ -1,12 +1,9 @@
-import { useInstallPrompt } from "@/app/useInstallPrompt";
-import { DownloadIcon } from "@/components/icons";
 import { Mascot } from "@/components/pixel/Mascot";
 import { useConverterStore } from "../store/converterStore";
 
 /** Big statement + Pum singing. */
 export function Hero() {
   const hasFile = useConverterStore((s) => Boolean(s.file));
-  const { canInstall, install } = useInstallPrompt();
   return (
     <div className="relative isolate">
       <div className="flex items-end justify-between gap-6 py-10 sm:py-14 2xl:py-16">
@@ -25,17 +22,6 @@ export function Hero() {
             Convierte cualquier video, GIF o foto en un sticker de WhatsApp que suena al tocarlo. Tú eliges el momento;
             Estampido lo deja listo para enviar.
           </p>
-          {canInstall && (
-            <button
-              type="button"
-              onClick={() => void install()}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-muted px-3.5 py-2 text-[13px] font-medium transition-colors hover:bg-muted/70"
-            >
-              <DownloadIcon className="size-4" />
-              Instalar app
-              <span className="font-normal text-muted-foreground">· comparte videos directo desde WhatsApp</span>
-            </button>
-          )}
         </div>
         <Mascot
           mood="singing"
