@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { useSearch } from "wouter";
 import { selectFilters, useCommunityStore } from "./communityStore";
-import { parseFilters, serializeFilters } from "./filters";
+import { FILTER_KEYS, parseFilters, serializeFilters } from "./filters";
 
 /**
  * Two-way sync between the URL (?orden=top&cat=memes&q=…) and the store, so a
@@ -23,8 +23,14 @@ export function useFiltersUrlSync(): void {
       useCommunityStore.subscribe((state, prev) => {
         const next = serializeFilters(selectFilters(state));
         if (next === serializeFilters(selectFilters(prev))) return;
-        if (next !== window.location.search) {
-          window.history.replaceState(window.history.state, "", `${window.location.pathname}${next}`);
+        // Keep params that aren't filters (e.g. ?tab=…).
+        const merged = new URLSearchParams(window.location.search);
+        for (const k of FILTER_KEYS) merged.delete(k);
+        for (const [k, v] of new URLSearchParams(next)) merged.set(k, v);
+        const s = merged.toString();
+        const url = `${window.location.pathname}${s ? `?${s}` : ""}`;
+        if (url !== `${window.location.pathname}${window.location.search}`) {
+          window.history.replaceState(window.history.state, "", url);
         }
       }),
     [],

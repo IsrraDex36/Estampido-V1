@@ -23,6 +23,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { creatorHref, remixHref } from "@/app/routes";
 import { Avatar } from "@/features/account/Avatar";
 import { downloadUrl } from "@/lib/api";
+import { countLabel } from "@/lib/format";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { trackPlay } from "../plays";
@@ -129,15 +130,21 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
               <span className="truncate">@{sticker.creator.handle}</span>
             </Link>
           )}
-          <p className="mt-0.5 flex items-center gap-1.5 truncate text-[12px] text-muted-foreground">
-            {cat && (
-              <span>
-                {cat.emoji} {cat.label}
-              </span>
-            )}
-            {sticker.uses > 0 && <span>· {sticker.uses} {sticker.uses === 1 ? "uso" : "usos"}</span>}
-            {sticker.saves > 0 && <span>· {sticker.saves} 🔖</span>}
-          </p>
+          {cat && (
+            <p className="mt-0.5 truncate text-[12px] text-muted-foreground">
+              {cat.emoji} {cat.label}
+            </p>
+          )}
+          {(sticker.uses > 0 || sticker.saves > 0) && (
+            <p className="mt-0.5 truncate text-[12px] text-muted-foreground tabular-nums">
+              {[
+                sticker.uses > 0 && countLabel(sticker.uses, "uso", "usos"),
+                sticker.saves > 0 && countLabel(sticker.saves, "guardado", "guardados"),
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+          )}
         </div>
         <SendToWhatsAppButton sticker={sticker} />
         <div className="flex items-center justify-between text-muted-foreground">

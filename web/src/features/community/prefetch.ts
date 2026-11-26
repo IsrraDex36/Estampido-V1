@@ -7,8 +7,8 @@ export const loadCommunityPage = () => import("./CommunityPage");
 
 /**
  * Warm everything /comunidad shows first, on intent (hover, focus, touch on
- * the nav link): its JS chunk and the first feed page, ranking, viral sounds
- * and stats. Respects staleTime, so repeated hovers cost nothing. Errors are
+ * the nav link): its JS chunk and the first feed page, ranking and stats
+ * (the default «Stickers» tab; other tabs load when opened). Respects staleTime, so repeated hovers cost nothing. Errors are
  * ignored here: the page itself shows them if they persist.
  */
 export function prefetchCommunity(qc: QueryClient, search = ""): void {
@@ -16,6 +16,5 @@ export function prefetchCommunity(qc: QueryClient, search = ""): void {
   const filters = search ? parseFilters(search) : DEFAULT_FILTERS;
   void qc.prefetchInfiniteQuery(communityQueries.feed(filters));
   void qc.prefetchQuery(communityQueries.ranking());
-  void qc.prefetchInfiniteQuery(communityQueries.sounds({ sort: "top", q: "", limit: 5 }));
   void qc.prefetchQuery(communityQueries.stats());
 }

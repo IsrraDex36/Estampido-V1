@@ -3,7 +3,11 @@ import { Link } from "wouter";
 import { BookmarkIcon, Loader2Icon, PauseIcon, PlayIcon, UseSoundIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { remixHref } from "@/app/routes";
+import { countLabel } from "@/lib/format";
 import { formatTime } from "@/lib/time";
+
+/** «2 s» / «1:05» (the same short form as the sticker cards). */
+const shortDuration = (sec: number) => (sec < 60 ? `${Math.max(1, Math.round(sec))} s` : formatTime(Math.round(sec)));
 import { cn } from "@/lib/utils";
 import { useToggleFavorite } from "@/features/account/api";
 import { trackPlay } from "../plays";
@@ -76,8 +80,8 @@ export function SoundRow({
             ))}
           </div>
           <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
-            {formatTime(sound.durationSec)}
-            {sound.uses > 0 ? ` · ${sound.uses} ${sound.uses === 1 ? "uso" : "usos"}` : ""}
+            {shortDuration(sound.durationSec)}
+            {sound.uses > 0 ? ` · ${countLabel(sound.uses, "uso", "usos")}` : ""}
           </span>
         </div>
       </div>

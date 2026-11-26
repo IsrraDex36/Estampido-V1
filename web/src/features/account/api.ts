@@ -163,8 +163,12 @@ export function useToggleFavorite() {
 
 // ── creators ────────────────────────────────────────────────────────────
 export const creatorQueries = {
-  top: () =>
-    queryOptions({ queryKey: queryKeys.creators.top, queryFn: ({ signal }) => getTopCreators(signal), staleTime: 60_000 }),
+  top: (limit = 6) =>
+    queryOptions({
+      queryKey: [...queryKeys.creators.top, limit] as const,
+      queryFn: ({ signal }) => getTopCreators(signal, limit),
+      staleTime: 60_000,
+    }),
   profile: (handle: string) =>
     queryOptions({
       queryKey: queryKeys.creators.profile(handle),

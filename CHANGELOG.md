@@ -13,6 +13,13 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Comunidad por pestañas**: encabezado compacto (qué es, contadores abreviados con ícono, «cómo funciona» en 3 pasos y **Reglas de la comunidad**) y cuatro pestañas fijas — Stickers (feed + Top de la semana), Sonidos (lista completa con orden, búsqueda y paginación), Creadores (tarjetas con perfil y cifras) y Tu espacio. La pestaña vive en la URL (`?tab=sonidos`): se comparte y el botón atrás funciona. En celular la página pasó de ~8 000 px de alto a secciones cortas.
+- **Nada se rompe con datos extremos**: cifras abreviadas en todos lados (`370 k`, `1.2 M`, sin decimales desde 100 k, con espacio no separable y el número exacto al pasar el mouse), títulos/nombres/categorías truncados, biografías con cortes de palabra largos, buscador acotado.
+
+### Quitado
+
+- Las secciones de prueba «Reto semanal» y «Packs de la comunidad» («Pronto · fase 4») hasta que existan de verdad.
+
 - **Cola de conversiones para mucha gente a la vez** (`http/jobs/`): pedir lugar antes de subir (un «ocupado» no gasta datos ni corta subidas), un sticker a la vez por persona, fila con tope que cuenta las subidas en curso, rechazo con `Retry-After` cuando la espera estimada es larga, tiempo estimado con promedio móvil, tope de 180 s por sticker, cancelación que libera el lugar y FFmpeg con prioridad baja para que la web siga rápida. Trabajos en segundo plano (`202` + seguimiento) en vez de conexiones abiertas minutos.
 - **Tarjetas de error que explican y ofrecen el siguiente paso** (ocupado con reintento automático y cuenta regresiva, archivo pesado o no compatible, tardó demasiado → «Probar con 5 s», conexión, error nuestro → «Contarnos qué pasó»), con el código HTTP para soporte. Vista «En la fila · #N · espera aprox.», barra de avance aproximada y aviso previo «Hay fila».
 - `npm run loadtest`: prueba de carga real (N personas a la vez, reintentos como la web, tiempos p50/p95 y respuesta de la web durante la carga).

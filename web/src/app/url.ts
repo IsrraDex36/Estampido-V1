@@ -1,4 +1,4 @@
-import { parseFilters, serializeFilters } from "@/features/community/store/filters";
+import { canonicalCommunitySearch } from "@/features/community/store/filters";
 import { ROUTES, SOUND_PARAM } from "./routes";
 
 /**
@@ -37,7 +37,7 @@ export function canonicalPath(pathname: string): string {
 /** Per-route allowed query, canonical form ("" or "?…"). */
 export function canonicalSearch(path: string, search: string): { search: string; invalidSound: boolean } {
   const raw = search.slice(0, MAX_URL);
-  if (path === ROUTES.community) return { search: serializeFilters(parseFilters(raw)), invalidSound: false };
+  if (path === ROUTES.community) return { search: canonicalCommunitySearch(raw), invalidSound: false };
   if (path === ROUTES.create) {
     const sound = new URLSearchParams(raw).get(SOUND_PARAM);
     if (sound === null) return { search: "", invalidSound: false };

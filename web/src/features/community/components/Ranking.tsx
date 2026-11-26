@@ -1,5 +1,6 @@
 import type { CommunitySticker } from "@contract";
 import { BookmarkIcon, VoteIcon } from "@/components/icons";
+import { compactNumber } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { useRanking } from "../api/queries";
 import { trackPlay } from "../plays";
@@ -74,10 +75,10 @@ function Signals({ sticker }: { sticker: CommunitySticker }) {
       title={`${sticker.uses} usos de su sonido · ${sticker.saves} guardados`}
     >
       <span className="flex items-center gap-0.5">
-        <VoteIcon className="size-3.5" /> {sticker.uses}
+        <VoteIcon className="size-3.5" /> {compactNumber(sticker.uses)}
       </span>
       <span className="flex items-center gap-0.5">
-        <BookmarkIcon className="size-3.5" /> {sticker.saves}
+        <BookmarkIcon className="size-3.5" /> {compactNumber(sticker.saves)}
       </span>
     </span>
   );

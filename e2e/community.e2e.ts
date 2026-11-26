@@ -62,9 +62,13 @@ describe("Community (real browser, real API)", () => {
     expect(
       await page.$eval('article button[aria-label="Quitar de guardados"]', (b) => b.getAttribute("aria-pressed")),
     ).toBe("true");
+    // «Tu espacio» tab: the saved one is counted there.
+    await clickButtonWithText(page, "Tu espacio", 'nav[aria-label="Secciones de la comunidad"] [role="tab"]');
     await page.waitForFunction(() =>
       [...document.querySelectorAll('[role="tab"]')].some((t) => t.textContent === "Guardados1"),
     ); // tab with count
+    await clickButtonWithText(page, "Stickers", 'nav[aria-label="Secciones de la comunidad"] [role="tab"]');
+    await page.waitForSelector('article a[aria-label="Usar este sonido en mi clip"]');
 
     // Use its sound → Crear with the sound loaded.
     await page.click('article a[aria-label="Usar este sonido en mi clip"]');

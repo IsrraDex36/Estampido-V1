@@ -3,10 +3,10 @@ import { cn } from "@/lib/utils";
 import { CATEGORIES, FEED_SORTS, TOP_PERIODS } from "../model";
 import { useCommunityStore } from "../store/communityStore";
 
-/** Sticky filter bar: sort (+ period for Top), search, category rail. State in the community store. */
+/** Filter bar: sort (+ period for Top), search, category rail. State in the community store. (The tab bar above is the sticky one.) */
 export function FeedToolbar() {
   return (
-    <div className="sticky top-14 z-20 -mx-5 space-y-3 bg-background/85 px-5 py-3 backdrop-blur-xl sm:-mx-8 sm:px-8 2xl:-mx-12 2xl:px-12">
+    <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
         <SortTabs />
         <PeriodPicker />

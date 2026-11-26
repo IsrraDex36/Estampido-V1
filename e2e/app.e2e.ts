@@ -111,18 +111,36 @@ describe("Estampido web (real browser, real API)", () => {
     await page.click('nav a[href="/comunidad"]');
     await page.waitForFunction(() => document.body.innerText.includes("Lo que suena en el chat."));
     expect(await page.evaluate(() => location.pathname)).toBe("/comunidad");
-    const titles = await page.$$eval("section h2", (hs) => hs.map((h) => h.textContent ?? ""));
-    for (const t of [
-      "Tendencias",
-      "Top de la semana",
-      "Sonidos virales",
-      "Reto semanal",
-      "Packs de la comunidad",
-      "Tu espacio",
-      "Creadores",
-    ]) {
-      expect(titles.some((x) => x.includes(t))).toBe(true);
+    // Four tabs; each shows its own section, and the open tab is in the URL.
+    const tabs = await page.$$eval('nav[aria-label="Secciones de la comunidad"] [role="tab"]', (ts) =>
+      ts.map((t) => t.textContent?.trim() ?? ""),
+    );
+    expect(tabs).toEqual(["🔊Stickers", "Sonidos", "Creadores", "Tu espacio"]);
+    const titles = () => page.$$eval("section h2", (hs) => hs.map((h) => h.textContent ?? ""));
+    expect((await titles()).some((t) => t.includes("Tendencias"))).toBe(true);
+    expect((await titles()).some((t) => t.includes("Top de la semana"))).toBe(true);
+    for (const [tab, title, search] of [
+      ["Sonidos", "Sonidos", "?tab=sonidos"],
+      ["Creadores", "Creadores", "?tab=creadores"],
+      ["Tu espacio", "Tu espacio", "?tab=espacio"],
+    ] as const) {
+      await clickButtonWithText(page, tab, 'nav[aria-label="Secciones de la comunidad"] [role="tab"]');
+      await page.waitForFunction(
+        (t) => [...document.querySelectorAll("section h2")].some((h) => h.textContent?.includes(t)),
+        {},
+        title,
+      );
+      expect(await page.evaluate(() => location.search)).toBe(search);
     }
+    await page.goBack();
+    await page.waitForFunction(() => location.search === "?tab=creadores");
+    // Shared link straight to a tab.
+    await page.goto(new URL("/comunidad?tab=sonidos", url).href, { waitUntil: "networkidle0" });
+    expect((await titles()).some((t) => t.includes("Sonidos"))).toBe(true);
+    // No dev placeholders shown to people anymore.
+    expect(
+      await page.evaluate(() => /Pronto · fase|Reto semanal|Packs de la comunidad/.test(document.body.innerText)),
+    ).toBe(false);
     expect(await page.$eval('nav a[href="/comunidad"]', (a) => a.getAttribute("aria-current"))).toBe("page");
     await page.click('nav a[href="/"]');
     await page.waitForSelector('input[type=file][accept="video/*,image/*"]');

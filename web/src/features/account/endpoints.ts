@@ -78,8 +78,8 @@ export async function getFavoriteSounds(signal?: AbortSignal): Promise<Community
   return (await readJson<{ items: CommunitySound[] }>(await fetch("/api/me/favorites?kind=sound", { signal }))).items;
 }
 
-export async function getTopCreators(signal?: AbortSignal): Promise<CreatorProfile[]> {
-  return (await readJson<{ items: CreatorProfile[] }>(await fetch("/api/creators?limit=6", { signal }))).items;
+export async function getTopCreators(signal?: AbortSignal, limit = 6): Promise<CreatorProfile[]> {
+  return (await readJson<{ items: CreatorProfile[] }>(await fetch(`/api/creators?limit=${limit}`, { signal }))).items;
 }
 
 export async function getCreator(handle: string, signal?: AbortSignal): Promise<CreatorProfile> {

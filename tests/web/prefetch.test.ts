@@ -23,14 +23,14 @@ function stubApi() {
 }
 
 describe("prefetchCommunity", () => {
-  it("warms exactly the keys the page reads (default filters, ranking, viral sounds, stats)", async () => {
+  it("warms exactly what the default «Stickers» tab reads (feed, ranking, stats); other tabs load when opened", async () => {
     stubApi();
     const qc = createQueryClient({ success: vi.fn(), error: vi.fn() });
     prefetchCommunity(qc);
     await vi.waitFor(() => expect(qc.isFetching()).toBe(0));
     expect(qc.getQueryData(communityQueries.feed(DEFAULT_FILTERS).queryKey)?.pages[0]?.items[0]?.id).toBe("stk");
     expect(qc.getQueryData(communityQueries.stats().queryKey)).toEqual({ stickers: 3, sounds: 2, uses: 9 });
-    expect(qc.getQueryData(communityQueries.sounds({ sort: "top", q: "", limit: 5 }).queryKey)).toBeTruthy();
+    expect(qc.getQueryData(communityQueries.sounds({ sort: "top", q: "", limit: 5 }).queryKey)).toBeUndefined();
     expect(qc.getQueryData(communityQueries.ranking().queryKey)).toBeTruthy();
   });
 
