@@ -94,7 +94,36 @@ en ~2 s y un visitante normal siguió cargando en 1–34 ms.
 En **Coolify → Logs** verás, cuando haya un ataque:
 `[escudo] último minuto: 3039 frenadas por IP, 0 por saturación, 1 IPs bloqueadas`.
 
-## 5. Si te amenazan
+### Más capas (además del escudo)
+
+| Amenaza                                                                    | Defensa en la app                                                                                                      |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| «Video» trucado que hace a ffmpeg leer archivos del servidor o llamar URLs | Lista blanca de protocolos (`file,pipe`) y de formatos reales en **cada** llamada a ffmpeg/ffprobe                     |
+| Imagen gigante que agota la memoria al decodificarse                       | Máximo 8 192 px por lado, antes de decodificar                                                                         |
+| Disco o memoria a punto de acabarse                                        | Deja de aceptar conversiones nuevas (503 «intenta en un momento») en vez de caerse: < 1.5 GB libres o > 60 % de la RAM |
+| Cuerpos enormes en formularios                                             | Máximo 256 KB fuera de la subida de archivos                                                                           |
+| Apartar todos los lugares de la fila cambiando de navegador                | Límite propio por IP para pedir lugar (20 / 10 min)                                                                    |
+| Salida gigante de ffmpeg con archivos hostiles                             | Solo se guarda el final de lo que imprime                                                                              |
+| Dependencias con fallas conocidas                                          | `npm audit` en 0 (servidor y web)                                                                                      |
+
+### Modo defensa (botón en `/admin`)
+
+Durante un ataque, enciende **«Modo defensa»**: crear stickers queda solo para
+quien entró con su WhatsApp (un bot no tiene cuenta). Ver, escuchar, mandar y
+la comunidad siguen abiertos. Quien no tiene cuenta ve «Entra con tu WhatsApp
+para crear» con el botón para hacerlo. Apágalo cuando pase.
+
+## 5. Lista de verificación de cuentas y servidor
+
+- [ ] **2FA** (verificación en dos pasos) en Hetzner, Coolify, GitHub, Cloudflare y GoDaddy.
+- [ ] `SVA_ADMIN_TOKEN` largo (30+ caracteres al azar) y que no esté en ningún chat ni captura.
+- [ ] SSH **solo con llave** (sin contraseña) y puerto 22 limitado a tu IP en el firewall.
+- [ ] Panel de Coolify (8000) cerrado al público (firewall) y con 2FA.
+- [ ] Actualizaciones automáticas de seguridad del sistema (Ubuntu: `unattended-upgrades`).
+- [ ] Backups de Hetzner activados + descargar de vez en cuando el respaldo de `/admin`.
+- [ ] Monitor externo (UptimeRobot) a `/api/health` para enterarte si se cae.
+
+## 6. Si te amenazan
 
 - Guarda capturas de la amenaza (fecha, usuario, número).
 - No respondas ni negocies.

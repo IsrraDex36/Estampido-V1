@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ApiError, readJson } from "@/lib/api";
 import { BackupsAdmin } from "./BackupsAdmin";
 import { CommunityAdmin } from "./CommunityAdmin";
+import { DefenseAdmin } from "./DefenseAdmin";
 import { FeedbackAdmin } from "./FeedbackAdmin";
 import { ReportsAdmin } from "./ReportsAdmin";
 import { UnlimitedAdmin } from "./UnlimitedAdmin";
@@ -91,6 +92,7 @@ export function AdminPage() {
       ) : (
         <div className="mt-8 space-y-5">
           <Status data={pairing.data} loading={pairing.isPending} token={token} onUnlinked={() => void pairing.refetch()} />
+          <DefenseAdmin token={token} />
           <HealthPanel token={token} />
           <BackupsAdmin token={token} />
           <UnlimitedAdmin token={token} />

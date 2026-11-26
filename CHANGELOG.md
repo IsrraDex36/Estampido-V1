@@ -6,6 +6,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- Con texto + audio + archivo al límite, la subida podía rebasar el tope por no contar la capa de texto.
+- Dependencias de la web: `npm audit` en 0.
+
 - **Seguridad**: la IP del visitante se podía falsificar con el encabezado `CF-Connecting-IP` y así saltarse todos los límites. Ahora solo se cree con `SVA_BEHIND_CLOUDFLARE=1` y si la petición viene de un rango oficial de Cloudflare.
 
 - **Con el envío directo en pausa**, el botón principal ya no comparte una imagen sin sonido: ahora es «Crear con sonido en WhatsApp» (MP4 listo + pasos para el creador de stickers de WhatsApp, Android con WhatsApp Beta). Compartir como imagen queda como opción secundaria, marcada «sin sonido».
@@ -20,6 +23,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 - En la web, imagen y audio van juntos al reproducir, pausar y continuar (Comunidad y Resultado).
 
 ### Agregado
+
+- **Modo defensa** en `/admin`: durante un ataque, crear stickers queda solo para cuentas vinculadas con WhatsApp; los demás ven «Entra con tu WhatsApp para crear».
+- **Más blindaje**: ffmpeg/ffprobe solo abren archivos locales de formatos reales (lista blanca de protocolos y formatos), tope de 8 192 px por lado contra imágenes «bomba», guarda de disco/memoria que pausa conversiones nuevas antes de que el servidor se caiga, tope de 256 KB para formularios, límite propio para pedir lugar en la fila, y salida de ffmpeg acotada.
 
 - **Escudo contra ataques para tirar la página**: tope global de peticiones en curso (503 instantáneo en vez de ahogarse), tope por IP de simultáneas y de ritmo (incluye páginas y archivos), bloqueo automático de 15 min a quien insiste, tiempos de espera contra conexiones lentas, y aviso en los logs. Guía `docs/SEGURIDAD.md` (Cloudflare + firewall de Hetzner).
 

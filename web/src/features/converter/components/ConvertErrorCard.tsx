@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { CircleAlertIcon, Loader2Icon, TimerIcon, TriangleAlertIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { LinkDialog } from "@/features/bot/LinkDialog";
 import { FeedbackDialog } from "@/features/feedback/LazyFeedbackDialog";
 import { cn } from "@/lib/utils";
 import { describeFailure, type FailureAction, type FailureTone } from "../model/failure";
@@ -29,6 +30,7 @@ export function ConvertErrorCard({ failure }: { failure: ConvertFailure }) {
   const selectFile = useConverterStore((s) => s.selectFile);
   const view = describeFailure(failure, { hq });
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
   const tone = TONE[view.tone];
 
   const auto = view.autoRetrySec !== undefined && autoRetries < MAX_AUTO_RETRIES ? view.autoRetrySec : null;
@@ -36,6 +38,7 @@ export function ConvertErrorCard({ failure }: { failure: ConvertFailure }) {
 
   const run: Record<FailureAction, { label: string; onClick: () => void }> = {
     retry: { label: left !== null ? "Reintentar ahora" : "Reintentar", onClick: () => void convert() },
+    signin: { label: "Entrar con WhatsApp", onClick: () => setLinkOpen(true) },
     choose_file: { label: "Elegir otro archivo", onClick: () => selectFile(null) },
     shorter: {
       label: "Probar con 5 s",
@@ -102,6 +105,7 @@ export function ConvertErrorCard({ failure }: { failure: ConvertFailure }) {
         )}
       </div>
       <FeedbackDialog open={feedbackOpen} onOpenChange={setFeedbackOpen} />
+      {linkOpen && <LinkDialog open={linkOpen} onOpenChange={setLinkOpen} />}
     </section>
   );
 }

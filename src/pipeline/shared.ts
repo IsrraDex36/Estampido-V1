@@ -1,5 +1,6 @@
 import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { INPUT_LIMITS } from "../config/limits.js";
 import { analyzeAudio, encodeAudio, type Loudness } from "../core/audio/encodeAudio.js";
 import type { VoiceEffect } from "../core/audio/voice.js";
 import { CancelledError, throwIfCancelled, UserInputError } from "../core/errors.js";
@@ -11,11 +12,24 @@ import type { ConvertOptions, ConvertResult, ReplacementAudio } from "./types.js
 
 /** ffprobe a user-supplied file; unreadable input is the user's problem, not ours. */
 export async function probeUserFile(path: string, what: string, signal?: AbortSignal): Promise<MediaInfo> {
+  let info: MediaInfo;
   try {
-    return await probe(path, signal);
+    info = await probe(path, signal);
   } catch (err) {
     if (err instanceof CancelledError) throw err;
     throw new UserInputError(`No se pudo leer ${what}. ¿Es un archivo válido?`);
+  }
+  assertSaneSize(info, what);
+  return info;
+}
+
+/** Refuse pictures too big to decode safely (before any decode). Pure. */
+export function assertSaneSize(info: Pick<MediaInfo, "width" | "height">, what = "el archivo"): void {
+  const { maxSidePx, maxPixels } = INPUT_LIMITS;
+  if (info.width > maxSidePx || info.height > maxSidePx || info.width * info.height > maxPixels) {
+    throw new UserInputError(
+      `${what[0]?.toUpperCase()}${what.slice(1)} es demasiado grande (${info.width}×${info.height}). Máximo ${maxSidePx} px por lado.`,
+    );
   }
 }
 

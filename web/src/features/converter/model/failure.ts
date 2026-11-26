@@ -1,6 +1,6 @@
 import type { ConvertFailure } from "../types";
 
-export type FailureAction = "retry" | "choose_file" | "shorter" | "no_hq" | "feedback";
+export type FailureAction = "retry" | "choose_file" | "shorter" | "no_hq" | "feedback" | "signin";
 export type FailureTone = "busy" | "file" | "connection" | "error";
 
 export interface FailureView {
@@ -22,6 +22,14 @@ export interface FailureView {
  */
 export function describeFailure(f: ConvertFailure, opts: { hq?: boolean } = {}): FailureView {
   switch (f.code) {
+    case "signin_required":
+      return {
+        tone: "busy",
+        title: "Entra con tu WhatsApp para crear",
+        body: f.message,
+        tips: ["Es gratis y toma 10 segundos: mandas un código desde tu WhatsApp."],
+        actions: ["signin"],
+      };
     case "busy":
       return {
         tone: "busy",

@@ -47,6 +47,7 @@ import { convertRoutes } from "./jobs/routes.js";
 import { linkGreeting } from "./linkGreeting.js";
 import { ModerationRepo } from "./moderation/repo.js";
 import { moderationRoutes } from "./moderation/routes.js";
+import type { ResourceProblem } from "./resources.js";
 import { ResultStore, SERVABLE_FILES, type ServableFile } from "./resultStore.js";
 import { normalizeHandle, SettingsRepo } from "./settings.js";
 import { OgImages } from "./social/og.js";
@@ -78,6 +79,8 @@ export interface AppDeps {
    * random secret; unset or short → the endpoint doesn't exist (404).
    */
   adminToken?: string;
+  /** Disk/memory guard (production): refuse new heavy work while short. */
+  resources?: { problem(): Promise<ResourceProblem> };
   /** Per-account publishing quota overrides (tests). */
   publishQuota?: Partial<Pick<PublishQuota, "perHour" | "perDay">>;
   /** Handles with no publishing quota (owner): SVA_UNLIMITED_HANDLES="isra,otro". */
@@ -187,7 +190,18 @@ export function createApp(deps: AppDeps = {}): ApiApp {
   );
 
   // Conversions: admission-controlled queue, sync or background jobs.
-  app.route("/", convertRoutes({ store, convert, queue: conversionQueue, registry: jobRegistry }));
+  app.route(
+    "/",
+    convertRoutes({
+      store,
+      convert,
+      queue: conversionQueue,
+      registry: jobRegistry,
+      resources: deps.resources,
+      // Defense mode: only signed-in people create (bots don't have WhatsApp accounts).
+      mayCreate: async (c) => !(await settings.defenseMode()) || Boolean(c.get("user")),
+    }),
+  );
 
   app.get("/whatsapp/status", async (c) =>
     c.json({ ...(await bot.status()), selfSend: deps.ownerSelfSend === true } satisfies WhatsAppStatus),
@@ -228,6 +242,21 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       fromEnv: [...unlimitedHandles],
     };
   };
+  app.get("/admin/settings/defense", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    return c.json({ on: await settings.defenseMode() });
+  });
+  app.put("/admin/settings/defense", async (c) => {
+    const denied = adminDenied(c);
+    if (denied) return denied;
+    const body = (await c.req.json().catch(() => null)) as { on?: unknown } | null;
+    if (typeof body?.on !== "boolean") return c.json(fail("bad_request", "Manda { on: true | false }."), 400);
+    const on = await settings.setDefenseMode(body.on);
+    console.warn(`[admin] modo defensa ${on ? "ACTIVADO" : "desactivado"}`);
+    return c.json({ on });
+  });
+
   app.get("/admin/settings/unlimited", async (c) => {
     const denied = adminDenied(c);
     if (denied) return denied;

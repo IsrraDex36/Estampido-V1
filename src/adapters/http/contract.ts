@@ -515,6 +515,7 @@ export type ConvertErrorCode =
   | "unprocessable" // 422: the file couldn't be read / converted
   | "expired" // 404: the job is gone (server restarted or >30 min)
   | "internal" // 500
+  | "signin_required" // 401: defense mode — only linked WhatsApp accounts can create for now
   | "network" // client side: no connection
   | "aborted"; // client side: cancelled
 

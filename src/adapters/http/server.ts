@@ -5,6 +5,7 @@ import { extname, join, normalize, resolve, sep } from "node:path";
 import { Readable } from "node:stream";
 import { getConnInfo } from "@hono/node-server/conninfo";
 import { type Context, Hono, type MiddlewareHandler } from "hono";
+import { bodyLimit } from "hono/body-limit";
 import { RateLimiter } from "../../utils/rateLimit.js";
 import type { ApiApp } from "./app.js";
 import type { ApiErrorBody } from "./contract.js";
@@ -37,8 +38,13 @@ export interface ServerOptions {
 }
 
 const MIN = 60_000;
+/** JSON bodies (forms, settings): far more than any real one. */
+export const JSON_BODY_LIMIT = 256 * 1024;
+/** Routes that receive files (they enforce their own size limits). */
+const UPLOAD_PATHS = /^\/api\/convert$/;
 export const DEFAULT_LIMITS = {
   convert: { max: 15, windowMs: 10 * MIN }, // CPU-heavy
+  slot: { max: 20, windowMs: 10 * MIN },
   // Many people share one IP on mobile data (CGNAT): room for a crowd, still a cap.
   linkCode: { max: 30, windowMs: 10 * MIN },
   send: { max: 40, windowMs: 10 * MIN },
@@ -58,6 +64,9 @@ export type LimitName = keyof typeof DEFAULT_LIMITS;
 
 const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; path: RegExp }[] = [
   { name: "convert", method: "POST", path: /^\/api\/convert$/ },
+  // A place in line is cheap to ask for but holds a queue spot: its own limit,
+  // so one IP rotating browser ids can't fill the line for everyone.
+  { name: "slot", method: "POST", path: /^\/api\/convert\/slot$/ },
   { name: "linkCode", method: "POST", path: /^\/api\/whatsapp\/link$/ },
   { name: "send", method: "POST", path: /^\/api\/(results|community\/stickers)\/[^/]+\/whatsapp$/ },
   { name: "publish", method: "POST", path: /^\/api\/community\/stickers$/ },
@@ -247,6 +256,15 @@ export function createServerApp(opts: ServerOptions): Hono {
     shield.middleware((c) => clientIp(c, opts.trustProxy ?? false, opts.behindCloudflare)),
   );
   app.use("*", securityHeaders(csp, opts.trustProxy ?? false));
+  // Small bodies everywhere except the uploads (which have their own, larger caps).
+  const smallBody = bodyLimit({
+    maxSize: JSON_BODY_LIMIT,
+    onError: (c) => c.json(fail("too_large", "La solicitud es demasiado grande."), 413),
+  });
+  app.use("/api/*", async (c, next) => {
+    if (c.req.method === "GET" || c.req.method === "HEAD" || UPLOAD_PATHS.test(c.req.path)) return next();
+    return smallBody(c, next);
+  });
   app.use("*", rateLimits(opts));
   app.route("/", opts.api);
 

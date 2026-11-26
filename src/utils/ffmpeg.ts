@@ -17,6 +17,74 @@ function resolveBinary(name: "ffmpeg" | "ffprobe", envVar: string): string {
 export const ffmpegPath = (): string => resolveBinary("ffmpeg", "FFMPEG_PATH");
 export const ffprobePath = (): string => resolveBinary("ffprobe", "FFPROBE_PATH");
 
+/**
+ * Real media containers only. Never playlists or file-referencing formats
+ * (hls, concat, dash, …): a crafted «video» could otherwise make ffmpeg read
+ * server files or call URLs. Current ffmpeg refuses those by default; this is
+ * defense in depth that doesn't depend on the build.
+ */
+export const SAFE_FORMATS = [
+  "mov,mp4,m4a,3gp,3g2,mj2",
+  "matroska,webm",
+  "avi",
+  "flv",
+  "mpegts",
+  "mpeg",
+  "asf",
+  "gif",
+  "gif_pipe",
+  "webp_pipe",
+  "webp_anim",
+  "webp",
+  "png_pipe",
+  "jpeg_pipe",
+  "bmp_pipe",
+  "tiff_pipe",
+  "image2",
+  "ogg",
+  "mp3",
+  "wav",
+  "aac",
+  "flac",
+  "amr",
+  "caf",
+  "aiff",
+  "lavfi",
+].join(",");
+const INPUT_GUARD = ["-protocol_whitelist", "file,pipe", "-format_whitelist", SAFE_FORMATS];
+
+/**
+ * Put the guard in front of every file input (ffmpeg: each `-i` not fed by
+ * `-f lavfi`; ffprobe: once, before its input). Pure (tested).
+ */
+export function hardenArgs(bin: string, args: readonly string[]): string[] {
+  const name =
+    bin
+      .split(/[\\/]/)
+      .at(-1)
+      ?.replace(/\.exe$/, "") ?? bin;
+  if (name === "ffprobe") return [...INPUT_GUARD, ...args];
+  if (name !== "ffmpeg") return [...args];
+  const out: string[] = [];
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i] as string;
+    const lavfi = args[i - 2] === "-f" && args[i - 1] === "lavfi";
+    if (a === "-i" && !lavfi) {
+      // `-f <fmt>` given for this input already pins the demuxer; still forbid network.
+      const pinned = args[i - 2] === "-f";
+      out.push(...(pinned ? INPUT_GUARD.slice(0, 2) : INPUT_GUARD));
+    }
+    out.push(a);
+  }
+  return out;
+}
+
+/** Keep only the tail of noisy output (a hostile file can make ffmpeg print a lot). */
+const MAX_STDERR = 64 * 1024;
+/** stdout carries data (ffprobe JSON): a generous cap, only against abuse. */
+const MAX_STDOUT = 8 * 1024 * 1024;
+const tail = (s: string, max: number) => (s.length > max ? s.slice(-max) : s);
+
 export interface RunResult {
   stdout: string;
   stderr: string;
@@ -48,7 +116,7 @@ export function run(
 ): Promise<RunResult> {
   return new Promise((resolve, reject) => {
     if (signal?.aborted) return reject(new CancelledError());
-    const child = spawn(bin, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(bin, hardenArgs(bin, args), { stdio: ["ignore", "pipe", "pipe"] });
     // Lower CPU priority: under load the web and the API stay snappy while
     // conversions share what's left (SVA_FFMPEG_NICE=0 to disable).
     if (child.pid && FFMPEG_NICE > 0) {
@@ -68,10 +136,10 @@ export function run(
     let stdout = "";
     let stderr = "";
     child.stdout.on("data", (d) => {
-      stdout += d;
+      stdout = tail(stdout + d, MAX_STDOUT);
     });
     child.stderr.on("data", (d) => {
-      stderr += d;
+      stderr = tail(stderr + d, MAX_STDERR);
     });
 
     const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);

@@ -500,3 +500,30 @@ describe("owner sets unlimited users from /admin", () => {
     }
   });
 });
+
+describe("defense mode (/admin)", () => {
+  it("only signed-in people can ask for a place in line while it's on; off again → open", async () => {
+    const { rm: rmDir } = await import("node:fs/promises");
+    const { makeHarness } = await import("../helpers/apiHarness.js");
+    const { makeTempDir } = await import("../helpers/fixtures.js");
+    const d = await makeTempDir();
+    const hq = await makeHarness(d);
+    try {
+      await hq.signIn("ana", "ana");
+      const set = (on: unknown) =>
+        hq.admin("/api/admin/settings/defense", { method: "PUT", body: JSON.stringify({ on }) });
+      expect((await hq.app.request("/api/admin/settings/defense")).status).toBe(401);
+      expect((await set("yes")).status).toBe(400);
+      expect(await (await set(true)).json()).toEqual({ on: true });
+      const anon = await hq.req("beto", "/api/convert/slot", { method: "POST" });
+      expect(anon.status).toBe(401);
+      expect(await anon.json()).toMatchObject({ error: { code: "signin_required" } });
+      expect((await hq.req("ana", "/api/convert/slot", { method: "POST" })).status).toBe(200);
+      await set(false);
+      expect((await hq.req("beto", "/api/convert/slot", { method: "POST" })).status).toBe(200);
+    } finally {
+      hq.close();
+      await rmDir(d, { recursive: true, force: true });
+    }
+  });
+});

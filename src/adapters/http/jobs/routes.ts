@@ -22,6 +22,7 @@ import {
   type QueueInfo,
   SLOT_HEADER,
 } from "../contract.js";
+import { RESOURCE_MESSAGES, type ResourceProblem } from "../resources.js";
 import type { ResultStore } from "../resultStore.js";
 import { convertFieldsSchema } from "../schema.js";
 import { type Admission, type ConversionQueue, JobTimeoutError, type Ticket } from "./queue.js";
@@ -77,6 +78,10 @@ export interface ConvertRoutesDeps {
   registry: JobRegistry;
   /** How long a reserved slot waits for its upload (s). */
   slotTtlSec?: number;
+  /** Disk/memory guard: new work is refused while the machine is short. */
+  resources?: { problem(): Promise<ResourceProblem> };
+  /** «Modo defensa»: when it says no, creating needs a signed-in account. */
+  mayCreate?: (c: Context<AppEnv>) => Promise<boolean>;
   now?: () => number;
 }
 
@@ -107,7 +112,10 @@ export function convertRoutes({
   registry,
   slotTtlSec = 300,
   now = Date.now,
+  resources,
+  mayCreate,
 }: ConvertRoutesDeps): Hono<AppEnv> {
+  const deps = { resources };
   const app = new Hono<AppEnv>();
 
   /**
@@ -128,8 +136,29 @@ export function convertRoutes({
   const sweeper = setInterval(sweepSlots, 15_000);
   sweeper.unref?.();
 
-  app.post("/convert/slot", (c) => {
+  /** Short on disk/memory → refuse new work (503 + Retry-After), keep the site up. */
+  const shortOnResources = async (c: Context<AppEnv>): Promise<Response | null> => {
+    if (mayCreate && !(await mayCreate(c))) {
+      return reply(c, {
+        status: 401,
+        code: "signin_required",
+        message: "Estamos protegiendo el servicio por mucha demanda: por ahora, entra con tu WhatsApp para crear.",
+      });
+    }
+    const p = (await deps.resources?.problem()) ?? null;
+    if (!p) return null;
+    return reply(c, {
+      status: 503,
+      code: "busy",
+      message: RESOURCE_MESSAGES[p],
+      retryAfterSec: p === "disk" ? 120 : 15,
+    });
+  };
+
+  app.post("/convert/slot", async (c) => {
     sweepSlots();
+    const short = await shortOnResources(c);
+    if (short) return short;
     const client = clientHash(c.req.header(CLIENT_HEADER));
     if (!client)
       return reply(c, { status: 400, code: "bad_options", message: "Falta el identificador del navegador." });
@@ -184,7 +213,7 @@ export function convertRoutes({
   app.post(
     "/convert",
     bodyLimit({
-      maxSize: API_LIMITS.maxUploadBytes + API_LIMITS.maxAudioBytes + 64 * 1024,
+      maxSize: API_LIMITS.maxUploadBytes + API_LIMITS.maxAudioBytes + API_LIMITS.maxOverlayBytes + 64 * 1024,
       onError: (c) =>
         reply(c, {
           status: 413,
@@ -194,6 +223,10 @@ export function convertRoutes({
     }),
     async (c) => {
       const client = clientOf(c);
+      if (!c.req.header(SLOT_HEADER)) {
+        const short = await shortOnResources(c);
+        if (short) return short;
+      }
       // 1. Admission: a slot reserved before uploading, or decide now — before reading the upload.
       const admitted = ticketFor(c, client);
       if ("status" in admitted) return reply(c, admitted);

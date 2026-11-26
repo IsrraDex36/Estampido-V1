@@ -14,8 +14,31 @@ export function normalizeHandle(raw: string): string | null {
   return HANDLE_RE.test(h) ? h : null;
 }
 
+const DEFENSE_KEY = "defense_mode";
+
 export class SettingsRepo {
   private cache: Set<string> | null = null;
+  private defense: boolean | null = null;
+
+  /** «Modo defensa»: during an attack, only signed-in (WhatsApp-linked) people can create. */
+  async defenseMode(): Promise<boolean> {
+    if (this.defense !== null) return this.defense;
+    const db = await this.community.connection();
+    const row = db.prepare("SELECT value FROM settings WHERE key = ?").get(DEFENSE_KEY) as
+      | { value: string }
+      | undefined;
+    this.defense = row?.value === "1";
+    return this.defense;
+  }
+
+  async setDefenseMode(on: boolean): Promise<boolean> {
+    const db = await this.community.connection();
+    db.prepare(
+      "INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT (key) DO UPDATE SET value = excluded.value",
+    ).run(DEFENSE_KEY, on ? "1" : "0");
+    this.defense = on;
+    return on;
+  }
 
   constructor(private readonly community: CommunityRepo) {}
 

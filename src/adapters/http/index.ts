@@ -1,5 +1,5 @@
 import { existsSync } from "node:fs";
-import { availableParallelism } from "node:os";
+import { availableParallelism, totalmem } from "node:os";
 import { resolve } from "node:path";
 import { serve } from "@hono/node-server";
 import { communityRoot } from "../../config/paths.js";
@@ -10,6 +10,7 @@ import { Backups } from "./backups.js";
 import { createBotClient } from "./botClient.js";
 import { BotMonitor } from "./botMonitor.js";
 import { CommunityRepo } from "./community/repo.js";
+import { defaultResourceDirs, ResourceGuard } from "./resources.js";
 import { ResultStore } from "./resultStore.js";
 import { createServerApp, parseLimits } from "./server.js";
 import { Shield } from "./shield.js";
@@ -46,8 +47,17 @@ console.log(`Comunidad (SQLite): ${stats.stickers} stickers, ${stats.sounds} son
 const backups = production
   ? new Backups(resolve(process.env.SVA_DATA_DIR ?? ".data", "backups"), community)
   : undefined;
+// Refuse new conversions/publishing while short on disk (< 1.5 GB) or memory.
+const resources = production
+  ? new ResourceGuard({
+      minFreeBytes: (num(process.env.SVA_MIN_FREE_MB) ?? 1536) * 1024 * 1024,
+      maxRssBytes: (num(process.env.SVA_MAX_RSS_MB) ?? Math.round((totalmem() / 1024 / 1024) * 0.6)) * 1024 * 1024,
+      dirs: defaultResourceDirs(resolve(process.env.SVA_DATA_DIR ?? ".data")),
+    })
+  : undefined;
 const api = createApp({
   backups,
+  resources,
   // The owner publishes in batches: no per-account quota for these handles.
   unlimitedHandles: process.env.SVA_UNLIMITED_HANDLES?.split(","),
   store,

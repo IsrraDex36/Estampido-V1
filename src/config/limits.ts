@@ -71,4 +71,11 @@ export const INPUT_LIMITS = {
   maxVideoBytes: 50 * 1024 * 1024,
   /** Max size of a replacement audio file. */
   maxAudioBytes: 20 * 1024 * 1024,
+  /**
+   * Max picture side and total pixels. A tiny file can declare a gigantic
+   * picture («decompression bomb») that eats all the memory when decoded.
+   * 8K covers every real phone photo/video.
+   */
+  maxSidePx: 8_192,
+  maxPixels: 8_192 * 8_192,
 } as const;

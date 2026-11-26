@@ -60,6 +60,27 @@ describe("share target (Android «Compartir» → Estampido)", () => {
   });
 });
 
+describe("hardening", () => {
+  it("big JSON bodies are refused before any route reads them (uploads keep their own cap)", async () => {
+    const app = createServerApp({ api: api(), trustProxy: true });
+    const big = JSON.stringify({ x: "a".repeat(300 * 1024) });
+    const r = await app.request("/api/feedback", {
+      method: "POST",
+      headers: { "content-type": "application/json", "content-length": String(big.length), ...ip("7.7.7.7") },
+      body: big,
+    });
+    expect(r.status).toBe(413);
+  });
+
+  it("asking for places in line has its own per-IP limit", async () => {
+    const app = createServerApp({ api: api(), trustProxy: true, limits: { slot: { max: 2, windowMs: 60_000 } } });
+    const ask = () => app.request("/api/convert/slot", { method: "POST", headers: ip("8.8.4.4") });
+    expect((await ask()).status).not.toBe(429);
+    expect((await ask()).status).not.toBe(429);
+    expect((await ask()).status).toBe(429);
+  });
+});
+
 describe("production server", () => {
   it("SEO: per-route head with absolute URLs from the proxy host; robots.txt + sitemap.xml", async () => {
     const app = createServerApp({ api: api(), webDist: dist, trustProxy: true, googleVerification: "abcDEF123_-xyz" });
