@@ -57,6 +57,13 @@ function slice(ctx: BaseAudioContext, buf: AudioBuffer, start: number, duration:
   return out;
 }
 
+/** A waveshaper curve from a transfer function on [-1, 1]. */
+function curve(fn: (x: number) => number, n = 1024): Float32Array<ArrayBuffer> {
+  const c = new Float32Array(n);
+  for (let i = 0; i < n; i++) c[i] = fn((i / (n - 1)) * 2 - 1);
+  return c;
+}
+
 /** Echo bus: delayed copies with feedback, mixed back in. */
 function echo(ctx: AudioContext, input: AudioNode, out: AudioNode, delays: number[], feedback: number, wet: number) {
   for (const [i, t] of delays.entries()) {
@@ -135,6 +142,89 @@ export function playEffect(
       lfo.connect(depth).connect(d.delayTime);
       extra.push(lfo);
       src.connect(d).connect(out);
+      break;
+    }
+    case "megafono": {
+      const hp = ctx.createBiquadFilter();
+      hp.type = "highpass";
+      hp.frequency.value = 600;
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 4000;
+      const drive = ctx.createWaveShaper();
+      drive.curve = curve((x) => Math.tanh(x * 3));
+      src.connect(hp).connect(lp).connect(drive).connect(out);
+      break;
+    }
+    case "videojuego": {
+      const crush = ctx.createWaveShaper();
+      crush.curve = curve((x) => Math.round(x * 8) / 8); // 4-bit steps
+      src.connect(crush).connect(out);
+      break;
+    }
+    case "fantasma": {
+      // Long, dark echoes (the server's version swells in reversed; close enough to hear).
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 2500;
+      src.connect(out);
+      src.connect(lp);
+      echo(ctx, lp, out, [0.18, 0.36], 0.5, 0.6);
+      tail = 1.4;
+      break;
+    }
+    case "mareado": {
+      const d = ctx.createDelay(0.1);
+      d.delayTime.value = 0.02;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 2;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.012;
+      lfo.connect(depth).connect(d.delayTime);
+      const trem = ctx.createGain();
+      const tlfo = ctx.createOscillator();
+      tlfo.frequency.value = 3;
+      const tdepth = ctx.createGain();
+      tdepth.gain.value = 0.35;
+      tlfo.connect(tdepth).connect(trem.gain);
+      extra.push(lfo, tlfo);
+      src.connect(d).connect(trem).connect(out);
+      break;
+    }
+    case "coro": {
+      src.connect(out);
+      for (const [t, f] of [
+        [0.025, 0.5],
+        [0.032, 0.7],
+        [0.04, 0.3],
+      ] as const) {
+        const d = ctx.createDelay(0.1);
+        d.delayTime.value = t;
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = f;
+        const depth = ctx.createGain();
+        depth.gain.value = 0.003;
+        lfo.connect(depth).connect(d.delayTime);
+        const g = ctx.createGain();
+        g.gain.value = 0.35;
+        extra.push(lfo);
+        src.connect(d).connect(g).connect(out);
+      }
+      break;
+    }
+    case "agua": {
+      const lp = ctx.createBiquadFilter();
+      lp.type = "lowpass";
+      lp.frequency.value = 500;
+      const d = ctx.createDelay(0.05);
+      d.delayTime.value = 0.008;
+      const lfo = ctx.createOscillator();
+      lfo.frequency.value = 4;
+      const depth = ctx.createGain();
+      depth.gain.value = 0.002;
+      lfo.connect(depth).connect(d.delayTime);
+      extra.push(lfo);
+      src.connect(lp).connect(d).connect(out);
       break;
     }
     case "cueva":

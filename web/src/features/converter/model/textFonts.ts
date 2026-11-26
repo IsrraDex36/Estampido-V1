@@ -11,6 +11,16 @@ const LOADERS: Partial<Record<TextFont, () => Promise<unknown>>> = {
   poster: () => import("@fontsource/bebas-neue/latin-400.css"),
   marker: () => import("@fontsource/permanent-marker/latin-400.css"),
   script: () => import("@fontsource/pacifico/latin-400.css"),
+  cartoon: () => import("@fontsource/lilita-one/latin-400.css"),
+  rounded: () => import("@fontsource/fredoka/latin-700.css"),
+  sign: () => import("@fontsource/bungee/latin-400.css"),
+  pop: () => import("@fontsource/shrikhand/latin-400.css"),
+  retro: () => import("@fontsource/righteous/latin-400.css"),
+  vintage: () => import("@fontsource/lobster/latin-400.css"),
+  note: () => import("@fontsource/caveat/latin-700.css"),
+  army: () => import("@fontsource/black-ops-one/latin-400.css"),
+  horror: () => import("@fontsource/creepster/latin-400.css"),
+  disco: () => import("@fontsource/monoton/latin-400.css"),
 };
 
 const loaded = new Map<TextFont, Promise<unknown>>();

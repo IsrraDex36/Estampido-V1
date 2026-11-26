@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   clampPos,
@@ -87,9 +88,14 @@ describe("free colors, fonts and styles", () => {
     expect(outlineFor("nope")).toBe("#000000");
   });
 
-  it("8 typefaces with a family fallback, 4 styles", () => {
-    expect(Object.keys(TEXT_FONTS)).toHaveLength(8);
+  it("18 typefaces with a family fallback, 4 styles", () => {
+    expect(Object.keys(TEXT_FONTS)).toHaveLength(18);
     for (const f of Object.values(TEXT_FONTS)) expect(f.family).toMatch(/,/);
+    // Every downloadable typeface has a loader (else it would silently fall back).
+    const builtIn = new Set(["classic", "pixel"]);
+    const src = readFileSync(new URL("../../web/src/features/converter/model/textFonts.ts", import.meta.url), "utf8");
+    for (const key of Object.keys(TEXT_FONTS))
+      if (!builtIn.has(key)) expect(src, key).toMatch(new RegExp(`\\b${key}: \\(\\) => import\\(`));
     expect(Object.keys(TEXT_STYLES)).toEqual(["outline", "shadow", "box", "neon"]);
     expect(EMPTY_TEXT.style).toBe("outline");
   });

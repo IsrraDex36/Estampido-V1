@@ -10,10 +10,36 @@ export type MediaKind = "video" | "animated" | "image";
 export const STICKER_DEFAULTS = { packName: "Busca o crea más en", publisher: "estampido.isrradev.com" } as const;
 
 /** Voice effects for the sound (mirrors core/audio/voice.ts, asserted by tests). */
-export const VOICE_EFFECTS = ["ardilla", "monstruo", "robot", "radio", "alien", "cueva", "eco", "reversa"] as const;
+export const VOICE_EFFECTS = [
+  "ardilla",
+  "monstruo",
+  "robot",
+  "radio",
+  "alien",
+  "cueva",
+  "eco",
+  "reversa",
+  "megafono",
+  "videojuego",
+  "fantasma",
+  "mareado",
+  "coro",
+  "agua",
+] as const;
 export type VoiceEffect = (typeof VOICE_EFFECTS)[number];
 /** Picture color filters (mirrors core/frame/adjust.ts, asserted by tests). */
-export const COLOR_LOOKS = ["bn", "vivo", "retro", "frio", "calido"] as const;
+export const COLOR_LOOKS = [
+  "bn",
+  "vivo",
+  "retro",
+  "frio",
+  "calido",
+  "noir",
+  "cine",
+  "suave",
+  "negativo",
+  "rosa",
+] as const;
 export type ColorLook = (typeof COLOR_LOOKS)[number];
 
 /** Multipart: `media` (video, GIF or image; legacy name `video`) + optional `audio`. */

@@ -16,6 +16,14 @@ const { formFor } = await import("../../web/src/lib/api.js");
 const { DEFAULT_OPTIONS } = await import("../../web/src/features/converter/model/defaults.js");
 const { deriveSegment } = await import("../../web/src/features/converter/model/segment.js");
 const { API_LIMITS } = await import("../../src/adapters/http/contract.js");
+const { tabChanged } = await import("../../web/src/features/converter/model/resetTab.js");
+const changed = (tab: Parameters<typeof tabChanged>[0]) =>
+  tabChanged(tab, {
+    options: st().options,
+    text: st().text,
+    hasAudioFile: st().audioFile !== null,
+    kind: st().inputKind,
+  });
 
 const file = (name: string, type: string, size = 10) => new File([new Uint8Array(size)], name, { type });
 const initial = useConverterStore.getState();
@@ -157,5 +165,65 @@ describe("length rules", () => {
 
   it("HQ never promises more than 1 MB", () => {
     expect(API_LIMITS.maxExperimentalKb).toBe(1024);
+  });
+});
+
+describe("«Restablecer» per tab", () => {
+  it("nothing to reset on a fresh clip", () => {
+    st().selectFile(file("a.mp4", "video/mp4"));
+    for (const tab of ["time", "sound", "style", "text", "pack"] as const) expect(changed(tab), tab).toBe(false);
+  });
+
+  it("each tab resets only its own choices", () => {
+    st().selectFile(file("a.mp4", "video/mp4"));
+    st().updateOptions({
+      startSec: 3,
+      durationSec: 10,
+      voice: "eco",
+      fit: "crop",
+      cropX: 0.2,
+      look: "bn",
+      flip: true,
+      hq: true,
+      packName: "Mío",
+    });
+    st().selectAudioFile(file("s.mp3", "audio/mpeg"));
+    st().updateText({ top: "hola", emojis: [{ id: "e", char: "🔥", x: 0.5, y: 0.5, size: 0.2 }] });
+    for (const tab of ["time", "sound", "style", "text", "pack"] as const) expect(changed(tab), tab).toBe(true);
+
+    st().resetTab("style");
+    expect(st().options).toMatchObject({ fit: "pad", cropX: undefined, look: undefined, flip: false, hq: false });
+    expect(st().options.voice).toBe("eco"); // other tabs untouched
+    expect(st().text.top).toBe("hola");
+    expect(changed("style")).toBe(false);
+
+    st().resetTab("sound");
+    expect(st().audioFile).toBeNull();
+    expect(st().options).toMatchObject({ includeAudio: true, voice: undefined, audioStartSec: 0 });
+
+    st().resetTab("text");
+    expect(st().text.top).toBe("");
+    expect(st().text.emojis).toEqual([]);
+
+    st().resetTab("time");
+    expect(st().options).toMatchObject({ startSec: 0, durationSec: 5 });
+
+    st().resetTab("pack");
+    expect(st().options).toMatchObject({ includeMetadata: true, packName: "" });
+    for (const tab of ["time", "sound", "style", "text", "pack"] as const) expect(changed(tab), tab).toBe(false);
+  });
+
+  it("time on an image resets to «Auto» (the sound's own length)", () => {
+    st().selectFile(file("a.png", "image/png"));
+    st().updateOptions({ durationSec: 7 });
+    expect(changed("time")).toBe(true);
+    st().resetTab("time");
+    expect(st().options.durationSec).toBeUndefined();
+  });
+
+  it("blank pack fields don't count as changes", () => {
+    st().selectFile(file("a.mp4", "video/mp4"));
+    st().updateOptions({ packName: "   " });
+    expect(changed("pack")).toBe(false);
   });
 });

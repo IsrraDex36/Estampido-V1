@@ -14,6 +14,7 @@ export {
   ArrowSquareOutIcon as ExternalIcon,
   ArrowUpIcon,
   ArrowsClockwiseIcon as SwapIcon,
+  ArrowCounterClockwiseIcon as ResetIcon,
   GifIcon,
   FlagIcon,
   UserCircleIcon,

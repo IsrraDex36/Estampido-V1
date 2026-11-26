@@ -9,6 +9,12 @@ export const VOICE_LABELS: Record<VoiceEffect, string> = {
   cueva: "Cueva",
   eco: "Eco",
   reversa: "Reversa",
+  megafono: "Megáfono",
+  videojuego: "Videojuego",
+  fantasma: "Fantasma",
+  mareado: "Mareado",
+  coro: "Coro",
+  agua: "Bajo el agua",
 };
 export const VOICE_EMOJI: Record<VoiceEffect, string> = {
   ardilla: "🐿️",
@@ -19,4 +25,10 @@ export const VOICE_EMOJI: Record<VoiceEffect, string> = {
   cueva: "🦇",
   eco: "🔁",
   reversa: "⏪",
+  megafono: "📢",
+  videojuego: "👾",
+  fantasma: "👻",
+  mareado: "😵‍💫",
+  coro: "🎶",
+  agua: "🫧",
 };

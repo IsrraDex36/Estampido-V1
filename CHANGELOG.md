@@ -13,6 +13,15 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Agregado
 
+- **Restablecer por pestaña**: cada pestaña de ajustes (Tiempo, Sonido, Estilo, Texto, Pack) muestra «Restablecer …» solo cuando cambiaste algo, y regresa únicamente lo suyo.
+- **+10 tipografías** (Caricatura, Redonda, Letrero, Pop, Retro, Vintage, Nota, Militar, Terror, Disco → 18 en total), que se descargan solo al aparecer en pantalla.
+- **+6 efectos de voz** (Megáfono, Videojuego, Fantasma, Mareado, Coro, Bajo el agua → 14) con su vista previa en «Escuchar».
+- **+5 filtros de color** (Noir, Cine, Suave, Negativo, Rosa → 10).
+
+### Corregido
+
+- Prueba de cancelación en cola intermitente en CI (dependía de un tiempo fijo).
+
 - **Mover el texto y emojis como capa**: arrastra cada texto a donde quieras en la vista previa («Volver el texto arriba / abajo» lo regresa); agrega hasta 6 emojis desde una fila rápida, muévelos, cambia su tamaño o quítalos. Todo sale igual en el sticker final.
 
 - **Escuchar el efecto de voz antes de crear**: botón «Escuchar» en Sonido (Web Audio en el navegador, hasta 6 s, aproximado); al tocar otro efecto mientras suena cambia al instante.

@@ -2,8 +2,9 @@ import { readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../../src/adapters/http/app.js";
-import { type ConvertResponse, VOICE_EFFECTS } from "../../src/adapters/http/contract.js";
+import { COLOR_LOOKS, type ConvertResponse, VOICE_EFFECTS } from "../../src/adapters/http/contract.js";
 import { ResultStore } from "../../src/adapters/http/resultStore.js";
+import { encodeImage } from "../../src/core/image/encodeImage.js";
 import { probe } from "../../src/core/probe/probe.js";
 import { ffmpegPath, run } from "../../src/utils/ffmpeg.js";
 import { firstFramePixel, makePng, makeTempDir, makeVideo } from "../helpers/fixtures.js";
@@ -97,6 +98,13 @@ describe("editor (real ffmpeg)", () => {
         .map((c, i) => Math.abs(c - (plainRight[i] ?? 0)))
         .every((d) => d < 40),
     ).toBe(true);
+  });
+
+  it.each([...COLOR_LOOKS])("look «%s» encodes with real ffmpeg", async (look) => {
+    const png = await makePng(dir, `look-${look}.png`);
+    const out = join(dir, `look-${look}.webp`);
+    await encodeImage({ input: png, output: out, adjust: { look } });
+    expect((await probe(out)).width).toBe(512);
   });
 
   it.each([...VOICE_EFFECTS])("voice «%s» keeps the sound's length", async (voice) => {

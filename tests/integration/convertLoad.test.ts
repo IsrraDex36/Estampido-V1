@@ -194,7 +194,7 @@ describe("fairness and lifecycle", () => {
   it("cancel a waiting job: its place frees, its files are removed", async () => {
     const { convert, stats } = slowConvert(200);
     const app = track(createApp({ store, convert, maxConcurrent: 1, maxQueue: 4 }));
-    await upload(app, 1);
+    const running = (await (await upload(app, 1)).json()) as ConvertJobAccepted;
     const waiting = (await (await upload(app, 2)).json()) as ConvertJobAccepted;
     expect(waiting.position).toBe(1);
     expect((await status(app, 2, waiting.jobId)).state).toBe("queued");
@@ -204,7 +204,9 @@ describe("fairness and lifecycle", () => {
     });
     expect(del.status).toBe(200);
     expect(await waitFinal(app, 2, waiting.jobId)).toEqual({ state: "cancelled" });
-    await sleep(250);
+    // Wait for the running job to really finish (no fixed sleep: slow CI runners).
+    await waitFinal(app, 1, running.jobId);
+    await sleep(50);
     expect(stats.done).toBe(1); // the cancelled one never ran
     expect((await upload(app, 2)).status).toBe(202); // can try again right away
   });

@@ -36,6 +36,16 @@ export const TEXT_FONTS = {
   marker: { label: "Plumón", family: '"Permanent Marker", "Geist Variable", sans-serif', weight: 400 },
   script: { label: "Cursiva", family: '"Pacifico", "Geist Variable", cursive', weight: 400 },
   pixel: { label: "Pixel", family: '"Silkscreen", ui-monospace, monospace', weight: 400 },
+  cartoon: { label: "Caricatura", family: '"Lilita One", "Geist Variable", sans-serif', weight: 400 },
+  rounded: { label: "Redonda", family: '"Fredoka", "Geist Variable", sans-serif', weight: 700 },
+  sign: { label: "Letrero", family: '"Bungee", "Geist Variable", sans-serif', weight: 400 },
+  pop: { label: "Pop", family: '"Shrikhand", "Geist Variable", cursive', weight: 400 },
+  retro: { label: "Retro", family: '"Righteous", "Geist Variable", sans-serif', weight: 400 },
+  vintage: { label: "Vintage", family: '"Lobster", "Geist Variable", cursive', weight: 400 },
+  note: { label: "Nota", family: '"Caveat", "Geist Variable", cursive', weight: 700 },
+  army: { label: "Militar", family: '"Black Ops One", "Geist Variable", sans-serif', weight: 400 },
+  horror: { label: "Terror", family: '"Creepster", "Geist Variable", sans-serif', weight: 400 },
+  disco: { label: "Disco", family: '"Monoton", "Geist Variable", sans-serif', weight: 400 },
 } as const;
 export type TextFont = keyof typeof TEXT_FONTS;
 

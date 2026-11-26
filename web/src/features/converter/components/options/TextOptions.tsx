@@ -336,13 +336,32 @@ function Segmented<T extends string>({
 
 /** Typefaces as a swipeable row, each name written in its own font (like CapCut). */
 function FontPicker({ value, disabled, onChange }: { value: TextFont; disabled: boolean; onChange: (f: TextFont) => void }) {
+  // Fetch a typeface only when its chip scrolls into view (18 fonts: never all at once).
+  const row = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    void loadAllTextFonts();
+    const el = row.current;
+    if (!el || typeof IntersectionObserver === "undefined") {
+      void loadAllTextFonts();
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const e of entries) {
+          if (!e.isIntersecting) continue;
+          void loadTextFont((e.target as HTMLElement).dataset.font as TextFont);
+          io.unobserve(e.target);
+        }
+      },
+      { root: el, rootMargin: "0px 160px" },
+    );
+    for (const chip of el.querySelectorAll("[data-font]")) io.observe(chip);
+    return () => io.disconnect();
   }, []);
   return (
     <div className="space-y-1.5">
       <p className="text-[13px] font-medium">Tipografía</p>
       <div
+        ref={row}
         role="radiogroup"
         aria-label="Tipografía"
         data-no-swipe
@@ -356,6 +375,7 @@ function FontPicker({ value, disabled, onChange }: { value: TextFont; disabled: 
               key={f}
               type="button"
               role="radio"
+              data-font={f}
               aria-checked={on}
               disabled={disabled}
               onClick={() => onChange(f)}

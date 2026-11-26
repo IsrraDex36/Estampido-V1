@@ -1,10 +1,11 @@
 import { type ReactNode, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { VolumeXIcon } from "@/components/icons";
+import { ResetIcon, VolumeXIcon } from "@/components/icons";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { useConverterStore } from "../store/converterStore";
+import { tabChanged } from "../model/resetTab";
+import { selectBusy, useConverterStore } from "../store/converterStore";
 import { PackOptions } from "./options/PackOptions";
 import { SoundOptions } from "./options/SoundOptions";
 import { StyleOptions } from "./options/StyleOptions";
@@ -181,6 +182,7 @@ export function SettingsTabs() {
           </TabsTrigger>
         ))}
       </TabsList>
+      <TabReset tab={tab} />
       <div {...swipe} className="flex flex-col">
         {SETTINGS_TABS.map((t) => (
           <TabsContent
@@ -198,5 +200,32 @@ export function SettingsTabs() {
         </p>
       )}
     </Tabs>
+  );
+}
+
+/** «Restablecer <pestaña>»: only when that tab has something to undo. */
+function TabReset({ tab }: { tab: TabId }) {
+  const changed = useConverterStore((s) =>
+    tabChanged(tab, { options: s.options, text: s.text, hasAudioFile: s.audioFile !== null, kind: s.inputKind }),
+  );
+  const busy = useConverterStore(selectBusy);
+  const resetTab = useConverterStore((s) => s.resetTab);
+  const label = SETTINGS_TABS.find((t) => t.value === tab)?.label ?? "";
+  return (
+    <div className="-mt-2 -mb-3 flex h-7 justify-end">
+      {changed && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => {
+            tick();
+            resetTab(tab);
+          }}
+          className="flex items-center gap-1 rounded-full px-2.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
+        >
+          <ResetIcon className="size-3.5" /> Restablecer {label.toLowerCase()}
+        </button>
+      )}
+    </div>
   );
 }

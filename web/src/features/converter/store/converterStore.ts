@@ -2,6 +2,7 @@ import { create } from "zustand";
 import { ApiError, convertVideo } from "@/lib/api";
 import { DEFAULT_OPTIONS, defaultDurationFor } from "../model/defaults";
 import { EMPTY_TEXT, hasLayers, type MemeText, renderMemeText } from "../model/memeText";
+import { resetFor } from "../model/resetTab";
 import { validateAudioFile, validateFile } from "../model/validation";
 import { type ConverterOptions, type ConverterStatus, type InputKind, inputKindOf } from "../types";
 
@@ -34,6 +35,8 @@ export interface ConverterState {
   selectAudioFile: (file: File | null, origin?: CommunitySoundRef) => string | null;
   updateOptions: (patch: Partial<ConverterOptions>) => void;
   updateText: (patch: Partial<MemeText>) => void;
+  /** Back to defaults for one settings tab (only that tab's choices). */
+  resetTab: (tab: SettingsTabId) => void;
   convert: (opts?: { auto?: boolean }) => Promise<void>;
   /** Conversions started (keys the error card so each failure starts fresh). */
   attempt: number;
@@ -121,6 +124,15 @@ export const useConverterStore = create<ConverterState>()((set, get) => ({
 
   updateOptions: (patch) => set((s) => ({ options: { ...s.options, ...patch } })),
   updateText: (patch) => set((s) => ({ text: { ...s.text, ...patch } })),
+  resetTab: (tab) =>
+    set((s) => {
+      const r = resetFor(tab, s.inputKind);
+      return {
+        options: { ...s.options, ...r.options },
+        ...(r.text ? { text: r.text } : {}),
+        ...(r.clearAudio ? { audioFile: null, communitySound: null } : {}),
+      };
+    }),
 
   attempt: 0,
   autoRetries: 0,
