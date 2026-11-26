@@ -6,12 +6,16 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- Prueba de rendimiento de SQLite intermitente en CI (una sola medición): ahora toma la mejor de 5 tras calentar.
+
 - **Sincronía imagen–sonido en WhatsApp:** un GIF o WebP animado con un sonido más largo ahora se estira (repitiéndose sin saltos) hasta durar lo mismo que el sonido, en lugar de desfasarse en cada vuelta. Hasta 10 s.
 - `/saudio` sin duración toma los primeros **10 s** (lo que WhatsApp anima), no 3 minutos.
 - La duración de los WebP animados se mide desde sus cuadros (ffprobe informa 0 s).
 - En la web, imagen y audio van juntos al reproducir, pausar y continuar (Comunidad y Resultado).
 
 ### Agregado
+
+- **Tiempo estimado al enviar un pack**: antes de enviar, si va a tardar, avisa «Tardará ~X min» (el bot envía con calma y, con número nuevo, con límites por minuto/hora); durante el envío muestra «N/M enviados · faltan ~X», con el ritmo real.
 
 - **Packs con la marca de la app**: al enviar un pack, cada sticker llega como «<pack> · @creador • Crea más en estampido.isrradev.com» (el autor lo fija la app, no se puede cambiar) y todos comparten el mismo pack en WhatsApp. Se aplica a una copia; el sticker publicado no cambia.
 - **«Así lo verán en WhatsApp»** rediseñado como la pantalla real: chat oscuro con tu sticker (texto, emojis y filtro incluidos; lo transparente deja ver el chat), hora con ✓✓, ícono de sonido y la hoja de info del sticker con pack y autor.

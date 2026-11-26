@@ -96,9 +96,16 @@ describe("control app", () => {
   it("status reflects the socket and exposes the bot number (for wa.me)", async () => {
     const { sock } = fakeSock();
     const off = await createControlApp(handle(null), TOKEN, results).request("/status", { headers: auth });
-    expect(await off.json()).toEqual({ connected: false, botNumber: null });
+    expect(await off.json()).toMatchObject({ connected: false, botNumber: null });
     const on = await createControlApp(handle(sock), TOKEN, results).request("/status", { headers: auth });
-    expect(await on.json()).toEqual({ connected: true, botNumber: "525500000001" });
+    const onBody = await on.json();
+    expect(onBody).toMatchObject({ connected: true, botNumber: "525500000001" });
+    // The web estimates long sends (packs) from this budget.
+    expect(onBody.pace).toMatchObject({
+      perMinute: expect.any(Number),
+      perHour: expect.any(Number),
+      lastMinute: expect.any(Number),
+    });
   });
 
   it("link lifecycle: create code → pending → (redeemed) linked with masked phone → delete", async () => {

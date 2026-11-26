@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { controlFile } from "../../config/paths.js";
-import type { AdminHealth } from "./contract.js";
+import type { AdminHealth, SendPace } from "./contract.js";
 
 export interface SendRequest {
   /** SHA-256 of the browser id (see CLIENT_HEADER). */
@@ -20,7 +20,7 @@ export type BotLinkStatus =
   | { state: "linked"; phone: string; linkedAt: number; account?: string };
 
 export interface BotClient {
-  status(): Promise<{ available: boolean; connected: boolean; botNumber?: string | null }>;
+  status(): Promise<{ available: boolean; connected: boolean; botNumber?: string | null; pace?: SendPace }>;
   createLink(client: string): Promise<{ code: string; expiresAt: number }>;
   linkStatus(client: string): Promise<BotLinkStatus>;
   unlink(client: string): Promise<void>;
@@ -104,8 +104,12 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
       try {
         const res = await call("/status", { signal: AbortSignal.timeout(2_000) });
         if (!res.ok) return { available: false, connected: false };
-        const { connected, botNumber } = (await res.json()) as { connected: boolean; botNumber?: string | null };
-        return { available: true, connected, botNumber: botNumber ?? null };
+        const { connected, botNumber, pace } = (await res.json()) as {
+          connected: boolean;
+          botNumber?: string | null;
+          pace?: SendPace;
+        };
+        return { available: true, connected, botNumber: botNumber ?? null, ...(pace ? { pace } : {}) };
       } catch {
         return { available: false, connected: false };
       }

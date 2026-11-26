@@ -129,6 +129,14 @@ export interface ConvertResponse {
   expiresAt: string;
 }
 
+/** The bot's sending budget: limits (warm-up) and what was already sent. */
+export interface SendPace {
+  perMinute: number;
+  perHour: number;
+  lastMinute: number;
+  lastHour: number;
+}
+
 export interface WhatsAppStatus {
   /** Bot process running (control endpoint reachable). */
   available: boolean;
@@ -138,6 +146,8 @@ export interface WhatsAppStatus {
   botNumber?: string | null;
   /** Owner's local mode: sending without a link goes to the bot's own chat. */
   selfSend?: boolean;
+  /** Outgoing pace right now (warm-up limits and recent volume), to estimate long sends. */
+  pace?: SendPace;
 }
 
 /** Header carrying the browser's random id (the API hashes it; never stored raw). */

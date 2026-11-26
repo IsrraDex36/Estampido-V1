@@ -106,7 +106,12 @@ export function createControlApp(
   app.get("/status", (c) => {
     const sock = bot.current();
     // The bot's own number: the web builds wa.me/<number> links with it.
-    return c.json({ connected: Boolean(sock?.user), botNumber: jidDigits(sock?.user?.id) });
+    const v = humanizer.volume.report();
+    return c.json({
+      connected: Boolean(sock?.user),
+      botNumber: jidDigits(sock?.user?.id),
+      pace: { ...v.limits, lastMinute: v.lastMinute, lastHour: v.lastHour },
+    });
   });
 
   app.get("/health", (c) => (bot.health ? c.json(bot.health()) : c.json({ error: "sin vigilante" }, 404)));

@@ -3,18 +3,20 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "wouter";
 import { creatorHref, ROUTES } from "@/app/routes";
-import { Loader2Icon, SendIcon, Share2Icon, Trash2Icon } from "@/components/icons";
+import { Loader2Icon, SendIcon, Share2Icon, TimerIcon, Trash2Icon } from "@/components/icons";
 import { Mascot } from "@/components/pixel/Mascot";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar } from "@/features/account/Avatar";
 import { LinkDialog } from "@/features/bot/LinkDialog";
+import { useBotStatus } from "@/features/bot/api";
 import { useLinkGate } from "@/features/bot/useLinkGate";
 import { useBatchSend } from "@/features/collection/useBatchSend";
 import { StickerCard } from "@/features/community/components/StickerCard";
 import { ApiError, sendCommunityToWhatsApp } from "@/lib/api";
 import { notify } from "@/lib/notify";
 import { socialQueries, useInvalidatePacks } from "./api";
+import { estimatePackSec, etaLabel, remainingSec } from "./packEta";
 import { deletePack, renamePack, setPackItem } from "./endpoints";
 
 /** A pack: send all of it to WhatsApp in one go, share it; its owner edits it. */
@@ -26,6 +28,14 @@ export default function PackPage() {
   // Sent as this pack: every sticker carries the pack's name and the app's mark.
   const sendOne = useCallback((stickerId: string) => sendCommunityToWhatsApp(stickerId, id), [id]);
   const batch = useBatchSend(sendOne);
+  const bot = useBotStatus();
+  const [startedAt, setStartedAt] = useState(0);
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    if (batch.phase.kind !== "sending") return;
+    const t = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(t);
+  }, [batch.phase.kind]);
   const { gate, dialog } = useLinkGate();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
@@ -76,8 +86,16 @@ export default function PackPage() {
   }
 
   const sending = batch.phase.kind === "sending";
+  const estimate = estimatePackSec(p.count, bot?.pace);
+  const left =
+    batch.phase.kind === "sending"
+      ? remainingSec(batch.phase.done, batch.phase.total, Math.max(0, now - startedAt), estimate)
+      : 0;
   const sendAll = () =>
     gate(async () => {
+      const t0 = Date.now();
+      setStartedAt(t0);
+      setNow(t0);
       const r = await batch.send(p.items.map((s) => s.id));
       if (r.kind === "finished") {
         if (r.failed === 0 && !r.stoppedReason) notify.success(`¡Listo! ${r.sent} stickers en tu chat.`);
@@ -173,6 +191,18 @@ export default function PackPage() {
             </>
           )}
         </div>
+        {!sending && p.count > 0 && estimate >= 45 && (
+          <p className="flex items-start gap-1.5 text-[12px] text-muted-foreground">
+            <TimerIcon className="mt-px size-3.5 shrink-0" />
+            Tardará {etaLabel(estimate)}: los enviamos con calma para cuidar el número. Puedes dejar esta pestaña abierta y
+            seguir usando tu WhatsApp.
+          </p>
+        )}
+        {sending && batch.phase.kind === "sending" && (
+          <p className="text-[12px] text-muted-foreground tabular-nums" role="status">
+            {batch.phase.done}/{batch.phase.total} enviados · faltan {etaLabel(left)}
+          </p>
+        )}
         <p className="text-[12px] text-muted-foreground">
           Llegan a tu WhatsApp como el pack «{p.name} · @{p.owner.handle}» · {PACK_STICKER_PUBLISHER}
         </p>
