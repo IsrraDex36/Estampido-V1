@@ -66,7 +66,7 @@ export default function CommunityPage() {
         {tab === "stickers" && (
           <>
             <FeedToolbar />
-            <div className="mt-4 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:gap-6 3xl:grid-cols-[minmax(0,1fr)_26rem]">
+            <div className="mt-4 grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem] 2xl:gap-6 3xl:grid-cols-[minmax(0,1fr)_26rem] 4xl:grid-cols-[minmax(0,1fr)_28rem] 4xl:gap-8">
               <Feed />
               {/* Phones: the shelves already open with «Lo más sonado»; Top lives in its own tab. */}
               <div className="hidden lg:sticky lg:top-32 lg:block">

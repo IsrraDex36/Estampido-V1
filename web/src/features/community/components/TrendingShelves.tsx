@@ -161,7 +161,7 @@ function Shelf({
             sticker={s}
             rank={ranked ? i + 1 : undefined}
             compact
-            className="w-[40vw] max-w-[11.5rem] shrink-0 snap-start sm:w-[11rem] xl:w-[11.5rem]"
+            className="w-[40vw] max-w-[11.5rem] shrink-0 snap-start sm:w-[11rem] xl:w-[11.5rem] 4xl:w-[12.5rem] 4xl:max-w-[12.5rem]"
           />
         ))}
       </div>
@@ -180,7 +180,7 @@ function ShelvesSkeleton() {
           </div>
           <div className="-mx-5 flex gap-3 overflow-hidden px-5 sm:mx-0 sm:px-0">
             {[1, 2, 3, 4, 5].map((i) => (
-              <StickerCardSkeleton key={i} className="w-[40vw] max-w-[11.5rem] shrink-0 sm:w-[11rem] xl:w-[11.5rem]" />
+              <StickerCardSkeleton key={i} className="w-[40vw] max-w-[11.5rem] shrink-0 sm:w-[11rem] xl:w-[11.5rem] 4xl:w-[12.5rem] 4xl:max-w-[12.5rem]" />
             ))}
           </div>
         </div>

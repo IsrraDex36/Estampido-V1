@@ -6,7 +6,7 @@ import { Link } from "wouter";
 import { creatorHref, ROUTES } from "@/app/routes";
 import { Section } from "@/components/section";
 import { Mascot } from "@/components/pixel/Mascot";
-import { Loader2Icon, Trash2Icon, TriangleAlertIcon } from "@/components/icons";
+import { CheckIcon, Loader2Icon, Trash2Icon, TriangleAlertIcon, WhatsAppIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBotStatus } from "@/features/bot/api";
+import { useSelfStore } from "@/features/self/selfStore";
 import { TrustLink } from "@/features/self/TrustInfo";
 import { LinkDialog } from "@/features/bot/LinkDialog";
 import { InfiniteFooter } from "@/features/community/components/InfiniteFooter";
@@ -28,7 +29,8 @@ import { notify } from "@/lib/notify";
 import { cn } from "@/lib/utils";
 import { useDeleteAccount, useDeleteMySticker, useLogout, useMe, useMyStickers, useUpdateMe } from "./api";
 import { Avatar } from "./Avatar";
-import { AVATAR_BG } from "./avatarStyle";
+import { AVATAR_BG, AVATAR_COLOR_NAME } from "./avatarStyle";
+import { ProfileHeader } from "./ProfileHeader";
 import { profileDefaults, profilePatch, profileSchema, type ProfileValues } from "./profileForm";
 
 /** Signed-in user's place: profile, what I published, session, delete account. */
@@ -70,32 +72,65 @@ function SignedOut() {
 }
 
 function Account({ me }: { me: Me }) {
+  // One form for the whole page: the fields edit it, «Así te ven» previews it live.
+  const form = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), mode: "onChange", defaultValues: profileDefaults(me) });
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-5 py-8 sm:py-10">
-      <header className="flex items-center gap-4">
-        <Avatar avatar={me.avatar} size={56} />
+    <div className="mx-auto w-full max-w-6xl py-6 sm:py-10 4xl:max-w-7xl">
+      <header className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="font-pixel text-[10px] text-muted-foreground">MI CUENTA</p>
-          <h1 className="display truncate text-3xl">{me.displayName}</h1>
-          <Link href={creatorHref(me.handle)} className="text-[13px] text-muted-foreground underline-offset-4 hover:underline">
-            Ver mi perfil público (@{me.handle})
-          </Link>
+          <h1 className="display truncate text-3xl sm:text-4xl">Hola, {me.displayName}</h1>
         </div>
+        <Button asChild variant="secondary" className="rounded-full">
+          <Link href={creatorHref(me.handle)}>Ver mi perfil público</Link>
+        </Button>
       </header>
-      <Section index="01" title="Perfil">
-        <ProfileForm me={me} />
-      </Section>
-      <Section index="02" title="Mis stickers">
-        <MyStickers />
-      </Section>
-      <Section index="03" title="Sesión">
-        <SessionCard me={me} />
-      </Section>
+      <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem] 4xl:gap-8">
+        <aside className="space-y-4 lg:sticky lg:top-24 lg:order-last">
+          <LivePreview form={form} me={me} />
+          <div className="hidden lg:block">
+            <SessionCard me={me} />
+          </div>
+        </aside>
+        <div className="min-w-0 space-y-6">
+          <Section index="01" title="Perfil">
+            <ProfileForm me={me} form={form} />
+          </Section>
+          <Section index="02" title="Mis stickers">
+            <MyStickers />
+          </Section>
+          <div className="lg:hidden">
+            <SessionCard me={me} />
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
 
-function ProfileForm({ me }: { me: Me }) {
+type ProfileFormApi = ReturnType<typeof useForm<ProfileValues>>;
+
+/** «Así te ven»: the public header, updating as you type. */
+function LivePreview({ form, me }: { form: ProfileFormApi; me: Me }) {
+  const [emoji, color, displayName = "", handle = "", bio = ""] = useWatch({
+    control: form.control,
+    name: ["emoji", "color", "displayName", "handle", "bio"],
+  });
+  return (
+    <section aria-label="Así te ven" className="space-y-2">
+      <p className="px-1 text-[12px] font-medium tracking-wide text-muted-foreground uppercase">Así te ven</p>
+      <ProfileHeader
+        compact
+        displayName={displayName.trim() || me.displayName}
+        handle={handle.trim().toLowerCase() || me.handle}
+        bio={bio.trim()}
+        avatar={`${emoji} ${color}`}
+      />
+    </section>
+  );
+}
+
+function ProfileForm({ me, form }: { me: Me; form: ProfileFormApi }) {
   const update = useUpdateMe();
   const ids = { handle: useId(), name: useId(), bio: useId() };
   const {
@@ -106,7 +141,7 @@ function ProfileForm({ me }: { me: Me }) {
     setError,
     reset,
     formState: { errors, isDirty, isValid },
-  } = useForm<ProfileValues>({ resolver: zodResolver(profileSchema), mode: "onChange", defaultValues: profileDefaults(me) });
+  } = form;
   const [emoji, color, bio = "", handle = ""] = useWatch({ control, name: ["emoji", "color", "bio", "handle"] });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -122,60 +157,88 @@ function ProfileForm({ me }: { me: Me }) {
     }
   });
 
-  const field = "h-11 w-full rounded-xl bg-background/60 px-3 text-[14px] outline-none ring-1 ring-border focus-visible:ring-2 focus-visible:ring-ring";
+  const field =
+    "h-11 w-full rounded-xl bg-background/60 px-3 text-[16px] outline-none ring-1 ring-border transition-shadow focus-visible:ring-2 focus-visible:ring-ring sm:text-[14px] aria-[invalid=true]:ring-destructive/60";
+  const cleanHandle = handle.trim().toLowerCase();
   return (
-    <form onSubmit={onSubmit} noValidate className="space-y-5">
-      <fieldset className="space-y-3">
-        <legend className="text-[13px] font-medium">Avatar</legend>
+    <form onSubmit={onSubmit} noValidate className="space-y-7">
+      <fieldset className="space-y-4">
+        <legend className="mb-1 text-[14px] font-semibold">Tu avatar</legend>
         <div className="flex items-center gap-4">
-          <Avatar avatar={`${emoji} ${color}`} size={64} />
-          <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Color">
-            {AVATAR_COLORS.map((c) => (
+          <Avatar avatar={`${emoji} ${color}`} size={64} label="Vista de tu avatar" />
+          <div className="min-w-0 space-y-2">
+            <p className="text-[12.5px] text-muted-foreground">Color de fondo</p>
+            <div className="flex flex-wrap gap-2" role="radiogroup" aria-label="Color de fondo">
+              {AVATAR_COLORS.map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  aria-checked={color === c}
+                  aria-label={AVATAR_COLOR_NAME[c]}
+                  title={AVATAR_COLOR_NAME[c]}
+                  onClick={() => setValue("color", c, { shouldDirty: true, shouldValidate: true })}
+                  className={cn(
+                    "grid size-10 place-items-center rounded-full ring-offset-2 ring-offset-background transition-transform active:scale-95",
+                    AVATAR_BG[c],
+                    color === c && "ring-2 ring-foreground",
+                  )}
+                >
+                  {color === c && <CheckIcon className="size-4 text-black/70" weight="bold" />}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <p className="text-[12.5px] text-muted-foreground">Emoji</p>
+          <div className="grid grid-cols-8 gap-1.5 sm:max-w-md" role="radiogroup" aria-label="Emoji">
+            {AVATAR_EMOJIS.map((e) => (
               <button
-                key={c}
+                key={e}
                 type="button"
                 role="radio"
-                aria-checked={color === c}
-                aria-label={c}
-                onClick={() => setValue("color", c, { shouldDirty: true, shouldValidate: true })}
-                className={cn("size-8 rounded-full ring-offset-2 ring-offset-background", AVATAR_BG[c], color === c && "ring-2 ring-foreground")}
-              />
+                aria-checked={emoji === e}
+                aria-label={e}
+                onClick={() => setValue("emoji", e, { shouldDirty: true, shouldValidate: true })}
+                className={cn(
+                  "grid aspect-square min-h-10 place-items-center rounded-xl text-xl transition-colors",
+                  emoji === e ? "bg-foreground/15 ring-2 ring-foreground" : "bg-muted/60 hover:bg-muted",
+                )}
+              >
+                {e}
+              </button>
             ))}
           </div>
         </div>
-        <div className="grid grid-cols-8 gap-1.5 sm:max-w-md" role="radiogroup" aria-label="Emoji">
-          {AVATAR_EMOJIS.map((e) => (
-            <button
-              key={e}
-              type="button"
-              role="radio"
-              aria-checked={emoji === e}
-              onClick={() => setValue("emoji", e, { shouldDirty: true, shouldValidate: true })}
-              className={cn(
-                "grid aspect-square place-items-center rounded-xl text-xl transition-colors",
-                emoji === e ? "bg-foreground/15 ring-2 ring-foreground" : "bg-muted/60 hover:bg-muted",
-              )}
-            >
-              {e}
-            </button>
-          ))}
-        </div>
       </fieldset>
 
-      <div className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="grid gap-4 sm:grid-cols-2">
+        <legend className="mb-3 text-[14px] font-semibold">Nombre y usuario</legend>
         <div className="space-y-1.5">
           <label htmlFor={ids.name} className="text-[13px] font-medium">
             Nombre
           </label>
-          <input id={ids.name} {...register("displayName")} maxLength={PROFILE_LIMITS.displayName} className={field} />
-          {errors.displayName && <p className="text-[12px] text-destructive">{errors.displayName.message}</p>}
+          <input
+            id={ids.name}
+            {...register("displayName")}
+            maxLength={PROFILE_LIMITS.displayName}
+            autoComplete="nickname"
+            className={field}
+            aria-invalid={Boolean(errors.displayName)}
+          />
+          {errors.displayName ? (
+            <p className="text-[12px] text-destructive">{errors.displayName.message}</p>
+          ) : (
+            <p className="text-[12px] text-muted-foreground">Así aparece en tu perfil y tus stickers.</p>
+          )}
         </div>
         <div className="space-y-1.5">
           <label htmlFor={ids.handle} className="text-[13px] font-medium">
             Usuario
           </label>
           <div className="relative">
-            <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[14px] text-muted-foreground">@</span>
+            <span className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-[15px] text-muted-foreground">@</span>
             <input
               id={ids.handle}
               {...register("handle")}
@@ -186,18 +249,31 @@ function ProfileForm({ me }: { me: Me }) {
               className={cn(field, "pl-7")}
               aria-invalid={Boolean(errors.handle)}
             />
+            {!errors.handle && cleanHandle && (
+              <CheckIcon className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-sound" weight="bold" />
+            )}
           </div>
           {errors.handle ? (
             <p className="text-[12px] text-destructive">{errors.handle.message}</p>
           ) : (
-            <p className="truncate text-[12px] text-muted-foreground">{window.location.host}/u/{handle.trim().toLowerCase()}</p>
+            <p className="truncate text-[12px] text-muted-foreground">
+              Tu enlace: {window.location.host}/u/<b className="font-medium text-foreground">{cleanHandle}</b>
+            </p>
           )}
         </div>
-      </div>
+      </fieldset>
 
       <div className="space-y-1.5">
-        <label htmlFor={ids.bio} className="flex justify-between text-[13px] font-medium">
-          Sobre ti <span className="font-normal text-muted-foreground tabular-nums">{bio.length}/{PROFILE_LIMITS.bio}</span>
+        <label htmlFor={ids.bio} className="flex items-baseline justify-between text-[14px] font-semibold">
+          Sobre ti
+          <span
+            className={cn(
+              "text-[12px] font-normal tabular-nums",
+              bio.length > PROFILE_LIMITS.bio * 0.9 ? "text-retro-a" : "text-muted-foreground",
+            )}
+          >
+            {bio.length}/{PROFILE_LIMITS.bio}
+          </span>
         </label>
         <textarea
           id={ids.bio}
@@ -205,14 +281,21 @@ function ProfileForm({ me }: { me: Me }) {
           rows={3}
           maxLength={PROFILE_LIMITS.bio}
           placeholder="Hago stickers de memes y doblajes 🎙️"
-          className="w-full resize-none rounded-xl bg-background/60 px-3 py-2.5 text-[14px] outline-none ring-1 ring-border focus-visible:ring-2 focus-visible:ring-ring"
+          className="w-full resize-none rounded-xl bg-background/60 px-3 py-2.5 text-[16px] outline-none ring-1 ring-border focus-visible:ring-2 focus-visible:ring-ring sm:text-[14px]"
         />
         {errors.bio && <p className="text-[12px] text-destructive">{errors.bio.message}</p>}
       </div>
 
       {errors.root && <p className="text-[13px] text-destructive">{errors.root.message}</p>}
-      <div className="flex gap-2">
-        <Button type="submit" className="rounded-full" disabled={!isDirty || !isValid || update.isPending}>
+      {/* Phones: unsaved changes keep the buttons in reach (sticky bar). */}
+      <div
+        className={cn(
+          "flex items-center gap-2",
+          isDirty &&
+            "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:z-30 max-sm:border-t max-sm:border-border max-sm:bg-background/95 max-sm:px-4 max-sm:pt-3 max-sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-sm:backdrop-blur",
+        )}
+      >
+        <Button type="submit" className="rounded-full max-sm:flex-1" disabled={!isDirty || !isValid || update.isPending}>
           {update.isPending && <Loader2Icon className="size-4 animate-spin" />} Guardar cambios
         </Button>
         {isDirty && (
@@ -220,6 +303,7 @@ function ProfileForm({ me }: { me: Me }) {
             Descartar
           </Button>
         )}
+        {!isDirty && <span className="text-[12px] text-muted-foreground">Todo guardado.</span>}
       </div>
     </form>
   );
@@ -252,7 +336,7 @@ function MyStickers() {
   }
   return (
     <>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 3xl:grid-cols-4 4xl:grid-cols-5">
         {items.map((s) => (
           <div key={s.id} className="relative">
             <StickerCard sticker={s} />
@@ -304,18 +388,28 @@ function MyStickers() {
 
 function SessionCard({ me }: { me: Me }) {
   const logout = useLogout();
+  const linked = useSelfStore((st) => st.session !== null);
   return (
-    <div className="space-y-4">
-      <p className="text-[14px] text-muted-foreground">
-        Entraste con el WhatsApp <b className="text-foreground">{me.phone}</b>. Tu número nunca se muestra en tu perfil.
-      </p>
-      <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" className="rounded-full" disabled={logout.isPending} onClick={() => logout.mutate()}>
-          Cerrar sesión en este navegador
+    <section aria-label="Sesión" className="space-y-4 rounded-3xl bg-muted/40 p-5 ring-1 ring-border/60">
+      <div className="flex items-center gap-3">
+        <span className={cn("grid size-10 shrink-0 place-items-center rounded-full", linked ? "bg-sound-soft text-sound" : "bg-muted text-muted-foreground")}>
+          <WhatsAppIcon className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <p className="text-[14px] font-semibold">{linked ? "WhatsApp conectado" : "WhatsApp sin conectar"}</p>
+          <p className="truncate text-[12.5px] text-muted-foreground">
+            Número terminado en <b className="text-foreground">{me.phone.replace(/\D/g, "").slice(-4) || "—"}</b> · nunca se muestra
+          </p>
+        </div>
+      </div>
+      <TrustLink className="text-[12.5px]" />
+      <div className="flex flex-col gap-2">
+        <Button variant="secondary" className="w-full rounded-full" disabled={logout.isPending} onClick={() => logout.mutate()}>
+          {logout.isPending && <Loader2Icon className="size-4 animate-spin" />} Cerrar sesión
         </Button>
         <DeleteAccount />
       </div>
-    </div>
+    </section>
   );
 }
 
@@ -326,7 +420,7 @@ function DeleteAccount() {
   return (
     <Dialog onOpenChange={(o) => !o && setTyped("")}>
       <DialogTrigger asChild>
-        <Button variant="ghost" className="rounded-full text-destructive">
+        <Button variant="ghost" className="w-full rounded-full text-destructive">
           Borrar mi cuenta
         </Button>
       </DialogTrigger>

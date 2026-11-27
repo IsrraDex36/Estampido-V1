@@ -16,7 +16,7 @@ const YEAR = new Date().getFullYear();
 /** Simple, useful footer: star ask, brand, live bot status, privacy note, back-to-top, author. */
 export function AppFooter() {
   return (
-    <footer className="mx-auto mt-auto w-full max-w-[1760px] shrink-0 px-4 pt-10 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:pt-12 sm:pb-10 2xl:px-12">
+    <footer className="mx-auto mt-auto w-full max-w-[1760px] 4xl:max-w-[2240px] shrink-0 px-4 pt-10 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-8 sm:pt-12 sm:pb-10 2xl:px-12">
       <StarCta />
       <div className="surface flex flex-col gap-4 p-4 sm:p-6 md:flex-row md:items-center md:justify-between md:gap-6">
         <div className="flex items-center gap-3">

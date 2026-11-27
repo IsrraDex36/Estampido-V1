@@ -39,7 +39,7 @@ function Shell() {
     <div className="relative isolate flex min-h-svh flex-col overflow-x-clip bg-background text-foreground">
       <PixelBackground />
       <AppHeader />
-      <main className="mx-auto flex w-full max-w-[1760px] flex-1 flex-col px-5 sm:px-8 2xl:px-12">
+      <main className="mx-auto flex w-full max-w-[1760px] 4xl:max-w-[2240px] flex-1 flex-col px-5 sm:px-8 2xl:px-12">
         <RouteErrorBoundary>
         <Switch>
           <Route path={ROUTES.create} component={ConverterPage} />

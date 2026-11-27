@@ -56,7 +56,7 @@ export function CollectionSection({ className }: { className?: string }) {
         </span>
       }
     >
-      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 3xl:grid-cols-10">
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6 xl:grid-cols-8 3xl:grid-cols-10 4xl:grid-cols-12">
         {items.map((item) => (
           <CollectionTile
             key={item.id}

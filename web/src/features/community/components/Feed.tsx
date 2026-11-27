@@ -18,7 +18,7 @@ import { InfiniteFooter } from "./InfiniteFooter";
 import { StickerCard, StickerCardSkeleton } from "./StickerCard";
 import { TrendingShelves } from "./TrendingShelves";
 
-const GRID = "grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5";
+const GRID = "grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5 4xl:grid-cols-6 4xl:gap-4";
 
 /** Paginated feed driven by the filters store (cursor pages, infinite scroll + «Cargar más»). */
 export function Feed() {

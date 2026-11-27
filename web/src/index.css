@@ -215,7 +215,8 @@
   --color-sound: var(--sound);
   --color-sound-soft: var(--sound-soft);
   --color-stage: var(--stage);
-  --breakpoint-3xl: 120rem; /* 1920px — 27" monitors */
+  --breakpoint-3xl: 120rem; /* 1920px — big monitors */
+  --breakpoint-4xl: 140rem; /* 2240px — 27" at native 2560 (no scaling) */
 }
 
 /* Surfaces: borderless cards with a hairline only where needed. */

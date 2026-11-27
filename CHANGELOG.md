@@ -41,6 +41,10 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Monitores grandes (27")**: nuevo punto `4xl` (≥ 2240 px, 2560 sin escalar): contenedor de hasta 2240 px, una columna más en Comunidad, perfiles y colección, columna lateral más ancha y tarjetas de las filas un poco mayores. Revisado a 1920 y 2560 px sin desbordes.
+- **Mi cuenta, más clara**: dos columnas en escritorio — a la izquierda el formulario y mis stickers, a la derecha **«Así te ven»** (tu perfil público en vivo mientras escribes) y la sesión. Avatar con colores nombrados y ✓, emojis de 40 px, «Nombre y usuario» con ayuda y tu enlace, contador de «Sobre ti» que avisa al acercarse al límite, campos de 16 px en el celular (sin zoom) y barra fija de «Guardar cambios» en el celular cuando hay cambios. La sesión muestra si tu WhatsApp está conectado, el final de tu número y «¿Por qué es seguro?».
+- **Perfil público**: banner con el color del avatar, avatar grande, nombre legible fuera del banner, acciones con texto («Editar perfil», «Compartir»), estadísticas con las palabras de la app (Seguidores, Stickers, **Descargas**, **Favoritos**) y secciones con conteo.
+
 - **Comunidad: «Recién agregados», ⭐ Favoritos y descargas**:
   - Fila **«Recién agregados»** justo después de «Lo más sonado ahora» (en la misma petición), con «Ver todo» → «Nuevos».
   - «Guardar» ahora es **⭐ Favorito** (la palabra e ícono de WhatsApp para stickers): tarjetas, sonidos, «Tu espacio → Favoritos», perfil del creador y textos de publicar. La estrella se pinta de amarillo al marcarla.

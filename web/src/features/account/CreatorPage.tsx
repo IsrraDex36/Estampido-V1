@@ -15,7 +15,7 @@ import { FollowButton } from "@/features/social/FollowButton";
 import { PackCard } from "@/features/social/PackCard";
 import { socialQueries } from "@/features/social/api";
 import { creatorQueries, useMe } from "./api";
-import { Avatar } from "./Avatar";
+import { ProfileHeader } from "./ProfileHeader";
 
 const joined = (iso: string) => new Date(iso).toLocaleDateString("es-MX", { month: "long", year: "numeric" });
 const n = (v: number) => compactNumber(v);
@@ -62,60 +62,57 @@ export default function CreatorPage() {
   };
 
   return (
-    <div className="py-8 sm:py-10">
-      <header className="flex flex-col items-center gap-4 text-center sm:flex-row sm:items-end sm:text-left">
-        {p ? <Avatar avatar={p.avatar} size={96} label={`Avatar de ${p.displayName}`} /> : <Skeleton className="size-24 rounded-full" />}
-        <div className="min-w-0 flex-1 space-y-1.5">
-          {p ? (
+    <div className="py-6 sm:py-10">
+      {p ? (
+        <ProfileHeader
+          displayName={p.displayName}
+          handle={p.handle}
+          bio={p.bio}
+          avatar={p.avatar}
+          since={`desde ${joined(p.createdAt)}`}
+          actions={
             <>
-              <h1 className="display text-3xl break-words sm:text-4xl">{p.displayName}</h1>
-              <p className="text-[14px] text-muted-foreground">
-                @{p.handle} · desde {joined(p.createdAt)}
-              </p>
-              {p.bio && <p className="max-w-prose text-[15px] whitespace-pre-line text-pretty">{p.bio}</p>}
+              {!isMe && <FollowButton profile={p} />}
+              {isMe && (
+                <Button asChild variant="secondary" className="rounded-full">
+                  <Link href={ROUTES.account}>Editar perfil</Link>
+                </Button>
+              )}
+              <Button variant="secondary" className="rounded-full" onClick={share}>
+                <Share2Icon /> Compartir
+              </Button>
             </>
-          ) : (
-            <div className="space-y-2">
-              <Skeleton className="mx-auto h-8 w-48 sm:mx-0" />
-              <Skeleton className="mx-auto h-4 w-32 sm:mx-0" />
-            </div>
-          )}
-        </div>
-        <div className="flex gap-2">
-          {p && !isMe && <FollowButton profile={p} />}
-          {isMe && (
-            <Button asChild variant="secondary" className="rounded-full">
-              <Link href={ROUTES.account}>Editar perfil</Link>
-            </Button>
-          )}
-          <Button variant="secondary" size="icon" className="rounded-full" aria-label="Compartir perfil" onClick={share}>
-            <Share2Icon />
-          </Button>
-        </div>
-      </header>
+          }
+        />
+      ) : (
+        <Skeleton className="h-64 rounded-3xl" />
+      )}
 
-      <dl className="mt-6 grid grid-cols-3 gap-2 sm:max-w-2xl sm:grid-cols-5">
+      {/* The numbers people understand (same words as the cards). */}
+      <dl className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3 lg:max-w-3xl">
         {(
           [
             ["Seguidores", p?.followers],
             ["Stickers", p?.stats.stickers],
-            ["Usos", p?.stats.uses],
+            ["Descargas", p?.stats.sends],
             ["Favoritos", p?.stats.saves],
-            ["Envíos", p?.stats.sends],
           ] as const
         ).map(([label, value]) => (
-          <div key={label} className="min-w-0 rounded-2xl bg-muted/50 px-1.5 py-2.5 text-center sm:px-3">
-            <dd className="font-mono text-lg font-semibold tabular-nums">{value === undefined ? "–" : n(value)}</dd>
-            <dt className="truncate text-[11px] text-muted-foreground">{label}</dt>
+          <div key={label} className="min-w-0 rounded-2xl bg-muted/50 px-3 py-3 text-center ring-1 ring-border/50">
+            <dd className="text-2xl font-semibold tabular-nums">{value === undefined ? "–" : n(value)}</dd>
+            <dt className="truncate text-[12px] text-muted-foreground">{label}</dt>
           </div>
         ))}
       </dl>
 
       {p && <CreatorPacks handle={p.handle} />}
 
-      <section aria-label="Stickers publicados" className="mt-8">
+      <section aria-label="Stickers publicados" className="mt-10">
+        <h2 className="mb-3 text-[17px] font-semibold tracking-tight">
+          Stickers {p ? <span className="text-muted-foreground">· {n(p.stats.stickers)}</span> : null}
+        </h2>
         {stickers.isPending && profile.isSuccess ? (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 3xl:grid-cols-6 4xl:grid-cols-7">
             {Array.from({ length: 8 }, (_, i) => (
               <Skeleton key={i} className="aspect-[3/4] rounded-3xl" />
             ))}
@@ -134,7 +131,7 @@ export default function CreatorPage() {
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 3xl:grid-cols-6 4xl:grid-cols-7">
               {items.map((s) => (
                 <StickerCard key={s.id} sticker={s} />
               ))}
@@ -159,8 +156,8 @@ function CreatorPacks({ handle }: { handle: string }) {
   if (!packs.data || packs.data.length === 0) return null;
   return (
     <section aria-label="Packs" className="mt-8 space-y-3">
-      <h2 className="text-[15px] font-semibold">Packs</h2>
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <h2 className="text-[17px] font-semibold tracking-tight">Packs</h2>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 3xl:grid-cols-6 4xl:grid-cols-7">
         {packs.data.map((pk) => (
           <PackCard key={pk.id} pack={pk} showOwner={false} />
         ))}
