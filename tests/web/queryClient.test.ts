@@ -72,7 +72,7 @@ describe("query keys", () => {
     const qc = createQueryClient(fakeNotifier());
     const filters = { sort: "hot", period: "week", category: null, query: "" } as const;
     qc.setQueryData(queryKeys.community.feed(filters), { pages: [], pageParams: [] });
-    qc.setQueryData(queryKeys.community.stats, { stickers: 1, sounds: 1, uses: 0 });
+    qc.setQueryData(queryKeys.community.stats, { stickers: 1, sounds: 1, downloads: 0 });
     qc.setQueryData(queryKeys.bot.status, { available: true, connected: true });
     await qc.invalidateQueries({ queryKey: queryKeys.community.all });
     const states = qc

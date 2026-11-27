@@ -94,7 +94,7 @@ describe("reporting", () => {
     expect(await h.json<CommunityStats>(h.anonymous("/api/community/stats"))).toEqual({
       stickers: 0,
       sounds: 0,
-      uses: 0,
+      downloads: 0,
     });
   });
 

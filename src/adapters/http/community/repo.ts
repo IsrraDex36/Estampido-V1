@@ -282,9 +282,9 @@ export class CommunityRepo {
     const db = await this.db();
     const r = this.stmt(
       db,
-      "SELECT COALESCE(SUM(listed), 0) AS stickers, COUNT(sound_sec) AS sounds, COALESCE(SUM(uses), 0) AS uses FROM stickers WHERE hidden = 0",
-    ).get() as { stickers: number; sounds: number; uses: number };
-    return { stickers: r.stickers, sounds: r.sounds, uses: r.uses };
+      "SELECT COALESCE(SUM(listed), 0) AS stickers, COUNT(sound_sec) AS sounds, COALESCE(SUM(sends), 0) AS downloads FROM stickers WHERE hidden = 0",
+    ).get() as { stickers: number; sounds: number; downloads: number };
+    return { stickers: r.stickers, sounds: r.sounds, downloads: r.downloads };
   }
 
   /**

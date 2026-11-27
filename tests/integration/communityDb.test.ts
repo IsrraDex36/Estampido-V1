@@ -237,7 +237,7 @@ describe("migration from index.json", () => {
       soundSec: 2.5,
     });
     expect(all[1]).toMatchObject({ listed: false, sends: 3, bytes: 999 });
-    expect(await repo.stats()).toEqual({ stickers: 1, sounds: 2, uses: 5 });
+    expect(await repo.stats()).toEqual({ stickers: 1, sounds: 2, downloads: 3 });
 
     repo.close();
     repo = new CommunityRepo(join(dir, "c"));

@@ -1,7 +1,7 @@
 import { rm } from "node:fs/promises";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { TRENDING_SHELF } from "../../src/adapters/http/community/routes.js";
-import type { CommunityTrending } from "../../src/adapters/http/contract.js";
+import type { CommunityStats, CommunityTrending } from "../../src/adapters/http/contract.js";
 import { type Harness, makeHarness } from "../helpers/apiHarness.js";
 import { makeTempDir } from "../helpers/fixtures.js";
 
@@ -98,6 +98,17 @@ describe("«Recién agregados» and downloads", () => {
     h.clock.now += 86_400_000; // next day, same person: counts again
     await dl("beto");
     expect(await count()).toBe(3);
+  });
+
+  it("community stats add up every sticker's downloads (hidden ones left out)", async () => {
+    const a = await h.publish("ana", { title: "a" });
+    const b = await h.publish("beto", { title: "b" });
+    await h.req("caro", `${a.stickerUrl}?download`);
+    await h.req("caro", `${b.stickerUrl}?download`);
+    await h.req("beto", `${a.stickerUrl}?download`);
+    const stats = await h.json<CommunityStats>(h.req("anon", "/api/community/stats"));
+    expect(stats).toMatchObject({ stickers: 2, downloads: 3 });
+    expect(stats).not.toHaveProperty("uses");
   });
 
   it("just viewing the image (no ?download) is not a download", async () => {

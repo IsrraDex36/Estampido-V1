@@ -1,4 +1,4 @@
-import { PlusIcon, SoundLibraryIcon, UseSoundIcon } from "@/components/icons";
+import { DownloadIcon, PlusIcon, SoundLibraryIcon } from "@/components/icons";
 import { Link } from "wouter";
 import { ROUTES } from "@/app/routes";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { CommunityRulesButton } from "./CommunityRules";
 const STATS = [
   { key: "stickers", label: "Stickers", icon: <span aria-hidden>🔊</span>, tone: "text-foreground" },
   { key: "sounds", label: "Sonidos", icon: <SoundLibraryIcon className="size-4" />, tone: "text-sound" },
-  { key: "uses", label: "Usos", hint: "Veces que alguien usó un sonido de la comunidad en su propio sticker", icon: <UseSoundIcon className="size-4" />, tone: "text-retro-a" },
+  { key: "downloads", label: "Descargas", hint: "Veces que alguien se llevó un sticker de la comunidad a su WhatsApp", icon: <DownloadIcon className="size-4" />, tone: "text-retro-a" },
 ] as const;
 
 /** How the community works, in three steps (the «world» of the app at a glance). */

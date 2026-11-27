@@ -14,7 +14,7 @@ function stubApi() {
   const fetch = vi.fn(async (input: RequestInfo | URL) => {
     const u = String(input);
     const body = u.includes("/stats")
-      ? { stickers: 3, sounds: 2, uses: 9 }
+      ? { stickers: 3, sounds: 2, downloads: 9 }
       : { items: [{ id: u.includes("sounds") ? "snd" : "stk" }], nextCursor: null };
     return new Response(JSON.stringify(body), { headers: { "content-type": "application/json" } });
   });
@@ -29,7 +29,7 @@ describe("prefetchCommunity", () => {
     prefetchCommunity(qc);
     await vi.waitFor(() => expect(qc.isFetching()).toBe(0));
     expect(qc.getQueryData(communityQueries.feed(DEFAULT_FILTERS).queryKey)?.pages[0]?.items[0]?.id).toBe("stk");
-    expect(qc.getQueryData(communityQueries.stats().queryKey)).toEqual({ stickers: 3, sounds: 2, uses: 9 });
+    expect(qc.getQueryData(communityQueries.stats().queryKey)).toEqual({ stickers: 3, sounds: 2, downloads: 9 });
     expect(qc.getQueryData(communityQueries.sounds({ sort: "top", q: "", limit: 5 }).queryKey)).toBeUndefined();
     expect(qc.getQueryData(communityQueries.ranking().queryKey)).toBeTruthy();
   });

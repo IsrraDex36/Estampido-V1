@@ -84,8 +84,11 @@ describe("Community (real browser, real API)", () => {
     await bodyHas(page, "De la comunidad · «Prueba e2e»");
 
     // Its use was counted.
-    const stats = await page.evaluate(async () => (await fetch("/api/community/stats")).json());
-    expect(stats).toMatchObject({ uses: 1 });
+    const sound = await page.evaluate(async () => {
+      const { hot } = await (await fetch("/api/community/trending")).json();
+      return (await fetch(`/api/community/sounds/${hot[0].id}`)).json();
+    });
+    expect(sound).toMatchObject({ title: "Prueba e2e", uses: 1 });
     expect(problems).toEqual([]);
     await page.close();
   });

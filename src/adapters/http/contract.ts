@@ -477,7 +477,8 @@ export interface PublishRequest {
 export interface CommunityStats {
   stickers: number;
   sounds: number;
-  uses: number;
+  /** Total times stickers were taken to a phone (sent to WhatsApp or downloaded). */
+  downloads: number;
 }
 
 /** /api/admin/pairing — bot linking for the owner (token-protected). */

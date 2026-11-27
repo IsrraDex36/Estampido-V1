@@ -169,7 +169,7 @@ describe("community API: lookups", () => {
     const stats = (await (await app.request("/api/community/stats")).json()) as {
       stickers: number;
       sounds: number;
-      uses: number;
+      downloads: number;
     };
     expect(stats.stickers).toBeGreaterThan(0);
     expect(stats.sounds).toBeLessThanOrEqual(stats.stickers);
