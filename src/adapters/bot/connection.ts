@@ -1,7 +1,14 @@
 import makeWASocket, { Browsers, DisconnectReason, useMultiFileAuthState, type WASocket } from "baileys";
 import pino from "pino";
 import qrcode from "qrcode-terminal";
-import { isRotateRequest, newAdvSecret, resolveWaVersion, shouldSyncHistory, withAdvSecret } from "./pairing.js";
+import {
+  isRotateRequest,
+  newAdvSecret,
+  resolveWaVersion,
+  shouldSyncHistory,
+  toWhatsAppNumber,
+  withAdvSecret,
+} from "./pairing.js";
 import { sentMessages } from "./sentCache.js";
 import { wipeSession } from "./session.js";
 
@@ -64,7 +71,8 @@ export const formatPairingCode = (code: string): string =>
 /** Connect with QR login and auto-reconnect (except on logout). */
 export async function connect(opts: ConnectOptions): Promise<void> {
   const { authDir, onReady, logLevel = "warn" } = opts;
-  const pairingNumber = normalizePairingNumber(opts.pairingNumber);
+  const typed = normalizePairingNumber(opts.pairingNumber);
+  const pairingNumber = typed ? toWhatsAppNumber(typed) : null;
   const { state, saveCreds } = await useMultiFileAuthState(authDir);
   const { version, source } = await resolveWaVersion();
   if (!state.creds.me) console.log(`WhatsApp Web ${version?.join(".") ?? "?"} (${source})`);

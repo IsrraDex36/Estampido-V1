@@ -220,3 +220,44 @@ describe("linking your own WhatsApp signs you in (no bot number involved)", () =
     expect(r.headers.get("set-cookie")).toBeNull();
   });
 });
+
+describe("many browsers sending at once through the web API", () => {
+  it("40 parallel sends from 4 browsers: every answer carries ITS OWN renewed session, every call is bound to its browser", async () => {
+    h.close();
+    const seen: { client: string; session: string }[] = [];
+    const bot = {
+      status: async () => ({ available: true, connected: false }),
+      send: async () => ({ delivered: "sticker" as const }),
+      linkStatus: async () => ({ state: "unlinked" as const }),
+      unlink: async () => {},
+      self: async (_path: string, body?: unknown) => {
+        const b = body as { client: string; session: string };
+        seen.push({ client: b.client, session: b.session });
+        await new Promise((r) => setTimeout(r, Math.random() * 15)); // answers come back out of order
+        return { status: 200, body: { sent: 1, session: `${b.session}|renewed-for-${b.client.slice(0, 8)}` } };
+      },
+    };
+    h = await makeHarness(dir, undefined, { bot: bot as never });
+    const browsers = ["ana", "beto", "caro", "dani"] as const;
+    const ids = Object.fromEntries(await Promise.all(browsers.map(async (b) => [b, await h.makeResult()] as const)));
+    const jobs = Array.from({ length: 40 }, (_, i) => {
+      const b = browsers[i % 4] as (typeof browsers)[number];
+      const session = `s2.${b}-${i}`;
+      return h
+        .req(b, "/api/self/send", { method: "POST", body: JSON.stringify({ session, results: [ids[b]] }) })
+        .then(async (r) => ({ b, session, status: r.status, body: (await r.json()) as { session: string } }));
+    });
+    const out = await Promise.all(jobs);
+    const clientOf = new Map<string, string>();
+    for (const o of out) {
+      expect(o.status).toBe(200);
+      expect(o.body.session.startsWith(`${o.session}|`)).toBe(true); // nobody gets someone else's session
+      const call = seen.find((s) => s.session === o.session);
+      expect(call).toBeDefined();
+      const prev = clientOf.get(o.b);
+      if (prev) expect(call?.client).toBe(prev); // the same browser always maps to the same client hash
+      clientOf.set(o.b, call?.client as string);
+    }
+    expect(new Set(clientOf.values()).size).toBe(4); // four browsers, four distinct bindings
+  });
+});

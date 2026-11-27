@@ -104,3 +104,15 @@ conecta a WhatsApp.
 
 El número del bot del admin ya no se usa para nada y queda apagado salvo
 `SVA_ADMIN_BOT=1`.
+
+### Vincular con código: detalles que importan
+
+- El código se pide para el número **como WhatsApp lo tiene** (su JID): México
+  `521` + 10 dígitos, Argentina `549` + 10. La persona escribe «52 229…» y se
+  convierte solo (`toWhatsAppNumber`).
+- El navegador debe ser uno que WhatsApp conozca (`Browsers.macOS("Chrome")`):
+  con un nombre inventado WhatsApp acepta el QR pero rechaza el código.
+- Si WhatsApp pide renovar el secreto tras escanear el QR
+  (`companion_reg_refresh`), se genera uno nuevo y se vuelve a mostrar el QR.
+- Capacidad: máx. 4 conexiones a la vez, fila de 20; la versión de WhatsApp Web
+  se consulta una vez cada 6 h para todos.

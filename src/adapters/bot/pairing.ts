@@ -72,3 +72,47 @@ const HISTORY_TYPES_TO_SYNC = new Set<number>([
 
 export const shouldSyncHistory = ({ syncType }: { syncType?: number | null }): boolean =>
   syncType != null && HISTORY_TYPES_TO_SYNC.has(syncType);
+
+/**
+ * The number as WhatsApp's account id (JID) has it — what a pairing code must
+ * be requested for. People type their number as they dial it, but some
+ * countries keep an extra mobile digit in the JID: México «52 1 …», Argentina
+ * «54 9 …». Requesting a code for «52 229…» targets an account that doesn't
+ * exist → the phone never gets the prompt and the code never works (QR doesn't
+ * care, which is why only QR worked). Pure.
+ */
+export function toWhatsAppNumber(digits: string): string {
+  const mx = /^52(\d{10})$/.exec(digits);
+  if (mx) return `521${mx[1]}`;
+  const ar = /^54(\d{10})$/.exec(digits);
+  if (ar) return `549${ar[1]}`;
+  return digits;
+}
+
+/**
+ * One WA Web version lookup shared by everyone (6 h; 5 min after a failure),
+ * concurrent callers share the same request. Each link/send used to fetch
+ * web.whatsapp.com on its own: with many people at once that's slow and can
+ * get the server rate-limited.
+ */
+export function cachedVersion(
+  resolve: () => Promise<{ version?: WAVersion; source: string }> = resolveWaVersion,
+  now: () => number = Date.now,
+): () => Promise<{ version?: WAVersion; source: string }> {
+  let value: { version?: WAVersion; source: string } | null = null;
+  let until = 0;
+  let inflight: Promise<{ version?: WAVersion; source: string }> | null = null;
+  return () => {
+    if (value && now() < until) return Promise.resolve(value);
+    inflight ??= resolve()
+      .then((v) => {
+        value = v;
+        until = now() + (v.version ? 6 * 60 * 60_000 : 5 * 60_000);
+        return v;
+      })
+      .finally(() => {
+        inflight = null;
+      });
+    return inflight;
+  };
+}

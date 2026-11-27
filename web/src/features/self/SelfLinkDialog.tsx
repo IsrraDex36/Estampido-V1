@@ -104,7 +104,7 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
         </DialogHeader>
         <ul className="space-y-2 text-[13px]">
           {[
-            ["🔗", "Estampido se vincula a tu WhatsApp como un dispositivo (igual que WhatsApp Web)."],
+            ["🔗", "Se vincula como un dispositivo, igual que WhatsApp Web (aparece como «Chrome (Mac OS)»)."],
             ["🙋", "Solo te enviamos a ti, a tu chat «Tú». Nunca a otras personas."],
             ["🔒", "No guardamos tus chats, contactos ni tu número. La sesión queda cifrada solo en este navegador."],
             ["👤", "Tu cuenta se reconoce con una huella cifrada de tu número, nunca con el número."],
@@ -127,7 +127,9 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
               placeholder="52 229 000 0000"
               className="h-11 w-full rounded-xl bg-muted/60 px-3 text-[16px] font-normal tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
-            <span className="block text-[11px] font-normal text-muted-foreground">Solo para pedir el código; no se guarda.</span>
+            <span className="block text-[11px] font-normal text-muted-foreground">
+              México: 52 y tus 10 dígitos. Solo para pedir el código; no se guarda.
+            </span>
           </label>
           <Button className="h-12 w-full rounded-full font-semibold" disabled={busy || digits.length < 10} onClick={() => void begin(true)}>
             {busy && <Loader2Icon className="size-4 animate-spin" />} Obtener código
@@ -185,7 +187,7 @@ function Linking({ status: s, startedAt, onRestart }: { status: LinkStatus; star
           "Copia el código y abre WhatsApp.",
           "Toca ⋮ (Android) o Configuración (iPhone) → Dispositivos vinculados → Vincular un dispositivo.",
           "Elige «Vincular con número de teléfono» y escribe el código.",
-          "Regresa aquí: se conecta solo y te mandamos el sticker.",
+          "Regresa aquí: se conecta solo. En tu lista aparecerá como «Chrome (Mac OS)».",
         ];
   return (
     <div className="space-y-4">

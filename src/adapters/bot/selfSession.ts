@@ -14,7 +14,7 @@ import makeWASocket, {
 import pino from "pino";
 import { RateLimiter } from "../../utils/rateLimit.js";
 import { formatPairingCode, normalizePairingNumber } from "./connection.js";
-import { resolveWaVersion } from "./pairing.js";
+import { cachedVersion, isRotateRequest, newAdvSecret, toWhatsAppNumber, withAdvSecret } from "./pairing.js";
 import { type SoundStickerInput, sendSoundSticker } from "./soundSticker.js";
 
 /**
@@ -164,6 +164,8 @@ export function memoryAuthState(from?: SessionSnapshot): {
 /** The part of a Baileys socket we use (lets tests drive the whole flow with a fake). */
 export type SelfSocket = Pick<WASocket, "ev" | "end" | "logout" | "requestPairingCode" | "sendMessage"> & {
   user?: WASocket["user"];
+  /** Raw stanza listeners (pairing workarounds). Optional so fakes can skip it. */
+  ws?: { on?: (event: string, fn: (node: unknown) => void) => unknown };
 };
 
 export type SocketFactory = (state: AuthenticationState) => Promise<SelfSocket>;
@@ -171,12 +173,22 @@ export type SocketFactory = (state: AuthenticationState) => Promise<SelfSocket>;
 const quiet = pino({ level: "silent" });
 
 /** A socket that never asks for history nor handles messages (we only send to ourselves). */
+const waVersion = cachedVersion();
+
+/**
+ * Browser identity. MUST be a browser WhatsApp knows: with a custom name
+ * («Estampido») Baileys reports an «other web client» and WhatsApp refuses
+ * pairing CODES (QR doesn't check it). Shows as «Chrome (Mac OS)» in
+ * Dispositivos vinculados — the link dialog says so.
+ */
+export const SELF_BROWSER = Browsers.macOS("Chrome");
+
 export const realSocket: SocketFactory = async (state) => {
-  const { version } = await resolveWaVersion();
+  const { version } = await waVersion();
   return makeWASocket({
     auth: state,
     version,
-    browser: Browsers.macOS("Estampido"),
+    browser: SELF_BROWSER,
     logger: quiet,
     markOnlineOnConnect: false,
     syncFullHistory: false,
@@ -416,6 +428,11 @@ export class SelfSessions {
     this.codes = new RateLimiter(this.o.codesPerNumberPerHour, 60 * 60_000);
   }
 
+  /** Connections running / waiting right now (monitoring, tests). */
+  get busy(): { active: number; waiting: number } {
+    return this.gate.busy;
+  }
+
   get pendingLinks(): number {
     return this.links.size;
   }
@@ -427,8 +444,9 @@ export class SelfSessions {
     if (this.links.size >= this.o.maxPendingLinks) {
       throw new SessionError("Mucha gente vinculando: intenta en un momento.", "busy");
     }
-    const number = phone ? normalizePairingNumber(phone) : null;
-    if (phone && !number) throw new SessionError("Escribe tu número con código de país (ej. 52 229 …).", "invalid");
+    const typed = phone ? normalizePairingNumber(phone) : null;
+    const number = typed ? toWhatsAppNumber(typed) : null;
+    if (phone && !typed) throw new SessionError("Escribe tu número con código de país (ej. 52 229 …).", "invalid");
     if (number && this.codes.take(phoneKey(number), this.o.now()) > 0) {
       throw new SessionError("Ya pedimos varios códigos para ese número. Intenta en una hora.", "rate_limited");
     }
@@ -448,13 +466,22 @@ export class SelfSessions {
     this.links.set(id, entry);
 
     let asked = false;
+    let lastQr: string | null = null;
     let finished = false;
     const run = async (): Promise<void> => {
       sock = await this.o.socket(state);
       const s = sock;
+      // WhatsApp may ask the new device to rotate its ADV secret after the QR is
+      // scanned; Baileys rc14 ignores it → «No se pudo vincular» on the phone.
+      // Same fix the owner's bot has: new secret, re-render the QR.
+      s.ws?.on?.("CB:notification,type:companion_reg_refresh", (node: unknown) => {
+        if (finished || state.creds.account || !isRotateRequest(node as { content?: unknown })) return;
+        state.creds.advSecretKey = newAdvSecret();
+        if (lastQr && !number) entry.status = { state: "qr", qr: withAdvSecret(lastQr, state.creds.advSecretKey) };
+      });
       s.ev.on("connection.update", async (u: ConnUpdate) => {
         if (finished) return;
-        if (u.qr && !state.creds.registered) {
+        if (u.qr && !state.creds.account) {
           if (number && !asked) {
             asked = true;
             try {
@@ -462,7 +489,10 @@ export class SelfSessions {
             } catch {
               entry.status = { state: "failed", reason: "No se pudo pedir el código. Intenta con el QR." };
             }
-          } else if (!number) entry.status = { state: "qr", qr: u.qr };
+          } else if (!number) {
+            lastQr = u.qr;
+            entry.status = { state: "qr", qr: withAdvSecret(u.qr, state.creds.advSecretKey) };
+          }
         }
         if (u.connection === "open") {
           finished = true;
