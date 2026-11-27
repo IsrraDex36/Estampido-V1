@@ -1,7 +1,6 @@
 import { AudioWaveformIcon } from "@/components/icons";
 import { Link } from "wouter";
 import { AppNav } from "./AppNav";
-import { InstallButton } from "./InstallButton";
 import { ROUTES } from "./routes";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AccountMenu } from "@/features/account/AccountMenu";
@@ -19,7 +18,6 @@ export function AppHeader() {
           <span className="hidden text-[15px] font-semibold tracking-tight sm:inline">Estampido</span>
         </Link>
         <AppNav className="ml-1 sm:ml-4" />
-        <InstallButton />
         <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
           {/* Phones (tight row): WhatsApp chip + account here; the guide and theme live in the footer. */}
           <span className="hidden sm:contents">
