@@ -272,14 +272,18 @@ describe("linking your own WhatsApp", () => {
       } else setTimeout(() => s.emit({ connection: "open" }), 1);
     });
     const id = await sessions.startLink(A, "5212290000000");
-    await wait(5);
+    // Poll like the browser does (no fixed sleeps: robust when the machine is busy).
+    await until(() => sessions.linkStatus(id, A)?.state === "code");
     expect(sessions.linkStatus(id, A)).toEqual({ state: "code", code: "ABCD-EFGH" });
     expect(sessions.linkStatus(id, B)).toBeNull(); // another browser can't even see it
-    await wait(30);
-    const st = sessions.linkStatus(id, B);
-    expect(st).toBeNull(); // hijack attempt: nothing
-    const mine = sessions.linkStatus(id, A);
-    expect(mine?.state).toBe("linked");
+    let mine: ReturnType<typeof sessions.linkStatus> = null;
+    await until(() => {
+      expect(sessions.linkStatus(id, B)).toBeNull(); // hijack attempts at every step: nothing
+      const st = sessions.linkStatus(id, A); // «linked» is handed out once: keep it
+      if (st?.state === "linked") mine = st;
+      return mine !== null;
+    });
+    expect((mine as { state: string } | null)?.state).toBe("linked");
     expect(sessions.linkStatus(id, A)).toBeNull(); // handed out once
     expect(socks.every((s) => s.ended)).toBe(true); // no socket left open
     expect(sessions.pendingLinks).toBe(0);
@@ -292,7 +296,7 @@ describe("linking your own WhatsApp", () => {
   it("by QR (computers): the QR is exposed only to its browser", async () => {
     const { sessions } = setup({}, (s) => setTimeout(() => s.emit({ qr: "2@abc" }), 1));
     const id = await sessions.startLink(A);
-    await wait(5);
+    await until(() => sessions.linkStatus(id, A)?.state === "qr");
     expect(sessions.linkStatus(id, A)).toEqual({ state: "qr", qr: "2@abc" });
     expect(sessions.linkStatus(id, B)).toBeNull();
   });
@@ -310,7 +314,7 @@ describe("linking your own WhatsApp", () => {
     await sessions.startLink(A);
     await sessions.startLink(B);
     await expect(sessions.startLink(A)).rejects.toMatchObject({ code: "busy" });
-    await wait(40);
+    await until(() => sessions.pendingLinks === 0);
     expect(sessions.pendingLinks).toBe(0);
     expect(socks.every((s) => s.ended)).toBe(true);
   });
@@ -318,8 +322,7 @@ describe("linking your own WhatsApp", () => {
   it("a pairing that doesn't finish becomes «failed» for its browser", async () => {
     const { sessions } = setup({}, (s) => setTimeout(() => s.emit(closeWith(DisconnectReason.connectionClosed)), 1));
     const id = await sessions.startLink(A);
-    await wait(10);
-    expect(sessions.linkStatus(id, A)?.state).toBe("failed");
+    expect((await final(sessions, id, A))?.state).toBe("failed");
   });
 });
 
@@ -427,6 +430,23 @@ describe("sending to your own chat", () => {
 });
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Poll a link until it reaches a final answer (handed out once) and return it. */
+async function final(sessions: SelfSessions, id: string, client: string) {
+  let st: ReturnType<SelfSessions["linkStatus"]> = null;
+  await until(() => {
+    st = sessions.linkStatus(id, client);
+    return st === null || st.state === "linked" || st.state === "failed";
+  });
+  return st as ReturnType<SelfSessions["linkStatus"]>;
+}
+/** Wait until `ok()` holds (checked every 2 ms, up to 2 s). */
+async function until(ok: () => boolean, ms = 2_000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!ok()) {
+    if (Date.now() > end) throw new Error("timed out waiting for condition");
+    await wait(2);
+  }
+}
 
 describe("robustness found in the field", () => {
   it("restored keys stay Node Buffers (the Signal code calls Buffer methods on them)", async () => {
@@ -438,15 +458,13 @@ describe("robustness found in the field", () => {
   });
 
   it("linking waits for WhatsApp's first login to finish before handing out the session", async () => {
-    const { sessions } = setup({ linkSettleMaxMs: 2_000 }, (s) => {
-      setTimeout(() => s.emit({ connection: "open" }), 1);
-      setTimeout(() => s.emit({ receivedPendingNotifications: true }), 60);
-    });
+    const { sessions, socks } = setup({ linkSettleMaxMs: 5_000 }, () => {}); // events driven by hand
     const id = await sessions.startLink(A);
-    await wait(30);
+    socks[0]?.emit({ connection: "open" });
+    await wait(20);
     expect(sessions.linkStatus(id, A)).toEqual({ state: "pairing", step: "preparing" }); // still settling: not sealed yet
-    await wait(60);
-    expect(sessions.linkStatus(id, A)?.state).toBe("linked");
+    socks[0]?.emit({ receivedPendingNotifications: true });
+    expect((await final(sessions, id, A))?.state).toBe("linked");
   });
 
   it("disconnect codes are logged for diagnosis — never the session", async () => {
@@ -479,8 +497,7 @@ describe("why a link didn't finish", () => {
     ] as const) {
       const { sessions } = setup({}, (s) => setTimeout(() => s.emit(closeWith(code)), 1));
       const id = await sessions.startLink(A);
-      await wait(10);
-      const st = sessions.linkStatus(id, A);
+      const st = await final(sessions, id, A);
       expect(st?.state).toBe("failed");
       expect((st as { reason: string }).reason).toMatch(re);
     }
@@ -491,8 +508,7 @@ describe("your WhatsApp is also your sign-in", () => {
   it("a finished link says whose WhatsApp it is (device suffix dropped) — only to its browser", async () => {
     const { sessions } = setup();
     const id = await sessions.startLink(A);
-    await wait(20);
-    const st = sessions.linkStatus(id, A) as { state: string; me: string };
+    const st = (await final(sessions, id, A)) as { state: string; me: string };
     expect(st.state).toBe("linked");
     expect(st.me).toBe("5212290000000@s.whatsapp.net");
   });
@@ -543,9 +559,8 @@ describe("regression: «vinculado» but every send asked to link again", () => {
     });
     const ok = await sessions.startLink(A);
     const bad = await bare.sessions.startLink(A);
-    await wait(30);
-    expect(sessions.linkStatus(ok, A)?.state).toBe("linked");
-    const st = bare.sessions.linkStatus(bad, A) as { state: string; reason?: string };
+    expect((await final(sessions, ok, A))?.state).toBe("linked");
+    const st = (await final(bare.sessions, bad, A)) as { state: string; reason?: string };
     expect(st.state).toBe("failed");
     expect(st.reason).toMatch(/no terminó de vincular/);
   });
@@ -553,8 +568,7 @@ describe("regression: «vinculado» but every send asked to link again", () => {
   it("whatever a real link hands out can be used right away (link → send → whoAmI)", async () => {
     const { sessions, sent } = setup();
     const id = await sessions.startLink(A);
-    await wait(20);
-    const st = sessions.linkStatus(id, A) as { state: string; session: string };
+    const st = (await final(sessions, id, A)) as { state: string; session: string };
     expect(st.state).toBe("linked");
     await expect(sessions.sendToSelf(st.session, A, [item])).resolves.toMatchObject({ result: { sent: 1 } });
     expect(sent).toHaveLength(1);
@@ -585,27 +599,22 @@ describe("the browser forgets the session ONLY when the session is unusable", ()
 
 describe("progress while WhatsApp finishes linking (so it never looks frozen)", () => {
   it("code → phone accepts (pairing·connecting) → restart → open (pairing·preparing) → linked", async () => {
-    const { sessions } = setup({ linkSettleMaxMs: 2_000 }, (s, n) => {
-      if (n === 1) {
-        setTimeout(() => s.emit({ qr: "2@qr" }), 1);
-        setTimeout(() => s.emit({ isNewLogin: true }), 15);
-        setTimeout(() => s.emit(closeWith(DisconnectReason.restartRequired)), 30);
-      } else {
-        setTimeout(() => s.emit({ connection: "open" }), 20);
-        setTimeout(() => s.emit({ receivedPendingNotifications: true }), 70);
-      }
-    });
+    // Every WhatsApp event is emitted by hand: the order is exact, no timing assumptions.
+    const { sessions, socks } = setup({ linkSettleMaxMs: 5_000 }, () => {});
     const id = await sessions.startLink(A, "5212290000000");
-    await wait(8);
+    socks[0]?.emit({ qr: "2@qr" });
+    await until(() => sessions.linkStatus(id, A)?.state === "code");
     expect(sessions.linkStatus(id, A)).toEqual({ state: "code", code: "ABCD-EFGH" });
-    await wait(15);
+    socks[0]?.emit({ isNewLogin: true }); // the phone accepted
     expect(sessions.linkStatus(id, A)).toEqual({ state: "pairing", step: "connecting" });
-    await wait(15);
+    socks[0]?.emit(closeWith(DisconnectReason.restartRequired));
     expect(sessions.linkStatus(id, A)).toEqual({ state: "pairing", step: "connecting" }); // reconnecting
-    await wait(35);
+    await until(() => socks.length === 2);
+    socks[1]?.emit({ connection: "open" });
     expect(sessions.linkStatus(id, A)).toEqual({ state: "pairing", step: "preparing" });
     expect(sessions.linkStatus(id, B)).toBeNull(); // progress is private too
-    await wait(60);
-    expect(sessions.linkStatus(id, A)?.state).toBe("linked");
+    socks[1]?.emit({ receivedPendingNotifications: true });
+    expect((await final(sessions, id, A))?.state).toBe("linked");
+    expect(socks.every((x) => x.ended)).toBe(true);
   });
 });

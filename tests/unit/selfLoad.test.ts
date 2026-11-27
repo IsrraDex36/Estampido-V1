@@ -14,6 +14,13 @@ import {
 
 const key = sealKeyFrom(randomBytes(32));
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+async function until(ok: () => boolean, ms = 3_000): Promise<void> {
+  const end = Date.now() + ms;
+  while (!ok()) {
+    if (Date.now() > end) throw new Error("timed out waiting for condition");
+    await wait(2);
+  }
+}
 const browser = (n: number) => n.toString(16).padStart(64, "0"); // a client hash per person
 const jidOf = (n: number) => `52122900${String(n).padStart(5, "0")}@s.whatsapp.net`;
 const IDENTITY = {
@@ -192,14 +199,17 @@ describe("many people at once", () => {
     const w = world();
     const ids = await Promise.all(Array.from({ length: 30 }, (_, i) => w.sessions.startLink(browser(i))));
     expect(new Set(ids).size).toBe(30);
-    await wait(40);
     for (let i = 0; i < 30; i++) {
       const id = ids[i] as string;
-      expect(w.sessions.linkStatus(id, browser((i + 1) % 30))).toBeNull(); // the neighbour sees nothing
-      const st = w.sessions.linkStatus(id, browser(i)) as { state: string; session?: string };
+      let st: { state: string; session?: string } | null = null;
+      await until(() => {
+        expect(w.sessions.linkStatus(id, browser((i + 1) % 30))).toBeNull(); // the neighbour sees nothing, ever
+        st = w.sessions.linkStatus(id, browser(i)) as { state: string } | null;
+        return st !== null && (st.state === "linked" || st.state === "failed");
+      });
       // A fresh fake socket has no identity → «failed» (never a useless «linked»); what matters
       // here is isolation and that nothing stays open.
-      expect(["failed", "linked"]).toContain(st.state);
+      expect(["failed", "linked"]).toContain((st as { state: string } | null)?.state);
     }
     expect(w.stats().allEnded).toBe(true);
     expect(w.sessions.pendingLinks).toBe(0);
@@ -246,7 +256,7 @@ describe("pairing by CODE (only QR used to work)", () => {
       },
     });
     const id = await sessions.startLink(browser(1), "522291234567");
-    await wait(10);
+    await until(() => asked.length === 1 && sessions.linkStatus(id, browser(1))?.state === "code");
     expect(asked).toEqual(["5212291234567"]);
     expect(sessions.linkStatus(id, browser(1))).toEqual({ state: "code", code: "ABCD-EFGH" });
     await sessions.startLink(browser(2), "5212291234567");
