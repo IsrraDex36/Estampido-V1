@@ -21,9 +21,12 @@ export function AppHeader() {
         <AppNav className="ml-1 sm:ml-4" />
         <InstallButton />
         <div className="ml-auto flex items-center gap-1 sm:gap-1.5">
-          {/* Phones: bot status and the theme switch live in the footer; the guide stays here. */}
+          {/* Phones: a compact WhatsApp status chip here (full label in the footer); theme in the footer. */}
           <span className="hidden sm:contents">
             <BotStatus />
+          </span>
+          <span className="contents sm:hidden">
+            <BotStatus compact />
           </span>
           <TourButton />
           <span className="hidden sm:contents">

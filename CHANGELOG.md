@@ -21,6 +21,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Estado de WhatsApp en el celular**: el encabezado móvil muestra un ícono de WhatsApp con punto de estado (verde vinculado, morado parpadeando «vincular», gris en pausa). Al tocarlo vincula, o explica el estado (en móvil no hay tooltips).
+
 - **Vincular ya no parece trabado**: en cuanto el teléfono acepta el código o el QR, la pantalla cambia a «Vinculando tu WhatsApp…» con progreso real (aceptó → conectando de forma segura → preparando tu cuenta y tu chat «Tú») y barra; si tarda más de 12 s avisa «Casi listo». Al terminar, «¡Listo, WhatsApp vinculado! Entraste como @usuario» un momento y luego se manda lo que estaba pendiente. Mientras llega el código: «Pidiendo tu código a WhatsApp…».
 
 - **Número por país (LatAm + España + EE. UU.)**: selector de país con su lada y cuántos dígitos lleva (22 países), adivinado por el idioma y la zona horaria del navegador (Lima → Perú) y recordado. Valida en vivo («Faltan 3 dígitos (Perú: 9)»), acepta el número pegado con `+51`/`0051`, quita prefijos locales (0 inicial, 044/045 y «1» en México, «9» y «0 … 15» en Argentina) y muestra exactamente para qué número se pedirá el código.
