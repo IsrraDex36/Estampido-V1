@@ -7,6 +7,8 @@ import { createApp } from "../../src/adapters/http/app.js";
 import { MIGRATIONS } from "../../src/adapters/http/community/db.js";
 import { CommunityRepo } from "../../src/adapters/http/community/repo.js";
 import {
+  AVATAR_COLORS,
+  AVATAR_EMOJIS,
   type CommunityPage,
   type CommunitySticker,
   type CreatorProfile,
@@ -170,7 +172,10 @@ describe("sign in with WhatsApp", () => {
     expect(first.created).toBe(true);
     expect(first.me).toMatchObject({ phone: "…1111", bio: "", stats: { stickers: 0, uses: 0, saves: 0, sends: 0 } });
     expect(first.me.handle).toMatch(/^creador_\d{4}$/);
-    expect(first.me.avatar).toMatch(/^\S+ (lime|pink|sky|amber|violet|coral)$/u);
+    // A random valid avatar: one of the emojis on one of the colors (from the contract, never a stale copy).
+    const [emoji, color] = first.me.avatar.split(" ");
+    expect(AVATAR_EMOJIS as readonly string[]).toContain(emoji);
+    expect(AVATAR_COLORS as readonly string[]).toContain(color);
     expect(first.setCookie).toMatch(/HttpOnly/i);
     expect(first.setCookie).toMatch(/SameSite=Lax/i);
     expect(first.setCookie).toMatch(/Path=\//);
