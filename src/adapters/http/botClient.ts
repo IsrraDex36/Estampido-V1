@@ -149,7 +149,7 @@ export function createBotClient(file: string = controlFile(), timeoutMs = 60_000
           method,
           headers: { authorization: `Bearer ${ctl.token}`, "content-type": "application/json" },
           ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
-          signal: AbortSignal.timeout(200_000),
+          signal: AbortSignal.timeout(170_000), // > the bot's 140 s op limit, < the 180 s HTTP request limit
         });
         return { status: res.status, body: (await res.json().catch(() => ({}))) as Record<string, unknown> };
       } catch {

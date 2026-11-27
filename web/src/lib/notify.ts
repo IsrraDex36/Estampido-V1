@@ -30,6 +30,8 @@ type Options = Pick<ExternalToast, "description" | "action" | "duration" | "id">
 export const notify = {
   success: (message: string, opts?: Options) => toast.success(message, opts),
   info: (message: string, opts?: Options) => toast.info(message, opts),
+  /** A spinner toast that later turns into success/warning/error with the same id. */
+  loading: (message: string, opts?: Options) => toast.loading(message, opts),
   warning: (message: string, opts?: Options) => toast.warning(message, opts),
   /** Accepts an error or a message. Same message → same toast (no stacking). */
   error: (errOrMessage: unknown, opts?: Options & { fallback?: string }) => {

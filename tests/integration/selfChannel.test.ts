@@ -46,7 +46,7 @@ describe("send to your own chat", () => {
     const id = await h.makeResult();
     const r = await post("/api/self/send", { session: "s1.old", results: [id] });
     expect(r.status).toBe(200);
-    expect(await r.json()).toEqual({ sent: 1, session: "s1.refreshed" });
+    expect(await r.json()).toEqual({ sent: 1, session: "s1.refreshed", skipped: 0 });
     const [call] = calls;
     expect(call?.path).toBe("/send");
     expect(call?.body?.session).toBe("s1.old");
@@ -259,5 +259,94 @@ describe("many browsers sending at once through the web API", () => {
       clientOf.set(o.b, call?.client as string);
     }
     expect(new Set(clientOf.values()).size).toBe(4); // four browsers, four distinct bindings
+  });
+});
+
+describe("sending many: robust and honest", () => {
+  let botAnswer: Record<string, unknown>;
+  let seen: { items?: { webpPath: string }[] }[];
+  beforeEach(async () => {
+    h.close();
+    seen = [];
+    botAnswer = { sent: 1, failed: 0, pending: 0, session: "s2.renewed" };
+    const bot = {
+      status: async () => ({ available: true, connected: false }),
+      send: async () => ({ delivered: "sticker" as const }),
+      linkStatus: async (client: string) => ({
+        state: "linked" as const,
+        phone: "…0000",
+        linkedAt: 1,
+        account: client,
+      }),
+      unlink: async () => {},
+      self: async (path: string, body?: unknown) => {
+        if (path === "/send") {
+          const b = body as { items: { webpPath: string }[] };
+          seen.push(b);
+          return { status: 200, body: { ...botAnswer, sent: (botAnswer.sent as number) ?? b.items.length } };
+        }
+        return { status: 200, body: {} };
+      },
+    };
+    h = await makeHarness(dir, undefined, { bot: bot as never });
+  });
+
+  it("a repeated id is sent once", async () => {
+    const id = await h.makeResult();
+    await post("/api/self/send", { session: "s2.x", results: [id, id, id] });
+    expect(seen[0]?.items).toHaveLength(1);
+  });
+
+  it("an expired one doesn't sink the rest: skipped and reported", async () => {
+    const ok = await h.makeResult();
+    const r = await post("/api/self/send", { session: "s2.x", results: [ok, "00000000-0000-4000-8000-000000000000"] });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ skipped: 1, session: "s2.renewed" });
+    expect(seen[0]?.items).toHaveLength(1);
+  });
+
+  it("a pack with a deleted sticker still sends the others", async () => {
+    await h.signIn("ana", "ana");
+    const a = await h.publish("ana", { title: "Uno" });
+    const b = await h.publish("ana", { title: "Dos" });
+    await h.community.remove(b.id);
+    botAnswer.sent = 1;
+    const r = await post("/api/self/send", { session: "s2.x", community: [a.id, b.id] });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toMatchObject({ sent: 1, skipped: 1 });
+  });
+
+  it("nothing left to send → a clear 404, and WhatsApp isn't even contacted", async () => {
+    const r = await post("/api/self/send", { session: "s2.x", community: ["nope-1", "nope-2"] });
+    expect(r.status).toBe(404);
+    expect(seen).toHaveLength(0);
+  });
+
+  it("partial progress from the bot passes through (failed / pending) with the renewed session", async () => {
+    const ids = [await h.makeResult(), await h.makeResult(), await h.makeResult()];
+    botAnswer = { sent: 1, failed: 1, pending: 1, session: "s2.renewed" };
+    const r = await post("/api/self/send", { session: "s2.x", results: ids });
+    expect(await r.json()).toEqual({ sent: 1, failed: 1, pending: 1, session: "s2.renewed", skipped: 0 });
+    expect(r.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("send counters only move when everything in the request arrived", async () => {
+    await h.signIn("ana", "ana");
+    const a = await h.publish("ana", { title: "Uno" });
+    botAnswer = { sent: 0, failed: 1, pending: 0, session: "s2.r" };
+    await post("/api/self/send", { session: "s2.x", community: [a.id] });
+    expect((await h.community.get(a.id))?.sends ?? 0).toBe(0);
+    botAnswer = { sent: 1, failed: 0, pending: 0, session: "s2.r" };
+    await post("/api/self/send", { session: "s2.x", community: [a.id] });
+    expect((await h.community.get(a.id))?.sends).toBe(1);
+  });
+
+  it("no account needed: an anonymous browser (never signed in) can send", async () => {
+    const id = await h.makeResult();
+    const r = await h.req("anon", "/api/self/send", {
+      method: "POST",
+      body: JSON.stringify({ session: "s2.x", results: [id] }),
+    });
+    expect(r.status).toBe(200);
   });
 });

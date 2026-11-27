@@ -81,7 +81,18 @@ export type SessionErrorCode =
   | "timeout"
   | "busy"
   | "send_failed"
-  | "rate_limited";
+  | "rate_limited"
+  /** Malformed request (never means «your session is bad»). */
+  | "bad_request";
+
+/** What a send achieved: sent + failed + pending = requested. */
+export interface SendOutcome {
+  sent: number;
+  /** Tried and failed (e.g. one upload hung). */
+  failed: number;
+  /** Not tried: the time budget ran out — send them again. */
+  pending: number;
+}
 
 export class SessionError extends Error {
   constructor(
@@ -368,6 +379,10 @@ export interface SelfSessionsOptions {
   linkTtlMs?: number;
   /** Pauses (tests use 0). */
   settleMs?: number;
+  /** A send stops STARTING stickers after this long (the rest come back as pending). */
+  sendBudgetMs?: number;
+  /** One sticker that takes longer counts as failed. */
+  itemTimeoutMs?: number;
   /** Max wait for WhatsApp's first-login tasks after linking / before sending. */
   linkSettleMaxMs?: number;
   sendSettleMaxMs?: number;
@@ -427,11 +442,15 @@ export class SelfSessions {
       maxConcurrent: 4,
       maxWaiting: 20,
       openTimeoutMs: 25_000,
-      opTimeoutMs: 120_000,
+      opTimeoutMs: 140_000, // open (≤ 25 s) + settle (≤ 8 s) + budget (60 s) + one slow item (25 s) + margin
       codesPerNumberPerHour: 3,
       maxPendingLinks: 30,
       linkTtlMs: 4 * 60_000,
       settleMs: 1_200,
+      // Budget + one slow item + settle stays under opTimeout (120 s) and the HTTP
+      // request limit (180 s): a big send returns partial progress, never a dead timeout.
+      sendBudgetMs: 60_000,
+      itemTimeoutMs: 25_000,
       linkSettleMaxMs: 20_000,
       sendSettleMaxMs: 8_000,
       gapMs: 400,
@@ -636,27 +655,34 @@ export class SelfSessions {
     );
   }
 
-  /** Send stickers to the person's OWN chat (never anyone else), in one connection. */
-  sendToSelf(
-    sealed: string,
-    client: string,
-    items: SelfItem[],
-  ): Promise<{ result: { sent: number }; session: string }> {
+  /**
+   * Send stickers to the person's OWN chat (never anyone else), in one connection.
+   * Never throws away progress: a sticker that hangs counts as failed (per-item
+   * limit) and, once the time budget is spent, the rest are returned as
+   * `pending` WITH the renewed session — reusing the old one after keys moved
+   * on would fork the encryption state.
+   */
+  sendToSelf(sealed: string, client: string, items: SelfItem[]): Promise<{ result: SendOutcome; session: string }> {
     if (items.length === 0 || items.length > 30)
-      return Promise.reject(new SessionError("Elige de 1 a 30 stickers.", "invalid"));
+      return Promise.reject(new SessionError("Elige de 1 a 30 stickers.", "bad_request"));
     return this.withSession(sealed, client, async (sock, self) => {
+      const started = this.o.now();
       let sent = 0;
+      let failed = 0;
       for (const [i, it] of items.entries()) {
+        if (this.o.now() - started > this.o.sendBudgetMs) {
+          return { sent, failed, pending: items.length - i };
+        }
         try {
-          await this.o.sendSticker(sock, self, it);
+          await within(this.o.sendSticker(sock, self, it), this.o.itemTimeoutMs, "El sticker");
           sent++;
         } catch {
-          // keep going with the rest
+          failed++; // keep going with the rest
         }
         if (i < items.length - 1) await sleep(this.o.gapMs);
       }
       if (sent === 0) throw new SessionError("No se pudo enviar a tu chat.", "send_failed");
-      return { sent };
+      return { sent, failed, pending: 0 };
     });
   }
 

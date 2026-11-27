@@ -6,6 +6,15 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **Enviar varios stickers, robusto y honesto**:
+  - Un solo envío a la vez por navegador (también entre pestañas, con Web Locks), siempre desde la sesión más reciente: antes, dos envíos casi juntos (doble toque, dos botones, dos pestañas) partían de la misma sesión y el segundo pisaba las llaves del primero — eso desincronizaba el cifrado (los «Closing session…» repetidos y luego el 401 «logged_out»).
+  - Lotes de 10 con progreso («Enviando 20 de 30…»); cada lote usa la sesión que renovó el anterior.
+  - Un sticker que expiró, se borró o se ocultó ya no tumba el pack completo: se omite y se avisa. IDs repetidos se envían una vez.
+  - El bot tiene presupuesto de tiempo y límite por sticker: si se acaba el tiempo devuelve lo pendiente **con la sesión renovada** (antes un timeout perdía la sesión aunque ya hubiera enviado varios).
+  - Mensajes honestos: «Llegaron 27 de 30 · 2 ya no existen · 1 no se pudo enviar». Si WhatsApp quitó el dispositivo a mitad de envío, al volver a vincular se mandan **solo los que faltaban**.
+  - Un conteo inválido es «solicitud incorrecta», nunca «sesión inválida» (antes podía hacer que el navegador olvidara una vinculación buena).
+  - Enviar no requiere cuenta: funciona igual sin haber entrado.
+
 - **Seguridad: llaves de cifrado en los logs.** La librería de cifrado de WhatsApp (libsignal) imprimía sesiones completas («Closing session: SessionEntry { privKey… rootKey… }») en los logs del bot. Ahora el bot filtra esas líneas y cualquier objeto con material de llaves antes de que lleguen a la consola.
 
 - **Cerrar sesión de verdad y volver a entrar sin trucos**:

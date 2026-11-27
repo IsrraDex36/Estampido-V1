@@ -600,13 +600,17 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     if (typeof body?.session !== "string") return c.json(fail("bad_request", "Falta tu sesión de WhatsApp."), 400);
     const client = selfClient(c);
     if (!client) return noClient(c);
-    const results = Array.isArray(body.results) ? body.results.filter((x): x is string => typeof x === "string") : [];
-    const community = Array.isArray(body.community)
-      ? body.community.filter((x): x is string => typeof x === "string")
-      : [];
+    // Deduped (a repeated id must not arrive twice), strings only.
+    const ids = (v: unknown) =>
+      Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string" && x.length <= 64))] : [];
+    const results = ids(body.results);
+    const community = ids(body.community);
     if (results.length + community.length === 0 || results.length + community.length > 30) {
       return c.json(fail("bad_request", "Elige de 1 a 30 stickers."), 400);
     }
+    // One expired / deleted / hidden sticker must not sink the whole pack: skip it and say so.
+    let skipped = 0;
+    const sentCommunity: string[] = [];
     const items: { webpPath: string; audioPath?: string; audioDurationSec?: number; animated: boolean }[] = [];
     const describe = async (webpPath: string, oggPath: string | null) => {
       const webp = await readFile(webpPath).catch(() => null);
@@ -626,14 +630,17 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     for (const id of results) {
       const webpPath = store.resolve(id, "sticker.webp");
       const it = webpPath ? await describe(webpPath, store.resolve(id, "sticker.ogg")) : null;
-      if (!it) return c.json(fail("expired", "Uno de los stickers expiró. Vuelve a crearlo."), 404);
-      items.push(it);
+      if (it) items.push(it);
+      else skipped++;
     }
     const pack = typeof body.pack === "string" ? await social.pack(body.pack) : null;
     for (const id of community) {
       const sticker = await communityRepo.get(id);
       const webp = sticker && !sticker.hidden ? await communityRepo.resolveFile(id, "sticker.webp") : null;
-      if (!sticker || !webp) return c.json(fail("not_found", "Uno de los stickers ya no existe."), 404);
+      if (!sticker || !webp) {
+        skipped++;
+        continue;
+      }
       const ogg = sticker.soundSec !== null ? await communityRepo.resolveFile(id, "sticker.ogg") : null;
       let webpPath = webp.path;
       if (pack && (await social.packContains(pack.id, id))) {
@@ -641,11 +648,33 @@ export function createApp(deps: AppDeps = {}): ApiApp {
         webpPath = await stampForPack(webp.path, pack, tmp.dir);
       }
       const it = await describe(webpPath, ogg?.path ?? null);
-      if (it) items.push(it);
+      if (it) {
+        items.push(it);
+        sentCommunity.push(id);
+      } else skipped++;
     }
-    const res = await selfCall(c, "/send", { client, session: body.session, items });
-    if (res.ok) for (const id of community) await communityRepo.recordSend(id).catch(() => {});
-    return res;
+    if (items.length === 0) {
+      return c.json(
+        fail(
+          results.length > 0 ? "expired" : "not_found",
+          results.length > 0 ? "Esos stickers ya expiraron. Vuelve a crearlos." : "Esos stickers ya no existen.",
+        ),
+        404,
+      );
+    }
+    c.header("Cache-Control", "no-store"); // the answer carries the renewed session
+    if (!bot.self) return c.json(fail("not_found", "No disponible."), 404);
+    try {
+      const r = await bot.self("/send", { client, session: body.session, items });
+      if (r.status < 200 || r.status >= 300) return selfReply(c, r);
+      // Counted only when everything in this request arrived (no guessing which one failed).
+      if (r.body.failed === 0 && r.body.pending === 0) {
+        for (const id of sentCommunity) await communityRepo.recordSend(id).catch(() => {});
+      }
+      return c.json({ ...r.body, skipped });
+    } catch (err) {
+      return botFailure(c, err, "self");
+    }
   });
   app.post("/self/logout", async (c) => {
     const body = (await c.req.json().catch(() => null)) as { session?: unknown } | null;

@@ -131,6 +131,7 @@ export function createControlApp(
     timeout: 504,
     busy: 503,
     send_failed: 502,
+    bad_request: 400,
   } as const;
   const selfError = (c: Context, err: unknown) => {
     if (err instanceof SessionError) {
@@ -227,7 +228,7 @@ export function createControlApp(
       ).catch(() => null);
       if (!items) return c.json({ error: "Uno de los stickers no se puede enviar.", code: "bad_request" }, 400);
       const { result, session } = await bot.self.sendToSelf(parsed.data.session, parsed.data.client, items);
-      return c.json({ sent: result.sent, session });
+      return c.json({ sent: result.sent, failed: result.failed, pending: result.pending, session });
     } catch (err) {
       return selfError(c, err);
     }

@@ -335,7 +335,7 @@ describe("sending to your own chat", () => {
     const { sessions, sent, socks } = setup();
     const sealed = sealSession(linked(), key, A);
     const r = await sessions.sendToSelf(sealed, A, [item(1), item(2), item(3)]);
-    expect(r.result).toEqual({ sent: 3 });
+    expect(r.result).toEqual({ sent: 3, failed: 0, pending: 0 });
     expect(sent.map((s) => s.webp)).toEqual(["/r/1/sticker.webp", "/r/2/sticker.webp", "/r/3/sticker.webp"]);
     expect(new Set(sent.map((s) => s.jid))).toEqual(new Set(["5212290000000@s.whatsapp.net"])); // device suffix dropped: your chat
     expect(socks).toHaveLength(1); // one connection for all
@@ -351,14 +351,10 @@ describe("sending to your own chat", () => {
     await expect(sessions.sendToSelf(sealed, B, [item(1)])).rejects.toMatchObject({ code: "invalid" });
     const fresh = sealSession({ creds: initAuthCreds(), keys: {} }, key, A);
     await expect(sessions.sendToSelf(fresh, A, [item(1)])).rejects.toMatchObject({ code: "invalid" });
-    await expect(sessions.sendToSelf(sealed, A, [])).rejects.toMatchObject({ code: "invalid" });
-    await expect(
-      sessions.sendToSelf(
-        sealed,
-        A,
-        Array.from({ length: 31 }, (_, i) => item(i)),
-      ),
-    ).rejects.toMatchObject({ code: "invalid" });
+    // A bad count is a bad REQUEST (never «invalid»: that would make the browser forget a good session).
+    await expect(sessions.sendToSelf(sealed, A, [])).rejects.toMatchObject({ code: "bad_request" });
+    const tooMany = Array.from({ length: 31 }, (_, i) => item(i));
+    await expect(sessions.sendToSelf(sealed, A, tooMany)).rejects.toMatchObject({ code: "bad_request" });
     expect(socks).toHaveLength(0);
   });
 
@@ -371,7 +367,11 @@ describe("sending to your own chat", () => {
       },
     });
     const sealed = sealSession(linked(), key, A);
-    expect((await flaky.sessions.sendToSelf(sealed, A, [item(1), item(2), item(3)])).result).toEqual({ sent: 2 });
+    expect((await flaky.sessions.sendToSelf(sealed, A, [item(1), item(2), item(3)])).result).toEqual({
+      sent: 2,
+      failed: 1,
+      pending: 0,
+    });
     const broken = setup({
       sendSticker: async () => {
         throw new Error("x");
@@ -542,7 +542,7 @@ describe("regression: «vinculado» but every send asked to link again", () => {
     const { sessions, sent } = setup();
     const sealed = sealSession(linked(ME, "qr"), key, A);
     const r = await sessions.sendToSelf(sealed, A, [item]);
-    expect(r.result).toEqual({ sent: 1 });
+    expect(r.result).toEqual({ sent: 1, failed: 0, pending: 0 });
     expect(sent).toHaveLength(1);
     expect(sessions.whoAmI(r.session, A).jid).toBe("5212290000000@s.whatsapp.net");
   });
@@ -616,5 +616,52 @@ describe("progress while WhatsApp finishes linking (so it never looks frozen)", 
     socks[1]?.emit({ receivedPendingNotifications: true });
     expect((await final(sessions, id, A))?.state).toBe("linked");
     expect(socks.every((x) => x.ended)).toBe(true);
+  });
+});
+
+describe("big sends never lose progress", () => {
+  const item = (n: number) => ({ webpPath: `/r/${n}/sticker.webp`, animated: true });
+
+  it("time budget spent → stops starting new stickers, returns what's pending WITH the renewed session", async () => {
+    let t = 0;
+    const { sessions, sent } = setup({
+      now: () => t,
+      sendBudgetMs: 25_000,
+      sendSticker: async () => {
+        t += 10_000; // each sticker «takes» 10 s
+      },
+    });
+    const sealed = sealSession(linked(), key, A, 0);
+    const r = await sessions.sendToSelf(
+      sealed,
+      A,
+      Array.from({ length: 8 }, (_, i) => item(i)),
+    );
+    expect(r.result).toEqual({ sent: 3, failed: 0, pending: 5 });
+    expect(sent).toHaveLength(0); // (custom sender above doesn't record)
+    expect(() => openSession(r.session, key, A, t)).not.toThrow(); // renewed: keys that moved on are kept
+    expect(r.session).not.toBe(sealed);
+  });
+
+  it("one sticker that hangs counts as failed; the rest still go and the session is renewed", async () => {
+    let n = 0;
+    const { sessions } = setup({
+      itemTimeoutMs: 30,
+      sendSticker: async () => {
+        n++;
+        if (n === 2) await new Promise(() => {}); // never resolves
+      },
+    });
+    const r = await sessions.sendToSelf(sealSession(linked(), key, A), A, [item(1), item(2), item(3)]);
+    expect(r.result).toEqual({ sent: 2, failed: 1, pending: 0 });
+  });
+
+  it("the default limits fit inside the HTTP request limit (180 s)", () => {
+    const s = new SelfSessions({ sealKey: key });
+    const o = (s as unknown as { o: Record<string, number> }).o;
+    expect(
+      o.openTimeoutMs + (o.sendSettleMaxMs ?? 0) + o.sendBudgetMs + o.itemTimeoutMs + o.settleMs,
+    ).toBeLessThanOrEqual(o.opTimeoutMs);
+    expect(o.opTimeoutMs).toBeLessThan(170_000); // botClient self timeout
   });
 });

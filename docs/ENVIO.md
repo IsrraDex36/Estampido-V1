@@ -130,3 +130,15 @@ sesión (`iat`); si es anterior o igual a esa fecha → `401 session_revoked`.
 - Las revocaciones se purgan a los 200 días (ninguna sesión vive más de 180).
 - La web olvida la sesión al instante y pide a WhatsApp quitar el dispositivo
   en segundo plano (`keepalive`); las pestañas se sincronizan por `storage`.
+
+### Enviar varios
+
+- La web manda en lotes de 10 (`SEND_BATCH`), uno a la vez por navegador
+  (Web Locks `estampido-self-send`, o una fila en memoria), releyendo la sesión
+  antes de cada lote: nunca dos envíos con la misma sesión.
+- El servidor quita repetidos, omite lo que ya no existe (`skipped`) y responde
+  `{ sent, failed, pending, skipped, session }` (`no-store`).
+- El bot: `sendBudgetMs` 60 s (deja de empezar stickers), `itemTimeoutMs` 25 s
+  por sticker, `opTimeoutMs` 140 s; el cliente HTTP espera 170 s y el servidor
+  corta peticiones a los 180 s. Lo pendiente vuelve con la sesión renovada.
+- Los logs del bot filtran objetos de sesión de libsignal (llaves privadas).
