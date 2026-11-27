@@ -20,7 +20,7 @@ const trending = () => h.json<CommunityTrending>(h.req("anon", "/api/community/t
 
 describe("«Tendencias» grouped by category", () => {
   it("empty community: nothing hot, no shelves", async () => {
-    expect(await trending()).toEqual({ hot: [], shelves: [] });
+    expect(await trending()).toEqual({ hot: [], recent: [], shelves: [] });
   });
 
   it("one shelf per category that has stickers, never empty ones, each holding only its category", async () => {
@@ -73,5 +73,36 @@ describe("«Tendencias» grouped by category", () => {
     const t = await trending();
     expect(t.hot.map((s) => s.title)).toEqual(["visible"]);
     expect(t.shelves.flatMap((s) => s.items).map((s) => s.title)).toEqual(["visible"]);
+  });
+});
+
+describe("«Recién agregados» and downloads", () => {
+  it("the newest stickers come first in «recent»", async () => {
+    await h.publish("ana", { title: "viejo" });
+    await h.publish("beto", { title: "nuevo" });
+    const t = await trending();
+    expect(t.recent.map((s) => s.title)).toEqual(["nuevo", "viejo"]);
+  });
+
+  it("downloading the file counts as a download — once per person a day, never for anonymous requests", async () => {
+    const s = await h.publish("ana", { title: "x" });
+    const dl = (b: "ana" | "beto" | "caro") => h.req(b, `${s.stickerUrl}?download`);
+    expect((await dl("beto")).status).toBe(200);
+    await dl("beto"); // same person, same day: not again
+    const count = async () => (await trending()).hot.find((x) => x.id === s.id)?.downloads;
+    expect(await count()).toBe(1);
+    await dl("caro"); // another person: counts
+    expect(await count()).toBe(2);
+    await h.anonymous(`${s.stickerUrl}?download`); // no browser id → not counted
+    expect(await count()).toBe(2);
+    h.clock.now += 86_400_000; // next day, same person: counts again
+    await dl("beto");
+    expect(await count()).toBe(3);
+  });
+
+  it("just viewing the image (no ?download) is not a download", async () => {
+    const s = await h.publish("ana", { title: "x" });
+    await h.req("beto", s.stickerUrl);
+    expect((await trending()).hot.find((x) => x.id === s.id)?.downloads).toBe(0);
   });
 });

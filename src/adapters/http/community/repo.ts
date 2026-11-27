@@ -416,6 +416,27 @@ export class CommunityRepo {
     return (row as { sends: number } | undefined)?.sends ?? null;
   }
 
+  /**
+   * Someone downloaded the sticker file. Counts like a send (it went to their
+   * phone), at most once per person per sticker per day so nobody can inflate it.
+   */
+  async recordDownload(id: string, viewer: string): Promise<boolean> {
+    if (!isCommunityId(id) || !viewer) return false;
+    const db = await this.db();
+    const day = Math.floor(this.now() / 86_400_000);
+    return transaction(db, () => {
+      const exists = this.stmt(db, "SELECT 1 AS ok FROM stickers WHERE id = ? AND hidden = 0").get(id);
+      if (!exists) return false;
+      const fresh = this.stmt(
+        db,
+        "INSERT OR IGNORE INTO download_marks (sticker_id, viewer, day) VALUES (?, ?, ?)",
+      ).run(id, viewer, day).changes;
+      if (Number(fresh) === 0) return false;
+      this.stmt(db, "UPDATE stickers SET sends = sends + 1 WHERE id = ?").run(id);
+      return true;
+    });
+  }
+
   /** +1 use of a sound. Returns the new count, or null if there is no such sound. */
   async recordUse(id: string): Promise<number | null> {
     if (!isCommunityId(id)) return null;
@@ -454,7 +475,9 @@ export class CommunityRepo {
   async purgePlayMarks(): Promise<number> {
     const db = await this.db();
     const today = Math.floor(this.now() / 86_400_000);
-    return Number(this.stmt(db, "DELETE FROM play_marks WHERE day < ?").run(today - 1).changes);
+    const plays = Number(this.stmt(db, "DELETE FROM play_marks WHERE day < ?").run(today - 1).changes);
+    const downloads = Number(this.stmt(db, "DELETE FROM download_marks WHERE day < ?").run(today - 1).changes);
+    return plays + downloads;
   }
 
   /** Owner moderation: delete one sticker (row + files). false if it doesn't exist. */

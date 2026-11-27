@@ -41,6 +41,11 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Comunidad: «Recién agregados», ⭐ Favoritos y descargas**:
+  - Fila **«Recién agregados»** justo después de «Lo más sonado ahora» (en la misma petición), con «Ver todo» → «Nuevos».
+  - «Guardar» ahora es **⭐ Favorito** (la palabra e ícono de WhatsApp para stickers): tarjetas, sonidos, «Tu espacio → Favoritos», perfil del creador y textos de publicar. La estrella se pinta de amarillo al marcarla.
+  - En las tarjetas y en Top, «usos» pasa a **«descargas»**: veces que alguien se lo llevó a su teléfono (enviado a su WhatsApp o descargado). Descargar el archivo ahora cuenta, una vez por persona al día (no se puede inflar). En Sonidos se mantiene «usos», que ahí sí significa algo.
+
 - **Comunidad más clara y a la mano** (guías de Material/Apple y NN/g: etiquetas visibles en íconos, áreas táctiles ≥ 44 px, una acción principal por tarjeta):
   - Tarjetas (filas y cuadrícula, iguales): «Enviar a WhatsApp» como acción principal y debajo **Guardar / Usar / Más con texto visible** (antes íconos sueltos que había que adivinar); el estado se lee («Guardado»). La categoría ya no corta el @usuario (solo su emoji).
   - Top de la semana: lista clara con medallas 1–3, miniatura que suena al tocar, creador, números con palabras («12 usos · 3 guardados») y enviar — en vez del podio.

@@ -25,8 +25,8 @@ export type CategoryId = CommunityCategory;
 export const categoryById = (id: string | null) => CATEGORIES.find((c) => c.id === id) ?? null;
 
 export const MY_SPACE_TABS = [
-  { id: "saved", label: "Guardados", empty: "Toca el marcador de un sticker para guardarlo aquí." },
-  { id: "sounds", label: "Sonidos", empty: "Guarda sonidos para usarlos en tus propios clips." },
+  { id: "saved", label: "Favoritos", empty: "Toca ⭐ «Favorito» en un sticker para tenerlo siempre aquí." },
+  { id: "sounds", label: "Sonidos", empty: "Marca sonidos como ⭐ favoritos para usarlos en tus propios clips." },
   { id: "published", label: "Publicados", empty: "Publica un sticker desde «Crear» y aparecerá aquí." },
   { id: "packs", label: "Packs", empty: "Arma packs de hasta 30 stickers: en un sticker, menú ⋯ → «Agregar a pack»." },
   { id: "following", label: "Siguiendo", empty: "Sigue a creadores desde su perfil para ver aquí lo nuevo que publiquen." },

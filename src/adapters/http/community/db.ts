@@ -187,6 +187,14 @@ export const MIGRATIONS: readonly string[] = [
      revoked_at  INTEGER NOT NULL,
      PRIMARY KEY (account_key, client_hash)
    ) WITHOUT ROWID;`,
+  // 8 — downloads count like sends (into «descargas»), once per person per sticker per day.
+  `CREATE TABLE download_marks (
+     sticker_id TEXT NOT NULL,
+     viewer     TEXT NOT NULL,
+     day        INTEGER NOT NULL,
+     PRIMARY KEY (sticker_id, viewer, day)
+   ) STRICT, WITHOUT ROWID;
+   CREATE INDEX download_marks_day ON download_marks (day);`,
 ];
 
 export function openCommunityDb(path: string): DatabaseSync {

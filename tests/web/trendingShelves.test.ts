@@ -20,6 +20,7 @@ const sticker = (id: string, category: string) => ({
   soundOrigin: null,
   listed: true,
   saves: 0,
+  downloads: 0,
   creator: { handle: "ana", displayName: "Ana", avatar: "🦊 #fff" },
   hidden: false,
 });
@@ -66,6 +67,23 @@ describe("Tendencias por categoría", () => {
     expect(screen.getAllByRole("region")).toHaveLength(1 + CATS.length);
   });
 
+  it("«Recién agregados» right after the hot row; its «Ver todo» opens «Nuevos»", async () => {
+    mount({
+      hot: [sticker("h1", "memes")],
+      recent: [sticker("n1", "memes")],
+      shelves: [{ category: "musica", items: [sticker("u1", "musica")] }],
+    });
+    await screen.findByRole("region", { name: "Recién agregados" });
+    expect(screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"))).toEqual([
+      "Lo más sonado ahora",
+      "Recién agregados",
+      "Música",
+    ]);
+    const shelf = screen.getByRole("region", { name: "Recién agregados" });
+    fireEvent.click(shelf.querySelector("button:last-of-type") as HTMLElement);
+    expect(useCommunityStore.getState().sort).toBe("new");
+  });
+
   it("«Ver todo» opens that category's full list", async () => {
     mount({ hot: [sticker("h1", "memes")], shelves: [{ category: "musica", items: [sticker("u1", "musica")] }] });
     const shelf = await screen.findByRole("region", { name: "Música" });
@@ -77,10 +95,15 @@ describe("Tendencias por categoría", () => {
     mount({ hot: [sticker("h1", "memes")], shelves: [] });
     await screen.findByText("T-h1");
     expect(screen.getByRole("button", { name: /Enviar «T-h1» a mi WhatsApp|en pausa/ })).toBeTruthy();
-    for (const label of ["Guardar", "Usar", "Más"]) expect(screen.getByText(label)).toBeTruthy();
+    for (const label of ["Favorito", "Usar", "Más"]) expect(screen.getByText(label)).toBeTruthy();
     expect(screen.getByLabelText("Usar este sonido en mi clip")).toBeTruthy();
-    fireEvent.click(screen.getByText("Guardar"));
-    expect(await screen.findByText("Guardado")).toBeTruthy(); // the label says the state too
+    // ★ «Favorito» (WhatsApp's own word): a toggle, its state in aria-pressed.
+    const fav = screen.getByRole("button", { name: "Favorito" });
+    expect(fav.getAttribute("aria-pressed")).toBe("false");
+    fireEvent.click(fav);
+    expect((await screen.findByRole("button", { name: "Favorito", pressed: true })).getAttribute("aria-pressed")).toBe(
+      "true",
+    );
   });
 
   it("nothing published yet → the feed's own empty state", async () => {

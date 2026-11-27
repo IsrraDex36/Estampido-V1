@@ -73,6 +73,7 @@ export const toStickerDto = (s: StoredSticker): CommunitySticker => ({
   soundOrigin: s.soundOrigin,
   listed: s.listed !== false,
   saves: s.saves ?? 0,
+  downloads: s.sends ?? 0,
   creator: s.creator ?? null,
   hidden: (s.hidden ?? 0) !== 0,
 });
@@ -301,6 +302,11 @@ export function communityRoutes(
       if (!owner && !opts.isAdmin?.(c)) return c.json(fail("not_found", "Archivo no encontrado."), 404);
     }
     const download = c.req.query("download") !== undefined;
+    // Took it to their phone: counts as a download (once per person a day; never for hidden ones).
+    if (download && file === "sticker.webp" && !isPrivate) {
+      const viewer = viewerKey(c);
+      if (viewer && (await repo.recordDownload(id, viewer))) trending.invalidate();
+    }
     return new Response(Readable.toWeb(createReadStream(found.path)) as ReadableStream, {
       headers: {
         "Content-Type": COMMUNITY_FILES[file as CommunityFile],
@@ -350,7 +356,9 @@ export function trendingCache(repo: CommunityRepo, now: () => number) {
     )
       .filter((s) => s.items.length > 0)
       .sort((a, b) => (rankOf.get(a.category) ?? TRENDING_WINDOW) - (rankOf.get(b.category) ?? TRENDING_WINDOW));
-    return { hot: globalItems.slice(0, TRENDING_SHELF).map(toStickerDto), shelves };
+    const recentPage = await repo.page({ sort: "new", period: "all", q: "", limit: TRENDING_SHELF }, "stickers");
+    const recent = "error" in recentPage ? [] : recentPage.items.map(toStickerDto);
+    return { hot: globalItems.slice(0, TRENDING_SHELF).map(toStickerDto), recent, shelves };
   };
   return {
     get(): Promise<CommunityTrending> {

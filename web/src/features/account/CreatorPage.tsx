@@ -100,7 +100,7 @@ export default function CreatorPage() {
             ["Seguidores", p?.followers],
             ["Stickers", p?.stats.stickers],
             ["Usos", p?.stats.uses],
-            ["Guardados", p?.stats.saves],
+            ["Favoritos", p?.stats.saves],
             ["Envíos", p?.stats.sends],
           ] as const
         ).map(([label, value]) => (

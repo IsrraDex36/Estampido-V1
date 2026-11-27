@@ -57,17 +57,17 @@ describe("Community (real browser, real API)", () => {
     // Feed shows it; save it.
     await gotoSettled(page, community);
     await bodyHas(page, "Prueba e2e");
-    // Labeled toggle: its visible text is its name («Guardar» → «Guardado»), state in aria-pressed.
-    await clickButtonWithText(page, "Guardar", "article button[aria-pressed]");
+    // Labeled toggle (★ «Favorito», like WhatsApp): visible text = name, state in aria-pressed.
+    await clickButtonWithText(page, "Favorito", "article button[aria-pressed]");
     await page.waitForFunction(() =>
       [...document.querySelectorAll("article button[aria-pressed]")].some(
-        (b) => b.textContent?.trim() === "Guardado" && b.getAttribute("aria-pressed") === "true",
+        (b) => b.textContent?.trim() === "Favorito" && b.getAttribute("aria-pressed") === "true",
       ),
     );
     // «Tu espacio» tab: the saved one is counted there.
     await clickButtonWithText(page, "Tu espacio", 'nav[aria-label="Secciones de la comunidad"] [role="tab"]');
     await page.waitForFunction(() =>
-      [...document.querySelectorAll('[role="tab"]')].some((t) => t.textContent === "Guardados1"),
+      [...document.querySelectorAll('[role="tab"]')].some((t) => t.textContent === "Favoritos1"),
     ); // tab with count
     await clickButtonWithText(page, "Stickers", 'nav[aria-label="Secciones de la comunidad"] [role="tab"]');
     await page.waitForSelector('article a[aria-label="Usar este sonido en mi clip"]');

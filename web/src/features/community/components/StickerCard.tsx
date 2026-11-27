@@ -2,7 +2,7 @@ import type { CommunitySticker } from "@contract";
 import { useState } from "react";
 import { Link } from "wouter";
 import {
-  BookmarkIcon,
+  StarIcon,
   DownloadIcon,
   FlagIcon,
   MoreHorizontalIcon,
@@ -180,10 +180,10 @@ export function StickerCard({
             )}
           </p>
           <p className="h-[18px] truncate text-[12px] leading-[18px] text-muted-foreground/80 tabular-nums">
-            {sticker.uses > 0 || sticker.saves > 0
+            {sticker.downloads > 0 || sticker.saves > 0
               ? [
-                  sticker.uses > 0 && countLabel(sticker.uses, "uso", "usos"),
-                  sticker.saves > 0 && countLabel(sticker.saves, "guardado", "guardados"),
+                  sticker.downloads > 0 && countLabel(sticker.downloads, "descarga", "descargas"),
+                  sticker.saves > 0 && countLabel(sticker.saves, "favorito", "favoritos"),
                 ]
                   .filter(Boolean)
                   .join(" · ")
@@ -216,8 +216,9 @@ function CardActions({
     <div className="mt-auto space-y-1">
       <SendToWhatsAppButton sticker={sticker} short={compact} className="h-10" />
       <div className={cn("grid text-muted-foreground", sticker.sound ? "grid-cols-3" : "grid-cols-2")}>
-        <LabeledAction label={saved ? "Guardado" : "Guardar"} pressed={saved} onClick={onToggleSaved}>
-          <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
+        {/* ★ like WhatsApp's own «Añadir a favoritos»: the word and icon people already know. */}
+        <LabeledAction label="Favorito" pressed={saved} onClick={onToggleSaved}>
+          <StarIcon className={cn("size-[18px]", saved && "text-[#f5c542]")} weight={saved ? "fill" : "bold"} />
         </LabeledAction>
         {sticker.sound && (
           <Link

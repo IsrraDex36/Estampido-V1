@@ -241,8 +241,10 @@ export interface CommunitySticker {
   soundOrigin: string | null;
   /** false = published as «solo el sonido»: not in the sticker feed, only under «Sonidos». */
   listed: boolean;
-  /** Times people saved it. */
+  /** Times people saved it (★ favorites). */
   saves: number;
+  /** Times people took it to their phone: sent to their WhatsApp or downloaded (once per person a day). */
+  downloads: number;
   /** Who published it (null: anonymous, from before accounts). */
   creator: CreatorRef | null;
   /** Only its owner ever sees it true: hidden while reports are reviewed (or by the admin). */
@@ -390,6 +392,8 @@ export interface CommunitySound {
  */
 export interface CommunityTrending {
   hot: CommunitySticker[];
+  /** Newest first (the «Recién agregados» shelf). */
+  recent: CommunitySticker[];
   shelves: { category: CommunityCategory; items: CommunitySticker[] }[];
 }
 

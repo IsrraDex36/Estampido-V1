@@ -21,6 +21,7 @@ const sticker = (id: string, extra: Record<string, unknown> = {}) => ({
   soundOrigin: null,
   listed: true,
   saves: 0,
+  downloads: 0,
   creator: { handle: "ana", displayName: "Ana", avatar: "🦊 #fff" },
   hidden: false,
   ...extra,
@@ -72,14 +73,19 @@ describe("Top de la semana", () => {
   it("a ranked list: position, title, creator, numbers in words, send — medals for 1–3", async () => {
     mount(createElement(Ranking), {
       "/api/community/stickers": {
-        items: [sticker("a", { uses: 12, saves: 3 }), sticker("b", { uses: 1, saves: 0 }), sticker("c"), sticker("d")],
+        items: [
+          sticker("a", { downloads: 12, saves: 3 }),
+          sticker("b", { downloads: 1, saves: 0 }),
+          sticker("c"),
+          sticker("d"),
+        ],
         nextCursor: null,
       },
     });
     expect(await screen.findByText("T-a")).toBeTruthy();
     expect(screen.getByLabelText("Puesto 1")).toBeTruthy();
-    expect(screen.getByText("12 usos · 3 guardados")).toBeTruthy();
-    expect(screen.getByText("1 uso")).toBeTruthy();
+    expect(screen.getByText("12 descargas · 3 favoritos")).toBeTruthy();
+    expect(screen.getByText("1 descarga")).toBeTruthy();
     expect(screen.getAllByText("Nuevo")).toHaveLength(2);
     expect(screen.getAllByText("@ana")).toHaveLength(4);
     expect(screen.getAllByRole("button", { name: /Escuchar «T-/ })).toHaveLength(4);

@@ -99,10 +99,10 @@ export function PublishForm({ result, onDone }: { result: ConvertResponse; onDon
         <DialogTitle>Publicar en la comunidad</DialogTitle>
         <DialogDescription>
           {share === "sticker"
-            ? "Otros podrán verlo, guardarlo y mandarlo a su WhatsApp."
+            ? "Otros podrán verlo, añadirlo a favoritos y mandarlo a su WhatsApp."
             : share === "sound"
               ? "Tu sonido quedará en «Sonidos» para que otros lo usen en sus propios clips."
-              : "Otros podrán escucharlo, guardarlo y usar su sonido en sus propios clips."}
+              : "Otros podrán escucharlo, añadirlo a favoritos y usar su sonido en sus propios clips."}
         </DialogDescription>
       </DialogHeader>
 

@@ -1,6 +1,6 @@
 import type { CommunitySound } from "@contract";
 import { Link } from "wouter";
-import { BookmarkIcon, Loader2Icon, PauseIcon, PlayIcon, UseSoundIcon } from "@/components/icons";
+import { Loader2Icon, StarIcon, PauseIcon, PlayIcon, UseSoundIcon } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { remixHref } from "@/app/routes";
 import { countLabel } from "@/lib/format";
@@ -91,14 +91,14 @@ export function SoundRow({
       <button
         type="button"
         onClick={toggleSaved}
-        aria-label={saved ? "Quitar de sonidos guardados" : "Guardar sonido"}
+        aria-label={saved ? "Quitar de sonidos favoritos" : "Añadir sonido a favoritos"}
         aria-pressed={saved}
         className="flex size-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl text-muted-foreground sm:w-auto sm:min-w-14 sm:px-1.5 transition-colors hover:bg-muted hover:text-foreground"
       >
-        <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
+        <StarIcon className={cn("size-[18px]", saved && "text-[#f5c542]")} weight={saved ? "fill" : "bold"} />
         {/* Phones: the row is tight and the bookmark is a well-known icon; the label from tablets up. */}
         <span className={cn("hidden text-[10.5px] font-medium sm:block", saved && "text-foreground")}>
-          {saved ? "Guardado" : "Guardar"}
+          Favorito
         </span>
       </button>
       {onUse ? (

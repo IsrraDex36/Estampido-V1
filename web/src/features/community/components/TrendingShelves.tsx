@@ -20,6 +20,7 @@ export const FIRST_SHELVES = 4;
 export function TrendingShelves({ empty }: { empty: ReactNode }) {
   const trending = useQuery(communityQueries.trending());
   const toggleCategory = useCommunityStore((s) => s.toggleCategory);
+  const setSort = useCommunityStore((s) => s.setSort);
   const [expanded, setExpanded] = useState(false);
 
   if (trending.isPending) return <ShelvesSkeleton />;
@@ -34,6 +35,7 @@ export function TrendingShelves({ empty }: { empty: ReactNode }) {
     );
   }
   const { hot, shelves } = trending.data;
+  const recent = trending.data.recent ?? [];
   if (hot.length === 0) return <>{empty}</>;
   const visible = expanded ? shelves : shelves.slice(0, FIRST_SHELVES);
   const hidden = shelves.length - visible.length;
@@ -47,6 +49,28 @@ export function TrendingShelves({ empty }: { empty: ReactNode }) {
         items={hot}
         ranked
       />
+      {recent.length > 0 && (
+        <Shelf
+          title="Recién agregados"
+          icon="✨"
+          subtitle="Lo último publicado"
+          items={recent}
+          action={
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0 rounded-full text-[13px]"
+              onClick={() => {
+                setSort("new");
+                document.getElementById("community-tabs-top")?.scrollIntoView({ behavior: "smooth" });
+              }}
+            >
+              Ver todo
+              <ChevronRightIcon className="size-3.5" />
+            </Button>
+          }
+        />
+      )}
       {visible.map((s) => {
         const cat = categoryById(s.category);
         if (!cat) return null;

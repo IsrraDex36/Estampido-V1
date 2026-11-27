@@ -33,7 +33,7 @@ export function Ranking() {
 
   return (
     <div className="space-y-3">
-      <p className="text-[12.5px] text-muted-foreground">Lo más usado, guardado y enviado en los últimos 7 días. Toca uno para escucharlo.</p>
+      <p className="text-[12.5px] text-muted-foreground">Lo más descargado y marcado como favorito en los últimos 7 días. Toca uno para escucharlo.</p>
       <ol className="space-y-1.5">
         {items.map((s, i) => (
           <li
@@ -66,8 +66,8 @@ export function Ranking() {
 /** The numbers people recognize, in words (no unexplained icons). */
 function Signals({ sticker }: { sticker: CommunitySticker }) {
   const parts = [
-    sticker.uses > 0 && countLabel(sticker.uses, "uso", "usos"),
-    sticker.saves > 0 && countLabel(sticker.saves, "guardado", "guardados"),
+    sticker.downloads > 0 && countLabel(sticker.downloads, "descarga", "descargas"),
+    sticker.saves > 0 && countLabel(sticker.saves, "favorito", "favoritos"),
   ].filter(Boolean);
   return <p className="truncate text-[11.5px] text-muted-foreground/80 tabular-nums">{parts.length ? parts.join(" · ") : "Nuevo"}</p>;
 }
