@@ -13,7 +13,9 @@ import { useSelfStore } from "./selfStore";
 type Step =
   | { kind: "intro" }
   | { kind: "linking"; id: string; status: LinkStatus; startedAt: number }
-  | { kind: "error"; message: string };
+  | { kind: "error"; message: string }
+  /** Linked: a short «¡Listo!» before closing, so the moment is clear. */
+  | { kind: "done"; handle: string | null };
 
 /**
  * Link THIS person's WhatsApp as a device (like WhatsApp Web) so stickers go
@@ -92,8 +94,7 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
         if (status.state === "linked") {
           setSession(status.session);
           if (status.me) qc.setQueryData(queryKeys.account.me, status.me); // linking = signed in
-          onDone();
-          after?.();
+          setStep({ kind: "done", handle: status.me?.handle ?? null });
           return;
         }
         if (status.state === "failed") {
@@ -118,6 +119,19 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
       clearTimeout(t);
     };
   }, [linkId, setSession, onDone, after, qc]);
+
+  // «¡Listo!» for a moment, then close and run what was pending (e.g. the send).
+  const done = step.kind === "done";
+  useEffect(() => {
+    if (!done) return;
+    const t = setTimeout(() => {
+      onDone();
+      after?.();
+    }, 1400);
+    return () => clearTimeout(t);
+  }, [done, onDone, after]);
+
+  if (step.kind === "done") return <Linked handle={step.handle} />;
 
   if (step.kind === "intro") {
     return (
@@ -213,6 +227,7 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
   }
 
   const s = step.status;
+  if (s.state === "pairing") return <Pairing step={s.step} />;
   return <Linking status={s} startedAt={step.startedAt} onRestart={() => setStep({ kind: "intro" })} />;
 }
 
@@ -271,8 +286,9 @@ function Linking({ status: s, startedAt, onRestart }: { status: LinkStatus; star
           </Button>
         </div>
       ) : (
-        <div className="grid h-40 place-items-center">
-          <Loader2Icon className="size-6 animate-spin text-muted-foreground" />
+        <div className="grid h-40 place-items-center content-center gap-2 text-[13px] text-muted-foreground">
+          <Loader2Icon className="mx-auto size-6 animate-spin" />
+          Pidiendo tu código a WhatsApp…
         </div>
       )}
       {(s.state === "qr" || s.state === "code") && (
@@ -296,6 +312,86 @@ function Linking({ status: s, startedAt, onRestart }: { status: LinkStatus; star
       <button type="button" className="mx-auto block text-[12px] text-muted-foreground underline-offset-4 hover:underline" onClick={onRestart}>
         Pedir otro código / cambiar de método
       </button>
+    </div>
+  );
+}
+
+/**
+ * After the phone accepts: WhatsApp still takes a few seconds (sometimes ~20)
+ * to finish the first login. Show real progress so it never looks frozen.
+ */
+function Pairing({ step }: { step: "connecting" | "preparing" }) {
+  const [since] = useState(clock);
+  const [now, setNow] = useState(clock);
+  useEffect(() => {
+    const id = setInterval(() => setNow(clock()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const slow = now - since > 12_000;
+  const rows: { label: string; state: "done" | "active" | "todo" }[] = [
+    { label: "WhatsApp aceptó la vinculación", state: "done" },
+    { label: "Conectando de forma segura", state: step === "connecting" ? "active" : "done" },
+    { label: "Preparando tu cuenta y tu chat «Tú»", state: step === "preparing" ? "active" : "todo" },
+  ];
+  return (
+    <div className="space-y-5">
+      <DialogHeader className="items-center text-center">
+        <div className="mx-auto grid size-20 place-items-center rounded-full bg-stage">
+          <Mascot size={56} mood="singing" />
+        </div>
+        <DialogTitle>Vinculando tu WhatsApp…</DialogTitle>
+        <DialogDescription>Tarda unos segundos. No cierres esta ventana.</DialogDescription>
+      </DialogHeader>
+      <div className="space-y-3 rounded-2xl bg-stage p-4" role="status" aria-live="polite">
+        <ol className="space-y-2.5 text-[14px]">
+          {rows.map((r) => (
+            <li key={r.label} className="flex items-center gap-2.5">
+              {r.state === "done" ? (
+                <CircleCheckIcon className="size-5 shrink-0 text-sound" />
+              ) : r.state === "active" ? (
+                <Loader2Icon className="size-5 shrink-0 animate-spin text-foreground" />
+              ) : (
+                <span className="size-5 shrink-0 rounded-full border-2 border-muted-foreground/30" />
+              )}
+              <span className={r.state === "todo" ? "text-muted-foreground" : "font-medium"}>{r.label}</span>
+            </li>
+          ))}
+        </ol>
+        <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+          <div
+            className="h-full rounded-full bg-sound transition-[width] duration-700 ease-out"
+            style={{ width: step === "connecting" ? "45%" : "85%" }}
+          />
+        </div>
+      </div>
+      <p className="text-center text-[12px] text-muted-foreground">
+        {slow
+          ? "Casi listo: WhatsApp está terminando de sincronizar. Deja el celular con internet."
+          : "Puedes ver «Chrome (Mac OS)» apareciendo en tus Dispositivos vinculados."}
+      </p>
+    </div>
+  );
+}
+
+/** The moment it's done: clear confirmation (then the dialog closes by itself). */
+function Linked({ handle }: { handle: string | null }) {
+  return (
+    <div className="space-y-4 py-2 text-center" role="status" aria-live="polite">
+      <div className="mx-auto grid size-20 place-items-center rounded-full bg-sound/15">
+        <CircleCheckIcon className="size-10 text-sound" />
+      </div>
+      <DialogHeader className="items-center text-center">
+        <DialogTitle className="text-[20px]">¡Listo, WhatsApp vinculado!</DialogTitle>
+        <DialogDescription>
+          {handle ? (
+            <>
+              Entraste como <b>@{handle}</b>. Tus stickers llegarán a tu chat «Tú».
+            </>
+          ) : (
+            "Tus stickers llegarán a tu chat «Tú»."
+          )}
+        </DialogDescription>
+      </DialogHeader>
     </div>
   );
 }

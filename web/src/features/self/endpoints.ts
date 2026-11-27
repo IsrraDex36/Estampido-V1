@@ -8,6 +8,8 @@ export type LinkStatus =
   | { state: "waiting" }
   | { state: "qr"; qrSvg: string }
   | { state: "code"; code: string }
+  /** The phone accepted; finishing (seconds). */
+  | { state: "pairing"; step: "connecting" | "preparing" }
   /** `me`: linking also signs you in (null if the account is blocked). */
   | { state: "linked"; session: string; me?: Me | null }
   | { state: "failed"; reason: string };

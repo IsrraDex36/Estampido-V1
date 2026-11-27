@@ -444,7 +444,7 @@ describe("robustness found in the field", () => {
     });
     const id = await sessions.startLink(A);
     await wait(30);
-    expect(sessions.linkStatus(id, A)?.state).toBe("waiting"); // still settling: not sealed yet
+    expect(sessions.linkStatus(id, A)).toEqual({ state: "pairing", step: "preparing" }); // still settling: not sealed yet
     await wait(60);
     expect(sessions.linkStatus(id, A)?.state).toBe("linked");
   });
@@ -580,5 +580,32 @@ describe("the browser forgets the session ONLY when the session is unusable", ()
     ] as const) {
       expect(mustRelink(status, code), `${status} ${code}`).toBe(false);
     }
+  });
+});
+
+describe("progress while WhatsApp finishes linking (so it never looks frozen)", () => {
+  it("code → phone accepts (pairing·connecting) → restart → open (pairing·preparing) → linked", async () => {
+    const { sessions } = setup({ linkSettleMaxMs: 2_000 }, (s, n) => {
+      if (n === 1) {
+        setTimeout(() => s.emit({ qr: "2@qr" }), 1);
+        setTimeout(() => s.emit({ isNewLogin: true }), 15);
+        setTimeout(() => s.emit(closeWith(DisconnectReason.restartRequired)), 30);
+      } else {
+        setTimeout(() => s.emit({ connection: "open" }), 20);
+        setTimeout(() => s.emit({ receivedPendingNotifications: true }), 70);
+      }
+    });
+    const id = await sessions.startLink(A, "5212290000000");
+    await wait(8);
+    expect(sessions.linkStatus(id, A)).toEqual({ state: "code", code: "ABCD-EFGH" });
+    await wait(15);
+    expect(sessions.linkStatus(id, A)).toEqual({ state: "pairing", step: "connecting" });
+    await wait(15);
+    expect(sessions.linkStatus(id, A)).toEqual({ state: "pairing", step: "connecting" }); // reconnecting
+    await wait(35);
+    expect(sessions.linkStatus(id, A)).toEqual({ state: "pairing", step: "preparing" });
+    expect(sessions.linkStatus(id, B)).toBeNull(); // progress is private too
+    await wait(60);
+    expect(sessions.linkStatus(id, A)?.state).toBe("linked");
   });
 });

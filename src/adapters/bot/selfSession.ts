@@ -371,6 +371,12 @@ type LinkState =
   | { state: "waiting" }
   | { state: "qr"; qr: string }
   | { state: "code"; code: string }
+  /**
+   * The phone accepted (code typed / QR scanned) and we're finishing: a few
+   * seconds up to ~20 while WhatsApp completes the first login. Shown as
+   * progress so nobody thinks it froze. `step`: connecting → preparing.
+   */
+  | { state: "pairing"; step: "connecting" | "preparing" }
   /** `me`: the linked WhatsApp's own jid — stays in the bot; control turns it into an opaque account key. */
   | { state: "linked"; session: string; me: string }
   | { state: "failed"; reason: string };
@@ -479,8 +485,10 @@ export class SelfSessions {
         state.creds.advSecretKey = newAdvSecret();
         if (lastQr && !number) entry.status = { state: "qr", qr: withAdvSecret(lastQr, state.creds.advSecretKey) };
       });
-      s.ev.on("connection.update", async (u: ConnUpdate) => {
+      s.ev.on("connection.update", async (u: ConnUpdate & { isNewLogin?: boolean }) => {
         if (finished) return;
+        // pair-success: the phone accepted. From here on, show progress instead of the code/QR.
+        if (u.isNewLogin) entry.status = { state: "pairing", step: "connecting" };
         if (u.qr && !state.creds.account) {
           if (number && !asked) {
             asked = true;
@@ -496,6 +504,7 @@ export class SelfSessions {
         }
         if (u.connection === "open") {
           finished = true;
+          entry.status = { state: "pairing", step: "preparing" };
           // Stay until WhatsApp finished the first login (pre-keys, pending notifications).
           await untilSettled(s, this.o.linkSettleMaxMs, this.o.settleMs * 2);
           const snap = snapshot();
@@ -520,8 +529,10 @@ export class SelfSessions {
           } catch {
             // already closed
           }
-          if (statusOf(u) === DisconnectReason.restartRequired) void run().catch(() => this.fail(id));
-          else this.fail(id, statusOf(u));
+          if (statusOf(u) === DisconnectReason.restartRequired) {
+            entry.status = { state: "pairing", step: "connecting" };
+            void run().catch(() => this.fail(id));
+          } else this.fail(id, statusOf(u));
         }
       });
     };
