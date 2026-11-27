@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { BotStatus } from "@/features/bot/BotStatus";
 import { FeedbackButton } from "@/features/feedback/FeedbackButton";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { TourButton } from "@/features/onboarding/TourButton";
 
 const AUTHOR = { handle: "IsrraDex36", url: "https://github.com/IsrraDex36" } as const;
 const REPO_URL = "https://github.com/IsrraDex36/Estampido-V1";
@@ -25,8 +26,9 @@ export function AppFooter() {
             <p className="font-semibold tracking-tight">Estampido</p>
             <p className="text-[13px] text-muted-foreground">Haz ruido en el chat.</p>
           </div>
-          {/* Phones: the theme switch (not in the header there) and back-to-top, next to the brand. */}
-          <span className="sm:hidden">
+          {/* Phones: the guide and the theme switch (not in the header there) and back-to-top, next to the brand. */}
+          <span className="flex items-center gap-1 sm:hidden">
+            <TourButton />
             <ThemeToggle />
           </span>
           <Button

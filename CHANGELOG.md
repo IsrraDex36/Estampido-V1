@@ -21,6 +21,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Encabezado móvil sin amontonarse**: en el celular quedan logo, menú, instalar, WhatsApp y tu perfil; «¿Cómo funciona?» pasa al pie, junto al cambio de tema (revisado a 360 y 390 px, con y sin sesión).
+
 - **Estado de WhatsApp en el celular**: el encabezado móvil muestra un ícono de WhatsApp con punto de estado (verde vinculado, morado parpadeando «vincular», gris en pausa). Al tocarlo vincula, o explica el estado (en móvil no hay tooltips).
 
 - **Vincular ya no parece trabado**: en cuanto el teléfono acepta el código o el QR, la pantalla cambia a «Vinculando tu WhatsApp…» con progreso real (aceptó → conectando de forma segura → preparando tu cuenta y tu chat «Tú») y barra; si tarda más de 12 s avisa «Casi listo». Al terminar, «¡Listo, WhatsApp vinculado! Entraste como @usuario» un momento y luego se manda lo que estaba pendiente. Mientras llega el código: «Pidiendo tu código a WhatsApp…».
