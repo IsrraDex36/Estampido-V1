@@ -1,4 +1,5 @@
-import { SearchIcon, XIcon } from "@/components/icons";
+import type { ReactNode } from "react";
+import { FireIcon, SearchIcon, SparklesIcon, TrophyIcon, UsersIcon, XIcon } from "@/components/icons";
 import { useQuery } from "@tanstack/react-query";
 import { useMe } from "@/features/account/api";
 import { socialQueries } from "@/features/social/api";
@@ -56,12 +57,23 @@ function PopularTags() {
   );
 }
 
+const SORT_ICON: Record<string, ReactNode> = {
+  hot: <FireIcon className="size-4" weight="duotone" />,
+  new: <SparklesIcon className="size-4" weight="duotone" />,
+  top: <TrophyIcon className="size-4" weight="duotone" />,
+  siguiendo: <UsersIcon className="size-4" weight="duotone" />,
+};
+
 function SortTabs() {
   const sort = useCommunityStore((s) => s.sort);
   const setSort = useCommunityStore((s) => s.setSort);
   const me = useMe().data;
   return (
-    <div role="tablist" aria-label="Orden" className="inline-flex rounded-full bg-muted/60 p-1">
+    <div
+      role="tablist"
+      aria-label="Orden"
+      className="-mx-5 flex max-w-[100vw] gap-1 overflow-x-auto px-5 [scrollbar-width:none] sm:mx-0 sm:inline-flex sm:rounded-full sm:bg-muted/60 sm:p-1 [&::-webkit-scrollbar]:hidden"
+    >
       {FEED_SORTS.filter((s) => s.id !== "siguiendo" || me || sort === "siguiendo").map((s) => (
         <button
           key={s.id}
@@ -70,10 +82,11 @@ function SortTabs() {
           aria-selected={sort === s.id}
           onClick={() => setSort(s.id)}
           className={cn(
-            "rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors",
-            sort === s.id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+            "flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13.5px] font-medium transition-colors sm:h-9",
+            sort === s.id ? "bg-foreground text-background" : "bg-muted/60 text-muted-foreground hover:text-foreground sm:bg-transparent",
           )}
         >
+          {SORT_ICON[s.id]}
           {s.label}
         </button>
       ))}
@@ -120,7 +133,7 @@ function SearchBox() {
         maxLength={80}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Buscar stickers, sonidos, @creadores…"
-        className="h-10 w-full rounded-full bg-muted/60 pr-10 pl-10 text-[14px] outline-none placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
+        className="h-11 w-full rounded-full bg-muted/60 pr-10 pl-10 text-[16px] outline-none sm:h-10 sm:text-[14px] placeholder:text-muted-foreground/70 focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-search-cancel-button]:hidden"
       />
       {query && (
         <button

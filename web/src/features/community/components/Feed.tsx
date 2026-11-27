@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { useMe } from "@/features/account/api";
 import { LinkDialog } from "@/features/bot/LinkDialog";
 import { socialQueries } from "@/features/social/api";
+import { XIcon } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useStickerFeed } from "../api/queries";
 import { categoryById, FEED_SORTS, TOP_PERIODS } from "../model";
@@ -33,6 +34,8 @@ export function Feed() {
   const feed = personal ? followingFeed : ranked;
   const hasFilters = useCommunityStore(selectHasFilters);
   const reset = useCommunityStore((s) => s.reset);
+  const toggleCategory = useCommunityStore((s) => s.toggleCategory);
+  const setQuery = useCommunityStore((s) => s.setQuery);
 
   const items = feed.data?.pages.flatMap((p) => p.items) ?? [];
   const title =
@@ -40,25 +43,30 @@ export function Feed() {
       ? `Top · ${TOP_PERIODS.find((p) => p.id === filters.period)?.label}`
       : (FEED_SORTS.find((s) => s.id === filters.sort)?.label ?? "");
   const cat = categoryById(filters.category);
-  const scope = [cat && `${cat.emoji} ${cat.label}`, filters.query.trim() && `«${filters.query.trim()}»`]
-    .filter(Boolean)
-    .join(" · ");
 
   return (
     <Section index="01" title={title}>
-      <div className="mb-4 flex min-h-8 flex-wrap items-center justify-between gap-2">
-        <p className="text-[13px] text-muted-foreground" aria-live="polite">
+      <div className="mb-4 space-y-2" aria-live="polite">
+        {(cat || filters.query.trim()) && !personal && (
+          <div className="flex flex-wrap items-center gap-2">
+            {cat && (
+              <FilterChip label={`${cat.emoji} ${cat.label}`} onRemove={() => toggleCategory(cat.id)} />
+            )}
+            {filters.query.trim() && <FilterChip label={`«${filters.query.trim()}»`} onRemove={() => setQuery("")} />}
+            {hasFilters && (
+              <button type="button" onClick={reset} className="h-9 rounded-full px-3 text-[13px] text-muted-foreground hover:text-foreground">
+                Quitar todo
+              </button>
+            )}
+          </div>
+        )}
+        <p className="text-[13px] text-muted-foreground">
           {personal
             ? "Lo nuevo de los creadores que sigues."
             : grouped
               ? "Lo que más suena, por categoría. Desliza cada fila o toca «Ver todo»."
-              : `${scope ? `Filtrando por ${scope}. ` : ""}Toca un sticker para escucharlo; «Usar» lleva su sonido a tu clip.`}
+              : "Toca un sticker para escucharlo. «Usar» lleva su sonido a tu clip."}
         </p>
-        {hasFilters && (
-          <Button variant="ghost" size="sm" className="rounded-full" onClick={reset}>
-            Limpiar filtros
-          </Button>
-        )}
       </div>
 
       {grouped ? (
@@ -148,5 +156,20 @@ function EmptyFeed({ filtered, onReset }: { filtered: boolean; onReset: () => vo
         </Button>
       )}
     </div>
+  );
+}
+
+/** An active filter, removable in one tap (≥ 36 px tall, the ✕ is the whole chip). */
+function FilterChip({ label, onRemove }: { label: string; onRemove: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onRemove}
+      aria-label={`Quitar filtro ${label}`}
+      className="flex h-9 items-center gap-1.5 rounded-full bg-foreground pr-2.5 pl-3.5 text-[13px] font-medium text-background"
+    >
+      {label}
+      <XIcon className="size-3.5" weight="bold" />
+    </button>
   );
 }

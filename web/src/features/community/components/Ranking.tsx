@@ -1,21 +1,18 @@
 import type { CommunitySticker } from "@contract";
-import { BookmarkIcon, VoteIcon } from "@/components/icons";
-import { compactNumber } from "@/lib/format";
+import { countLabel } from "@/lib/format";
+import { SendToWhatsAppButton } from "./SendToWhatsAppButton";
 import { cn } from "@/lib/utils";
 import { useRanking } from "../api/queries";
 import { trackPlay } from "../plays";
 import { previewTime, usePreview, usePreviewMode } from "../store/previewStore";
 import { SyncedSticker } from "@/components/SyncedSticker";
 
-const PODIUM = [
-  { place: 2, height: "h-16", tint: "bg-foreground/10" },
-  { place: 1, height: "h-24", tint: "bg-sound/25" },
-  { place: 3, height: "h-11", tint: "bg-retro-a/20" },
-] as const;
+const MEDAL = ["bg-[#f5c542] text-black", "bg-[#cfd3da] text-black", "bg-[#d99a5b] text-black"] as const;
 
 /**
  * Top of the week by engagement (reuses, saves, sends, listens — see the
- * server's TRENDING_WEIGHTS): podium (1–3) + list (4–10). Tap to listen.
+ * server's TRENDING_WEIGHTS), as one clear ranked list: position (medals for
+ * 1–3), the sticker (tap to listen), who made it, its numbers in words, send.
  */
 export function Ranking() {
   const ranking = useRanking();
@@ -23,10 +20,9 @@ export function Ranking() {
 
   if (ranking.isPending) {
     return (
-      <div className="space-y-4" aria-busy="true">
-        <div className="shimmer h-40 rounded-2xl bg-muted" />
-        {["a", "b", "c", "d"].map((k) => (
-          <div key={k} className="shimmer h-9 rounded-xl bg-muted" />
+      <div className="space-y-2" aria-busy="true">
+        {["a", "b", "c", "d", "e"].map((k) => (
+          <div key={k} className="shimmer h-16 rounded-2xl bg-muted" />
         ))}
       </div>
     );
@@ -36,52 +32,44 @@ export function Ranking() {
   }
 
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-3 items-end gap-2">
-        {PODIUM.map(({ place, height, tint }) => {
-          const s = items[place - 1];
-          return (
-            <div key={place} className="flex min-w-0 flex-col items-center gap-2">
-              {s ? <Thumb sticker={s} className="w-full max-w-24" /> : <div className="aspect-square w-full max-w-24 rounded-2xl border border-dashed border-foreground/15" />}
-              <p className="w-full truncate text-center text-[11px] text-muted-foreground">{s?.title ?? "—"}</p>
-              <div className={`grid w-full place-items-center rounded-t-xl ${height} ${tint}`}>
-                <span className="font-pixel text-sm text-foreground/70">{place}</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      {items.length > 3 && (
-        <ol className="space-y-1" start={4}>
-          {items.slice(3).map((s, i) => (
-            <li key={s.id} className="flex items-center gap-3 rounded-xl px-2 py-1.5">
-              <span className="w-6 font-pixel text-[11px] text-muted-foreground">{i + 4}</span>
-              <Thumb sticker={s} className="size-9 shrink-0 rounded-lg" />
-              <span className="min-w-0 flex-1 truncate text-[13px]">{s.title}</span>
+    <div className="space-y-3">
+      <p className="text-[12.5px] text-muted-foreground">Lo más usado, guardado y enviado en los últimos 7 días. Toca uno para escucharlo.</p>
+      <ol className="space-y-1.5">
+        {items.map((s, i) => (
+          <li
+            key={s.id}
+            className={cn("flex items-center gap-3 rounded-2xl p-2 pr-2.5", i < 3 ? "bg-muted/50 ring-1 ring-border/60" : "hover:bg-muted/40")}
+          >
+            <span
+              className={cn(
+                "grid size-7 shrink-0 place-items-center rounded-full font-pixel text-[10px] tabular-nums",
+                MEDAL[i] ?? "text-muted-foreground",
+              )}
+              aria-label={`Puesto ${i + 1}`}
+            >
+              {i + 1}
+            </span>
+            <Thumb sticker={s} className={cn("shrink-0 rounded-xl", i < 3 ? "size-14" : "size-11")} />
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-[13.5px] font-semibold leading-5">{s.title}</p>
+              {s.creator && <p className="truncate text-[12px] text-muted-foreground">@{s.creator.handle}</p>}
               <Signals sticker={s} />
-            </li>
-          ))}
-        </ol>
-      )}
+            </div>
+            <SendToWhatsAppButton sticker={s} compact className="size-10 shrink-0" />
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
 
-/** The two signals people recognize: reuses of its sound and saves. */
+/** The numbers people recognize, in words (no unexplained icons). */
 function Signals({ sticker }: { sticker: CommunitySticker }) {
-  return (
-    <span
-      className="flex items-center gap-2 font-mono text-[12px] text-muted-foreground tabular-nums"
-      title={`${sticker.uses} usos de su sonido · ${sticker.saves} guardados`}
-    >
-      <span className="flex items-center gap-0.5">
-        <VoteIcon className="size-3.5" /> {compactNumber(sticker.uses)}
-      </span>
-      <span className="flex items-center gap-0.5">
-        <BookmarkIcon className="size-3.5" /> {compactNumber(sticker.saves)}
-      </span>
-    </span>
-  );
+  const parts = [
+    sticker.uses > 0 && countLabel(sticker.uses, "uso", "usos"),
+    sticker.saves > 0 && countLabel(sticker.saves, "guardado", "guardados"),
+  ].filter(Boolean);
+  return <p className="truncate text-[11.5px] text-muted-foreground/80 tabular-nums">{parts.length ? parts.join(" · ") : "Nuevo"}</p>;
 }
 
 function Thumb({ sticker, className }: { sticker: CommunitySticker; className?: string }) {

@@ -41,6 +41,13 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Comunidad más clara y a la mano** (guías de Material/Apple y NN/g: etiquetas visibles en íconos, áreas táctiles ≥ 44 px, una acción principal por tarjeta):
+  - Tarjetas (filas y cuadrícula, iguales): «Enviar a WhatsApp» como acción principal y debajo **Guardar / Usar / Más con texto visible** (antes íconos sueltos que había que adivinar); el estado se lee («Guardado»). La categoría ya no corta el @usuario (solo su emoji).
+  - Top de la semana: lista clara con medallas 1–3, miniatura que suena al tocar, creador, números con palabras («12 usos · 3 guardados») y enviar — en vez del podio.
+  - Filtros: orden con ícono y texto (Tendencias, Nuevos, Top, Siguiendo), en el celular como fila deslizable de botones de 40 px; filtros activos como chips («😮 Reacciones ✕», «gato ✕») y «Quitar todo»; buscador de 16 px en el celular (sin zoom de iPhone).
+  - Sonidos: mismo estilo de orden, botón de reproducir de 44 px, «Guardar» con texto desde tablet y fila legible en 360 px.
+  - Sin desbordes horizontales en 360, 390, 820 y 1440 px.
+
 - **Confianza al conectar WhatsApp, explicada sin confundir**: la pantalla de vincular abre con tres promesas («Solo te escribimos a ti», «No vemos tus chats», «Tú tienes la llave») y «¿Por qué es seguro? Así funciona», que abre lo que sí y lo que **nunca** hacemos, el paso a paso y preguntas frecuentes (¿por qué parece iniciar sesión en una web?, ¿qué guardan?, ¿cómo lo quito?, ¿es oficial?). El enlace también está en el resultado, en «Entrar con WhatsApp» y en el pie. Al terminar de vincular se recuerda cómo quitarlo. El recorrido inicial ya no habla del número de Estampido (modelo viejo) y la página de privacidad dice exactamente lo que se guarda (los últimos 4 dígitos, no el número completo).
 
 - **Tendencias por categoría**: en vez de una cuadrícula enorme con todo junto, «Tendencias» (sin filtros) muestra «Lo más sonado ahora» con ranking y luego una fila por categoría, de la más activa a la menos, con 10 stickers cada una: se desliza en el celular, flechas en escritorio y «Ver todo» abre la categoría completa. Primero 4 categorías y «Ver más categorías». Tarjetas compactas en las filas (título, creador y acciones en íconos). Todo llega en una sola petición (`GET /api/community/trending`, caché de 30 s que se renueva al publicar). En el celular, «Top de la semana» vive en la pestaña «Top» en lugar de una lista más al final.

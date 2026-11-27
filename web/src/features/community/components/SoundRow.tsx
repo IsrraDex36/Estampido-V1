@@ -50,8 +50,10 @@ export function SoundRow({
   const toggleSaved = () => toggleFavorite("sound", sound);
 
   return (
-    <li className="flex items-center gap-3 rounded-2xl px-2 py-2 transition-colors hover:bg-muted/50">
-      {rank !== undefined && <span className="w-4 shrink-0 font-pixel text-[11px] text-muted-foreground">{rank}</span>}
+    <li className="flex items-center gap-2 rounded-2xl px-1 py-2 transition-colors hover:bg-muted/50 sm:gap-3 sm:px-2">
+      {rank !== undefined && (
+        <span className="w-3.5 shrink-0 text-center font-pixel text-[10px] text-muted-foreground sm:w-4 sm:text-[11px]">{rank}</span>
+      )}
       <button
         type="button"
         onClick={() => {
@@ -61,7 +63,7 @@ export function SoundRow({
         aria-label={playing ? `Pausar «${sound.title}»` : `Escuchar «${sound.title}»`}
         aria-pressed={playing}
         className={cn(
-          "grid size-9 shrink-0 place-items-center rounded-full transition-colors",
+          "grid size-11 shrink-0 place-items-center rounded-full transition-colors",
           playing ? "bg-sound text-white" : "bg-foreground text-background hover:opacity-90",
         )}
       >
@@ -69,8 +71,9 @@ export function SoundRow({
       </button>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13px] font-medium">{sound.title}</p>
-        <div className="mt-1 flex items-center gap-2">
-          <div className="flex h-3.5 min-w-0 flex-1 items-center gap-[2px] overflow-hidden" aria-hidden>
+        <div className="mt-1 flex min-w-0 items-center gap-2">
+          {/* Decorative wave: only where there's room (phones keep the numbers readable). */}
+          <div className="hidden h-3.5 min-w-0 flex-1 items-center gap-[2px] overflow-hidden sm:flex" aria-hidden>
             {bars(sound.id).map((h, i) => (
               <span
                 key={`${sound.id}-${i.toString()}`}
@@ -79,7 +82,7 @@ export function SoundRow({
               />
             ))}
           </div>
-          <span className="shrink-0 font-mono text-[11px] text-muted-foreground tabular-nums">
+          <span className="min-w-0 truncate text-[12px] text-muted-foreground tabular-nums sm:shrink-0 sm:font-mono sm:text-[11px]">
             {shortDuration(sound.durationSec)}
             {sound.uses > 0 ? ` · ${countLabel(sound.uses, "uso", "usos")}` : ""}
           </span>
@@ -90,9 +93,13 @@ export function SoundRow({
         onClick={toggleSaved}
         aria-label={saved ? "Quitar de sonidos guardados" : "Guardar sonido"}
         aria-pressed={saved}
-        className="grid size-8 shrink-0 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        className="flex size-11 shrink-0 flex-col items-center justify-center gap-0.5 rounded-xl text-muted-foreground sm:w-auto sm:min-w-14 sm:px-1.5 transition-colors hover:bg-muted hover:text-foreground"
       >
-        <BookmarkIcon className={cn("size-4", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
+        <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
+        {/* Phones: the row is tight and the bookmark is a well-known icon; the label from tablets up. */}
+        <span className={cn("hidden text-[10.5px] font-medium sm:block", saved && "text-foreground")}>
+          {saved ? "Guardado" : "Guardar"}
+        </span>
       </button>
       {onUse ? (
         <Button size="sm" className="shrink-0 rounded-full" disabled={using} onClick={() => onUse(sound)}>
@@ -104,7 +111,7 @@ export function SoundRow({
           asChild
           size={compact ? "icon" : "sm"}
           variant="secondary"
-          className={cn("shrink-0 rounded-full", compact && "size-8")}
+          className={cn("shrink-0 rounded-full max-sm:h-10 max-sm:px-3", compact && "size-8")}
         >
           <Link href={remixHref(sound.id)} aria-label={`Usar «${sound.title}» en mi clip`} title="Usar en mi clip">
             <UseSoundIcon data-icon={compact ? undefined : "inline-start"} className={compact ? "size-4 text-sound" : undefined} />

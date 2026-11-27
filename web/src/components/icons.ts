@@ -9,6 +9,8 @@
  */
 export type { IconProps, IconWeight } from "@phosphor-icons/react";
 export {
+  FireIcon,
+  UsersIcon,
   ShieldCheckIcon,
   EyeSlashIcon,
   KeyIcon,

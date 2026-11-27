@@ -13,11 +13,14 @@ export function SendToWhatsAppButton({
   sticker,
   className,
   compact = false,
+  short = false,
 }: {
   sticker: CommunitySticker;
   className?: string;
-  /** Round icon-only button (shelf cards). */
+  /** Round icon-only button. */
   compact?: boolean;
+  /** Narrow cards: «Enviar» instead of «Enviar a WhatsApp». */
+  short?: boolean;
 }) {
   const bot = useBotStatus();
   // Your own WhatsApp → your own «Tú» chat (works even while the Estampido number is offline).
@@ -90,8 +93,10 @@ export function SendToWhatsAppButton({
           <span>Envío en pausa</span>
         ) : (
           <>
-            <span className="sm:hidden">{sending ? "Enviando…" : sent ? "Enviado" : "Enviar"}</span>
-            <span className="hidden sm:inline">{sending ? "Enviando…" : sent ? "Enviado a tu chat" : "Enviar a WhatsApp"}</span>
+            <span className={short ? undefined : "sm:hidden"}>{sending ? "Enviando…" : sent ? "Enviado" : "Enviar"}</span>
+            {!short && (
+              <span className="hidden sm:inline">{sending ? "Enviando…" : sent ? "Enviado a tu chat" : "Enviar a WhatsApp"}</span>
+            )}
           </>
         )}
       </button>

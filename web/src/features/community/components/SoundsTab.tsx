@@ -1,5 +1,5 @@
 import { useDeferredValue, useState } from "react";
-import { SearchIcon, XIcon } from "@/components/icons";
+import { FireIcon, SearchIcon, SparklesIcon, TrophyIcon, XIcon } from "@/components/icons";
 import { Section } from "@/components/section";
 import { cn } from "@/lib/utils";
 import { useSoundFeed } from "../api/queries";
@@ -24,7 +24,11 @@ export function SoundsTab() {
         Escucha cualquiera y toca <b className="text-foreground">Usar</b> para llevarlo a tu video, GIF o foto.
       </p>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div role="tablist" aria-label="Orden de sonidos" className="inline-flex w-fit max-w-full overflow-x-auto rounded-full bg-muted/60 p-1">
+        <div
+          role="tablist"
+          aria-label="Orden de sonidos"
+          className="flex w-fit max-w-full gap-1 overflow-x-auto [scrollbar-width:none] sm:rounded-full sm:bg-muted/60 sm:p-1 [&::-webkit-scrollbar]:hidden"
+        >
           {RANKED_SORTS.map((s) => (
             <button
               key={s.id}
@@ -33,10 +37,17 @@ export function SoundsTab() {
               aria-selected={sort === s.id}
               onClick={() => setSort(s.id)}
               className={cn(
-                "shrink-0 rounded-full px-4 py-1.5 text-[13px] font-medium transition-colors",
-                sort === s.id ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+                "flex h-10 shrink-0 items-center gap-1.5 rounded-full px-4 text-[13.5px] font-medium transition-colors sm:h-9",
+                sort === s.id ? "bg-foreground text-background" : "bg-muted/60 text-muted-foreground hover:text-foreground sm:bg-transparent",
               )}
             >
+              {s.id === "hot" ? (
+                <FireIcon className="size-4" weight="duotone" />
+              ) : s.id === "new" ? (
+                <SparklesIcon className="size-4" weight="duotone" />
+              ) : (
+                <TrophyIcon className="size-4" weight="duotone" />
+              )}
               {s.id === "top" ? "Más usados" : s.label}
             </button>
           ))}
@@ -50,7 +61,7 @@ export function SoundsTab() {
             maxLength={MAX_QUERY}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Buscar sonidos…"
-            className="h-10 w-full rounded-full bg-muted/60 pr-9 pl-9 text-[14px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-11 w-full rounded-full bg-muted/60 pr-10 pl-9 text-[16px] outline-none focus-visible:ring-2 focus-visible:ring-ring sm:h-10 sm:text-[14px]"
           />
           {query && (
             <button

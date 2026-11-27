@@ -73,13 +73,14 @@ describe("Tendencias por categoría", () => {
     expect(useCommunityStore.getState().category).toBe("musica");
   });
 
-  it("compact cards: title, creator and icon actions (no tall action block)", async () => {
+  it("cards: one clear primary action and the others with VISIBLE labels (not guess-the-icon)", async () => {
     mount({ hot: [sticker("h1", "memes")], shelves: [] });
     await screen.findByText("T-h1");
     expect(screen.getByRole("button", { name: /Enviar «T-h1» a mi WhatsApp|en pausa/ })).toBeTruthy();
-    expect(screen.queryByText("Envío en pausa")).toBeNull();
-    expect(screen.queryByText("Usar")).toBeNull(); // icon only
+    for (const label of ["Guardar", "Usar", "Más"]) expect(screen.getByText(label)).toBeTruthy();
     expect(screen.getByLabelText("Usar este sonido en mi clip")).toBeTruthy();
+    fireEvent.click(screen.getByText("Guardar"));
+    expect(await screen.findByText("Guardado")).toBeTruthy(); // the label says the state too
   });
 
   it("nothing published yet → the feed's own empty state", async () => {

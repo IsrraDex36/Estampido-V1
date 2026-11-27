@@ -22,7 +22,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { creatorHref, remixHref } from "@/app/routes";
 import { Avatar } from "@/features/account/Avatar";
 import { downloadUrl } from "@/lib/api";
@@ -135,7 +134,7 @@ export function StickerCard({
       </div>
 
       {compact ? (
-        <div className="flex flex-1 flex-col gap-2 p-2.5">
+        <div className="flex flex-1 flex-col gap-2.5 p-2.5">
           <div className="min-w-0">
             <h3 className="truncate text-[13.5px] leading-5 font-semibold tracking-tight" title={sticker.title}>
               {sticker.title}
@@ -152,23 +151,7 @@ export function StickerCard({
               <p className="text-[12px] text-muted-foreground">Comunidad</p>
             )}
           </div>
-          <div className="mt-auto flex items-center justify-between text-muted-foreground">
-            <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={toggleSaved}>
-              <BookmarkIcon className={cn("size-[17px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
-            </IconAction>
-            {sticker.sound && (
-              <Link
-                href={remixHref(sticker.id)}
-                aria-label="Usar este sonido en mi clip"
-                title="Usar este sonido en mi clip"
-                className="grid size-8 place-items-center rounded-full transition-colors hover:bg-muted"
-              >
-                <UseSoundIcon className="size-[17px] text-sound" weight="duotone" />
-              </Link>
-            )}
-            <MoreMenu sticker={sticker} />
-            <SendToWhatsAppButton sticker={sticker} compact />
-          </div>
+          <CardActions sticker={sticker} saved={saved} onToggleSaved={toggleSaved} compact />
         </div>
       ) : (
       /* Three fixed lines (title · who & what · numbers) and the actions pinned to
@@ -191,13 +174,9 @@ export function StickerCard({
               <span className="truncate">Comunidad</span>
             )}
             {cat && (
-              <>
-                <span aria-hidden>·</span>
-                <span className="shrink-0" title={cat.label}>
-                  {cat.emoji}
-                  <span className="ml-1 hidden min-[420px]:inline">{cat.label}</span>
-                </span>
-              </>
+              <span className="ml-auto shrink-0" title={cat.label} role="img" aria-label={cat.label}>
+                {cat.emoji}
+              </span>
             )}
           </p>
           <p className="h-[18px] truncate text-[12px] leading-[18px] text-muted-foreground/80 tabular-nums">
@@ -211,39 +190,70 @@ export function StickerCard({
               : "Nuevo"}
           </p>
         </div>
-        <div className="mt-auto space-y-1.5">
-          <SendToWhatsAppButton sticker={sticker} />
-          <div className="grid grid-cols-3 items-center text-muted-foreground">
-            <span className="justify-self-start">
-              <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={toggleSaved}>
-                <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
-              </IconAction>
-            </span>
-            <span className="justify-self-center">
-              {sticker.sound ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Link
-                      href={remixHref(sticker.id)}
-                      aria-label="Usar este sonido en mi clip"
-                      className="flex h-8 items-center gap-1 rounded-full px-2.5 text-[12px] font-medium text-foreground transition-colors hover:bg-muted"
-                    >
-                      <UseSoundIcon className="size-[17px] text-sound" weight="duotone" />
-                      Usar
-                    </Link>
-                  </TooltipTrigger>
-                  <TooltipContent>Usar este sonido en tu video, GIF o foto</TooltipContent>
-                </Tooltip>
-              ) : null}
-            </span>
-            <span className="justify-self-end">
-              <MoreMenu sticker={sticker} />
-            </span>
-          </div>
-        </div>
+        <CardActions sticker={sticker} saved={saved} onToggleSaved={toggleSaved} />
       </div>
       )}
     </article>
+  );
+}
+
+/**
+ * One clear primary action (send) and the supporting ones with VISIBLE labels
+ * (unlabeled icons are guessed right ~1 in 3 times), each at least 44 px tall.
+ */
+function CardActions({
+  sticker,
+  saved,
+  onToggleSaved,
+  compact = false,
+}: {
+  sticker: CommunitySticker;
+  saved: boolean;
+  onToggleSaved: () => void;
+  compact?: boolean;
+}) {
+  return (
+    <div className="mt-auto space-y-1">
+      <SendToWhatsAppButton sticker={sticker} short={compact} className="h-10" />
+      <div className={cn("grid text-muted-foreground", sticker.sound ? "grid-cols-3" : "grid-cols-2")}>
+        <LabeledAction label={saved ? "Guardado" : "Guardar"} pressed={saved} onClick={onToggleSaved}>
+          <BookmarkIcon className={cn("size-[18px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
+        </LabeledAction>
+        {sticker.sound && (
+          <Link
+            href={remixHref(sticker.id)}
+            aria-label="Usar este sonido en mi clip"
+            className={ACTION}
+          >
+            <UseSoundIcon className="size-[18px] text-sound" weight="duotone" />
+            <span className="text-[11px] font-medium">Usar</span>
+          </Link>
+        )}
+        <MoreMenu sticker={sticker} labeled />
+      </div>
+    </div>
+  );
+}
+
+const ACTION =
+  "flex min-h-11 flex-col items-center justify-center gap-0.5 rounded-xl transition-colors hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring outline-none";
+
+function LabeledAction({
+  label,
+  pressed,
+  onClick,
+  children,
+}: {
+  label: string;
+  pressed?: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button type="button" aria-pressed={pressed} onClick={onClick} className={ACTION}>
+      {children}
+      <span className={cn("text-[11px] font-medium", pressed && "text-foreground")}>{label}</span>
+    </button>
   );
 }
 
@@ -266,7 +276,7 @@ function Equalizer() {
 }
 
 /** Less frequent actions: share, download, report (not on your own sticker). */
-function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
+function MoreMenu({ sticker, labeled = false }: { sticker: CommunitySticker; labeled?: boolean }) {
   const [reportOpen, setReportOpen] = useState(false);
   const [packOpen, setPackOpen] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
@@ -280,13 +290,20 @@ function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button
-            type="button"
-            aria-label={`Más opciones de «${sticker.title}»`}
-            className="grid size-8 place-items-center rounded-full transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <MoreHorizontalIcon className="size-[18px]" weight="bold" />
-          </button>
+          {labeled ? (
+            <button type="button" aria-label={`Más opciones de «${sticker.title}»`} className={ACTION}>
+              <MoreHorizontalIcon className="size-[18px]" weight="bold" />
+              <span className="text-[11px] font-medium">Más</span>
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label={`Más opciones de «${sticker.title}»`}
+              className="grid size-10 place-items-center rounded-full transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <MoreHorizontalIcon className="size-[18px]" weight="bold" />
+            </button>
+          )}
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
           <DropdownMenuItem onSelect={() => (signedOut ? setLinkOpen(true) : setPackOpen(true))}>
@@ -324,30 +341,6 @@ function MoreMenu({ sticker }: { sticker: CommunitySticker }) {
   );
 }
 
-function IconAction({
-  label,
-  pressed,
-  onClick,
-  children,
-}: {
-  label: string;
-  pressed?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-label={label}
-      aria-pressed={pressed}
-      title={label}
-      onClick={onClick}
-      className="grid size-8 place-items-center rounded-full transition-colors hover:bg-muted hover:text-foreground"
-    >
-      {children}
-    </button>
-  );
-}
 
 /** Loading variant: same box, shimmer. */
 export function StickerCardSkeleton({ className }: { className?: string }) {

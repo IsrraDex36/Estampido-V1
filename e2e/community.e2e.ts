@@ -57,10 +57,13 @@ describe("Community (real browser, real API)", () => {
     // Feed shows it; save it.
     await gotoSettled(page, community);
     await bodyHas(page, "Prueba e2e");
-    await page.click('article button[aria-label="Guardar"]');
-    expect(
-      await page.$eval('article button[aria-label="Quitar de guardados"]', (b) => b.getAttribute("aria-pressed")),
-    ).toBe("true");
+    // Labeled toggle: its visible text is its name («Guardar» → «Guardado»), state in aria-pressed.
+    await clickButtonWithText(page, "Guardar", "article button[aria-pressed]");
+    await page.waitForFunction(() =>
+      [...document.querySelectorAll("article button[aria-pressed]")].some(
+        (b) => b.textContent?.trim() === "Guardado" && b.getAttribute("aria-pressed") === "true",
+      ),
+    );
     // «Tu espacio» tab: the saved one is counted there.
     await clickButtonWithText(page, "Tu espacio", 'nav[aria-label="Secciones de la comunidad"] [role="tab"]');
     await page.waitForFunction(() =>
