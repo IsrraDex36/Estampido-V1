@@ -1,5 +1,6 @@
 import { readFile, rm } from "node:fs/promises";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AccountRepo } from "../../src/adapters/http/accounts/repo.js";
 import { PACK_STICKER_PUBLISHER, type PackSummary } from "../../src/adapters/http/contract.js";
 import { parseStickerExif } from "../../src/core/metadata/stickerExif.js";
 import { readExif } from "../../src/core/webp/chunks.js";
@@ -175,6 +176,25 @@ describe("linking your own WhatsApp signs you in (no bot number involved)", () =
     const one = (await (await h.req("anon", "/api/self/link/L1")).json()) as { me: { id: string } };
     const two = (await (await h.req("beto", "/api/self/link/L1")).json()) as { me: { id: string } };
     expect(two.me.id).toBe(one.me.id);
+  });
+
+  it("the sign-in fails at the moment of linking (DB busy): the session still reaches the browser", async () => {
+    await harnessWith(
+      { state: "linked", session: "s2.keep", account: ACCOUNT, phone: "…0000", iat: 1 },
+      { status: 404, body: {} },
+    );
+    const spy = vi.spyOn(AccountRepo.prototype, "isSelfRevoked").mockRejectedValueOnce(new Error("database is locked"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const r = await h.req("anon", "/api/self/link/L1");
+      expect(r.status).toBe(200);
+      const body = (await r.json()) as { state: string; session: string; me?: unknown };
+      expect(body).toEqual({ state: "linked", session: "s2.keep" }); // no «me»: the browser signs in by itself later
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("s2.keep");
+    } finally {
+      spy.mockRestore();
+      warn.mockRestore();
+    }
   });
 
   it("a bad or missing account key never creates an account (still linked for sending)", async () => {

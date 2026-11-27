@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ApiError } from "@/lib/api";
 import { queryKeys } from "@/lib/query/keys";
-import { type LinkStatus, linkStatus, startLink } from "./endpoints";
+import { isLinkGone, LINK_FOLLOW_MAX_MS, type LinkStatus, linkStatus, startLink } from "./endpoints";
 import { COUNTRIES, composePhone, countryByIso, guessCountry, phoneHint } from "./phone";
 import { useSelfStore } from "./selfStore";
 import { TrustLink, TrustPromises } from "./TrustInfo";
@@ -83,14 +83,29 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
     }
   };
 
-  // Follow the linking live.
+  // Follow the linking live. On phones the person leaves for WhatsApp to type the code:
+  // the browser may freeze this tab or cut its requests meanwhile. A failed check is NOT
+  // a failed link — keep following, and check right away when they come back. Only the
+  // server saying «gone» (404) ends it; otherwise the link would finish unseen and they'd
+  // have to link twice.
   const linkId = step.kind === "linking" ? step.id : null;
   useEffect(() => {
     if (!linkId) return;
     let alive = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let running = false;
+    let failures = 0;
+    const startedAt = clock();
+    const next = (ms: number) => {
+      clearTimeout(timer);
+      if (alive) timer = setTimeout(() => void tick(), ms);
+    };
     const tick = async () => {
+      if (!alive || running) return;
+      running = true;
       try {
         const status = await linkStatus(linkId);
+        failures = 0;
         if (!alive) return;
         if (status.state === "linked") {
           setSession(status.session);
@@ -108,18 +123,34 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
           status,
           startedAt: prev.kind === "linking" ? prev.startedAt : Date.now(),
         }));
-      } catch {
-        if (alive) setStep({ kind: "error", message: "La vinculación venció. Intenta otra vez." });
-        return;
+        next(1500);
+      } catch (err) {
+        if (!alive) return;
+        if (isLinkGone(err) || clock() - startedAt > LINK_FOLLOW_MAX_MS) {
+          setStep({ kind: "error", message: "La vinculación venció. Intenta otra vez." });
+          return;
+        }
+        failures++;
+        next(failures < 3 ? 1500 : 3000); // offline / restarting: keep going, a bit calmer
+      } finally {
+        running = false;
       }
-      if (alive) setTimeout(() => void tick(), 1500);
     };
-    const t = setTimeout(() => void tick(), 800);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") next(0);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("online", onVisible);
+    window.addEventListener("focus", onVisible);
+    next(800);
     return () => {
       alive = false;
-      clearTimeout(t);
+      clearTimeout(timer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("online", onVisible);
+      window.removeEventListener("focus", onVisible);
     };
-  }, [linkId, setSession, onDone, after, qc]);
+  }, [linkId, setSession, qc]);
 
   // «¡Listo!» for a moment, then close and run what was pending (e.g. the send).
   const done = step.kind === "done";

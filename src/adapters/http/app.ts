@@ -559,8 +559,16 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       }
       if (r.status === 200 && r.body.state === "linked" && typeof r.body.session === "string") {
         // Linking your own WhatsApp IS signing in (the account key never reaches the browser).
-        const me = await signInFrom(c, r.body, client);
-        return c.json({ state: "linked", session: r.body.session, me: me === REVOKED ? null : me });
+        // Never lose the session over the sign-in: if that fails, the browser signs in later with it.
+        const me = await signInFrom(c, r.body, client).catch((err: unknown) => {
+          console.warn("[self-link] no se pudo iniciar sesión al vincular:", err instanceof Error ? err.message : err);
+          return undefined;
+        });
+        return c.json({
+          state: "linked",
+          session: r.body.session,
+          ...(me === undefined ? {} : { me: me === REVOKED ? null : me }),
+        });
       }
       return selfReply(c, r);
     } catch (err) {

@@ -381,6 +381,14 @@ export interface SelfSessionsOptions {
   /** Pending links at once. */
   maxPendingLinks?: number;
   linkTtlMs?: number;
+  /**
+   * A finished link (linked / failed) stays readable this long — the browser
+   * may be in the background (the person is in WhatsApp typing the code) and
+   * only come back later. Losing «linked» = linking twice.
+   */
+  finalKeepMs?: number;
+  /** Once the browser got it, a short window to read it again (its answer may have been lost). */
+  handedKeepMs?: number;
   /** Pauses (tests use 0). */
   settleMs?: number;
   /** A send stops STARTING stickers after this long (the rest come back as pending). */
@@ -439,7 +447,7 @@ export class SelfSessions {
   private readonly codes: RateLimiter;
   private readonly links = new Map<
     string,
-    { client: string; status: LinkState; end: () => void; timer: NodeJS.Timeout }
+    { client: string; status: LinkState; end: () => void; timer: NodeJS.Timeout; final?: "kept" | "handed" }
   >();
   private readonly o: Required<Omit<SelfSessionsOptions, "socket" | "sendSticker" | "now">> & {
     socket: SocketFactory;
@@ -456,6 +464,8 @@ export class SelfSessions {
       codesPerNumberPerHour: 10,
       maxPendingLinks: 30,
       linkTtlMs: 4 * 60_000,
+      finalKeepMs: 3 * 60_000,
+      handedKeepMs: 30_000,
       settleMs: 1_200,
       // Budget + one slow item + settle stays under opTimeout (120 s) and the HTTP
       // request limit (180 s): a big send returns partial progress, never a dead timeout.
@@ -479,14 +489,17 @@ export class SelfSessions {
   }
 
   get pendingLinks(): number {
-    return this.links.size;
+    let n = 0;
+    for (const e of this.links.values()) if (!e.final) n++;
+    return n; // finished links waiting to be read don't count
   }
 
   // ── linking ───────────────────────────────────────────────────────────────
 
   /** A fresh in-memory session; the phone types a code (phone given) or scans a QR. Bound to `client`. */
   async startLink(client: string, phone?: string): Promise<string> {
-    if (this.links.size >= this.o.maxPendingLinks) {
+    // (Finished ones waiting to be read are bounded too: they hold a sealed session in memory.)
+    if (this.pendingLinks >= this.o.maxPendingLinks || this.links.size >= this.o.maxPendingLinks * 4) {
       throw new SessionError("Mucha gente vinculando: intenta en un momento.", "busy");
     }
     const typed = phone ? normalizePairingNumber(phone) : null;
@@ -555,6 +568,7 @@ export class SelfSessions {
             // Never tell the browser «linked» with a session that can't be used.
             console.warn("[self] vinculación: conexión abierta sin identidad de dispositivo");
             entry.status = { state: "failed", reason: "WhatsApp no terminó de vincular. Intenta otra vez." };
+            this.keep(id);
             end();
             return;
           }
@@ -566,6 +580,7 @@ export class SelfSessions {
             session: sealSession(snap, this.o.sealKey, client, iat),
             me: jidNormalizedUser(snap.creds.me?.id ?? s.user?.id ?? ""),
           };
+          this.keep(id);
           end();
         } else if (u.connection === "close") {
           logClose("vinculación", u);
@@ -601,6 +616,17 @@ export class SelfSessions {
           ? "WhatsApp no permitió vincular este número ahora. Intenta más tarde."
           : "La vinculación no se completó. Intenta otra vez.";
     e.status = { state: "failed", reason };
+    this.keep(id);
+  }
+
+  /** A final answer: keep it readable for a while (see finalKeepMs / handedKeepMs). */
+  private keep(id: string, handed = false): void {
+    const e = this.links.get(id);
+    if (!e || (e.final === "handed" && handed) || (e.final && !handed)) return;
+    e.final = handed ? "handed" : "kept";
+    clearTimeout(e.timer);
+    e.timer = setTimeout(() => this.dropLink(id), handed ? this.o.handedKeepMs : this.o.finalKeepMs);
+    e.timer.unref?.();
   }
 
   private dropLink(id: string): void {
@@ -611,11 +637,15 @@ export class SelfSessions {
     this.links.delete(id);
   }
 
-  /** Status for the browser that started it (anyone else: null). Final states are handed out once. */
+  /**
+   * Status for the browser that started it (anyone else: null). A final state
+   * can be read again for a short while after it was first handed out (a lost
+   * answer must not cost a second link), then it's gone.
+   */
   linkStatus(id: string, client: string): LinkState | null {
     const e = this.links.get(id);
     if (!e || e.client !== client) return null;
-    if (e.status.state === "linked" || e.status.state === "failed") this.dropLink(id);
+    if (e.status.state === "linked" || e.status.state === "failed") this.keep(id, true);
     return e.status;
   }
 

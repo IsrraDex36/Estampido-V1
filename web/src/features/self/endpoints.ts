@@ -1,5 +1,5 @@
 import type { Me } from "@contract";
-import { clientHeaders, readJson } from "@/lib/api";
+import { ApiError, clientHeaders, readJson } from "@/lib/api";
 import { useSelfStore } from "./selfStore";
 
 const json = () => ({ ...clientHeaders(), "content-type": "application/json" });
@@ -23,6 +23,14 @@ export async function startLink(phone?: string): Promise<string> {
 
 export async function linkStatus(id: string): Promise<LinkStatus> {
   return readJson(await fetch(`/api/self/link/${encodeURIComponent(id)}`, { cache: "no-store", headers: clientHeaders() }));
+}
+
+/** Longest we follow one link (the server keeps it 4 min + a little after it finishes). */
+export const LINK_FOLLOW_MAX_MS = 8 * 60_000;
+
+/** The server no longer has this link (expired or another browser): stop following. Pure. */
+export function isLinkGone(err: unknown): boolean {
+  return err instanceof ApiError && err.status === 404;
 }
 
 export type SendWhat = { results?: string[]; community?: string[]; pack?: string };

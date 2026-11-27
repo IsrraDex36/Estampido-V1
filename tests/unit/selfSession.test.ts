@@ -265,8 +265,8 @@ describe("gate and lock", () => {
 // ── linking ─────────────────────────────────────────────────────────────────
 
 describe("linking your own WhatsApp", () => {
-  it("by phone: a code; after the restart WhatsApp asks for, the sealed session goes ONLY to the browser that started it, once", async () => {
-    const { sessions, socks } = setup({}, (s, n) => {
+  it("by phone: a code; after the restart WhatsApp asks for, the sealed session goes ONLY to the browser that started it", async () => {
+    const { sessions, socks } = setup({ handedKeepMs: 40 }, (s, n) => {
       if (n === 1) {
         setTimeout(() => s.emit({ qr: "2@qr" }), 1);
         setTimeout(() => s.emit(closeWith(DisconnectReason.restartRequired)), 10);
@@ -280,12 +280,16 @@ describe("linking your own WhatsApp", () => {
     let mine: ReturnType<typeof sessions.linkStatus> = null;
     await until(() => {
       expect(sessions.linkStatus(id, B)).toBeNull(); // hijack attempts at every step: nothing
-      const st = sessions.linkStatus(id, A); // «linked» is handed out once: keep it
+      const st = sessions.linkStatus(id, A);
       if (st?.state === "linked") mine = st;
       return mine !== null;
     });
     expect((mine as { state: string } | null)?.state).toBe("linked");
-    expect(sessions.linkStatus(id, A)).toBeNull(); // handed out once
+    // A lost answer can be read again for a moment (never «link twice»)… still only by A…
+    expect(sessions.linkStatus(id, A)).toEqual(mine);
+    expect(sessions.linkStatus(id, B)).toBeNull();
+    // …then it's gone for good.
+    await until(() => sessions.linkStatus(id, A) === null);
     expect(socks.every((s) => s.ended)).toBe(true); // no socket left open
     expect(sessions.pendingLinks).toBe(0);
     // The session belongs to browser A.
@@ -339,6 +343,27 @@ describe("linking your own WhatsApp", () => {
     expect(waitText(59_999)).toBe("1 min");
     expect(waitText(40 * 60_000)).toBe("40 min");
     expect(waitText(60 * 60_000)).toBe("1 h");
+  });
+
+  it("linked while the browser was away (phone in WhatsApp): still there when it comes back, past the link's own TTL", async () => {
+    const { sessions } = setup({ linkTtlMs: 30, finalKeepMs: 400, handedKeepMs: 20 });
+    const id = await sessions.startLink(A);
+    await wait(120); // nobody asks: the link finished long ago, and its 30 ms TTL passed
+    const st = sessions.linkStatus(id, A);
+    expect(st?.state).toBe("linked");
+    expect(sessions.pendingLinks).toBe(0); // finished links don't hold a «pending» slot
+    // Reading starts the short window; repeated reads don't extend it.
+    await wait(10);
+    expect(sessions.linkStatus(id, A)?.state).toBe("linked");
+    await until(() => sessions.linkStatus(id, A) === null);
+  });
+
+  it("a finished link nobody reads is dropped after finalKeepMs (no sealed session lingers)", async () => {
+    const { sessions } = setup({ finalKeepMs: 30 });
+    await sessions.startLink(A);
+    await until(() => sessions.pendingLinks === 0);
+    await wait(80);
+    expect((sessions as unknown as { links: Map<string, unknown> }).links.size).toBe(0);
   });
 
   it("abandoned links close their socket by themselves; too many pending → busy", async () => {
