@@ -103,15 +103,16 @@ Con `SVA_ALERT_WEBHOOK` puesto, la **web también vigila al bot**: si el proceso
 
 Por defecto, cada IP puede hacer en 10 minutos (publicar: por hora):
 
-| Nombre      | Acción                                                               | Límite       |
-| ----------- | -------------------------------------------------------------------- | ------------ |
-| `convert`   | crear stickers                                                       | 15 / 10 min  |
-| `linkCode`  | pedir códigos de vinculación                                         | 30 / 10 min  |
-| `send`      | enviar a WhatsApp                                                    | 40 / 10 min  |
-| `publish`   | publicar (tope por IP; el límite real es por cuenta: 30/h y 150/día) | 120 / 1 h    |
-| `soundUse`  | usar sonidos                                                         | 60 / 10 min  |
-| `adminFail` | contraseñas incorrectas en `/admin`                                  | 10 / 10 min  |
-| `api`       | todo lo demás                                                        | 600 / 10 min |
+| Nombre           | Acción                                                               | Límite       |
+| ---------------- | -------------------------------------------------------------------- | ------------ |
+| `convertBrowser` | crear stickers, por navegador (una persona)                          | 40 / 10 min  |
+| `convert`        | crear stickers, tope por IP (datos móviles: muchas personas por IP)  | 200 / 10 min |
+| `linkCode`       | pedir códigos de vinculación                                         | 30 / 10 min  |
+| `send`           | enviar a WhatsApp                                                    | 40 / 10 min  |
+| `publish`        | publicar (tope por IP; el límite real es por cuenta: 30/h y 150/día) | 120 / 1 h    |
+| `soundUse`       | usar sonidos                                                         | 60 / 10 min  |
+| `adminFail`      | contraseñas incorrectas en `/admin`                                  | 10 / 10 min  |
+| `api`            | todo lo demás                                                        | 600 / 10 min |
 
 Para pruebas, súbelos con una variable (formato `nombre=N/periodo`, en `s`, `m` o `h`):
 

@@ -48,6 +48,18 @@ export function describeFailure(f: ConvertFailure, opts: { hq?: boolean } = {}):
         actions: ["retry"],
         autoRetrySec: Math.min(60, Math.max(5, f.retryAfterSec ?? 10)),
       };
+    case "rate_limited": {
+      // A limit, not a failure: say how long, and come back by itself when it's short.
+      const wait = f.retryAfterSec ?? 60;
+      return {
+        tone: "busy",
+        title: "Toma un respiro de unos minutos",
+        body: f.message || "Creaste muchos stickers seguidos. Espera un momento para crear otro.",
+        tips: ["Mientras tanto puedes enviar, descargar o publicar los que ya hiciste."],
+        actions: ["retry"],
+        ...(wait <= 90 ? { autoRetrySec: Math.max(5, wait) } : {}),
+      };
+    }
     case "timeout":
       return {
         tone: "error",

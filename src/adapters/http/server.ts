@@ -8,7 +8,8 @@ import { type Context, Hono, type MiddlewareHandler } from "hono";
 import { bodyLimit } from "hono/body-limit";
 import { RateLimiter } from "../../utils/rateLimit.js";
 import type { ApiApp } from "./app.js";
-import type { ApiErrorBody } from "./contract.js";
+import { clientHash } from "./client.js";
+import { type ApiErrorBody, CLIENT_HEADER } from "./contract.js";
 import { type DynamicSeo, robotsTxt, seoHead, sitemapXml, siteOrigin, withSeo } from "./seo.js";
 import { isCloudflareIp, Shield } from "./shield.js";
 
@@ -45,8 +46,13 @@ const UPLOAD_PATHS = /^\/api\/convert$/;
 /** Routes that receive the sealed self-channel session. */
 const SESSION_PATHS = /^\/api\/self\/(send|logout|signin)$/;
 export const DEFAULT_LIMITS = {
-  convert: { max: 15, windowMs: 10 * MIN }, // CPU-heavy
-  slot: { max: 20, windowMs: 10 * MIN },
+  // Creating: counted per BROWSER (one person), with a roomy per-IP backstop — on mobile
+  // data a whole neighbourhood shares one IP (CGNAT), so per-IP alone ran out in minutes.
+  // The queue (one at a time per browser, a bounded line) protects the CPU anyway.
+  convertBrowser: { max: 40, windowMs: 10 * MIN },
+  slotBrowser: { max: 60, windowMs: 10 * MIN },
+  convert: { max: 200, windowMs: 10 * MIN }, // per IP
+  slot: { max: 300, windowMs: 10 * MIN }, // per IP
   // «Tu propio WhatsApp»: each one opens a WhatsApp connection.
   selfLink: { max: 10, windowMs: 10 * MIN },
   selfSend: { max: 40, windowMs: 10 * MIN },
@@ -67,11 +73,20 @@ export const DEFAULT_LIMITS = {
 } as const;
 export type LimitName = keyof typeof DEFAULT_LIMITS;
 
-const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; path: RegExp }[] = [
-  { name: "convert", method: "POST", path: /^\/api\/convert$/ },
+type RuleName = Exclude<LimitName, "api" | "adminFail" | "convertBrowser" | "slotBrowser">;
+const RULES: {
+  name: RuleName;
+  method: string;
+  path: RegExp;
+  /** Also limited per browser (CLIENT_HEADER) under this name; `name` is then the per-IP backstop. */
+  perBrowser?: LimitName;
+  /** Hitting this limit is normal use, not an attack: never a strike towards the IP jail. */
+  noStrike?: true;
+}[] = [
+  { name: "convert", method: "POST", path: /^\/api\/convert$/, perBrowser: "convertBrowser", noStrike: true },
   // A place in line is cheap to ask for but holds a queue spot: its own limit,
   // so one IP rotating browser ids can't fill the line for everyone.
-  { name: "slot", method: "POST", path: /^\/api\/convert\/slot$/ },
+  { name: "slot", method: "POST", path: /^\/api\/convert\/slot$/, perBrowser: "slotBrowser", noStrike: true },
   { name: "selfLink", method: "POST", path: /^\/api\/self\/link$/ },
   { name: "selfSend", method: "POST", path: /^\/api\/self\/(send|logout|signin)$/ },
   { name: "linkCode", method: "POST", path: /^\/api\/whatsapp\/link$/ },
@@ -150,17 +165,33 @@ function rateLimits(opts: ServerOptions): MiddlewareHandler {
     }
     const rule = RULES.find((r) => r.method === c.req.method && r.path.test(path));
     const name: LimitName = rule?.name ?? "api";
-    const wait = limiters[name].take(ip);
-    if (wait > 0) {
-      opts.shield?.strike(ip); // insisting after a limit leads to a temporary block
+    const limited = (wait: number, message: string) => {
+      if (!rule?.noStrike) opts.shield?.strike(ip); // insisting after a limit leads to a temporary block
       c.header("Retry-After", String(Math.ceil(wait / 1000)));
-      return c.json(
-        fail("rate_limited", `Demasiadas solicitudes. Intenta de nuevo en ${Math.ceil(wait / 1000)} s.`),
-        429,
-      );
+      return c.json(fail("rate_limited", message), 429);
+    };
+    if (rule?.perBrowser) {
+      // The browser's own quota first (peek: a refused request costs the IP nothing).
+      const browser = `${ip}|${clientHash(c.req.header(CLIENT_HEADER)) ?? "-"}`;
+      const mine = limiters[rule.perBrowser].peek(browser);
+      if (mine > 0) return limited(mine, `Creaste muchos stickers seguidos. Puedes crear otro en ${waitText(mine)}.`);
+      const shared = limiters[name].take(ip);
+      if (shared > 0) {
+        return limited(shared, `Mucha gente en tu red está creando stickers ahora. Intenta en ${waitText(shared)}.`);
+      }
+      limiters[rule.perBrowser].take(browser);
+      return next();
     }
+    const wait = limiters[name].take(ip);
+    if (wait > 0) return limited(wait, `Demasiadas solicitudes. Intenta de nuevo en ${Math.ceil(wait / 1000)} s.`);
     return next();
   };
+}
+
+/** «45 s», «3 min». Pure. */
+export function waitText(ms: number): string {
+  const s = Math.max(1, Math.ceil(ms / 1000));
+  return s < 60 ? `${s} s` : `${Math.ceil(s / 60)} min`;
 }
 
 /**

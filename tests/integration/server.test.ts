@@ -9,7 +9,9 @@ import {
   inlineScriptHashes,
   parseLimits,
   resolveStatic,
+  waitText,
 } from "../../src/adapters/http/server.js";
+import { DEFAULT_SHIELD, Shield } from "../../src/adapters/http/shield.js";
 
 let dist = "";
 const THEME = "\n      var t = 1;\n    ";
@@ -198,6 +200,79 @@ describe("production server", () => {
     // X-Forwarded-For: the proxy appends the real IP → rightmost wins; a forged left entry is ignored.
     const c = { req: { header: (h: string) => (h === "x-forwarded-for" ? "6.6.6.6, 3.3.3.3" : undefined) } } as never;
     expect(clientIp(c, true)).toBe("3.3.3.3");
+  });
+});
+
+/** A stable browser id (UUID shape) per name. */
+const uuidFor = (name: string) => {
+  const hex = Buffer.from(name.padEnd(16, "_")).toString("hex").slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`;
+};
+
+describe("creating stickers: limits per person, not per neighbourhood", () => {
+  const as = (addr: string, browser?: string) => ({
+    ...ip(addr),
+    ...(browser ? { "x-estampido-client": uuidFor(browser) } : {}),
+  });
+  const convert = (app: ReturnType<typeof createServerApp>, addr: string, browser?: string) =>
+    app.request("/api/convert", { method: "POST", headers: as(addr, browser) });
+
+  it("people sharing one IP (mobile data) each get their own quota", async () => {
+    const app = createServerApp({
+      api: api(),
+      trustProxy: true,
+      limits: { convertBrowser: { max: 2, windowMs: 60_000 }, convert: { max: 100, windowMs: 60_000 } },
+    });
+    for (const who of ["ana", "beto", "caro"]) {
+      expect((await convert(app, "5.5.5.5", who)).status).not.toBe(429);
+      expect((await convert(app, "5.5.5.5", who)).status).not.toBe(429);
+    }
+    const r = await convert(app, "5.5.5.5", "ana");
+    expect(r.status).toBe(429);
+    const body = (await r.json()) as { error: { code: string; message: string } };
+    expect(body.error.code).toBe("rate_limited");
+    expect(body.error.message).toMatch(/^Creaste muchos stickers seguidos\. Puedes crear otro en \d+ (s|min)\.$/);
+    expect(Number(r.headers.get("retry-after"))).toBeGreaterThan(0);
+    expect((await convert(app, "5.5.5.5", "dani")).status).not.toBe(429); // a new person on the same IP: fine
+  });
+
+  it("rotating browser ids doesn't escape the per-IP backstop; a refused request doesn't spend the IP's quota", async () => {
+    const app = createServerApp({
+      api: api(),
+      trustProxy: true,
+      limits: { convertBrowser: { max: 1, windowMs: 60_000 }, convert: { max: 3, windowMs: 60_000 } },
+    });
+    expect((await convert(app, "6.6.6.6", "a")).status).not.toBe(429);
+    for (let i = 0; i < 5; i++) expect((await convert(app, "6.6.6.6", "a")).status).toBe(429); // own quota: IP untouched
+    expect((await convert(app, "6.6.6.6", "b")).status).not.toBe(429);
+    expect((await convert(app, "6.6.6.6", "c")).status).not.toBe(429);
+    const r = await convert(app, "6.6.6.6", "d");
+    expect(r.status).toBe(429);
+    expect(((await r.json()) as { error: { message: string } }).error.message).toMatch(/Mucha gente en tu red/);
+    expect((await convert(app, "7.7.7.7", "d")).status).not.toBe(429);
+  });
+
+  it("hitting the create limit never jails the IP (it's normal use, not an attack)", async () => {
+    const shield = new Shield({ ...DEFAULT_SHIELD, jailAfter: 2 });
+    const app = createServerApp({
+      api: api(),
+      trustProxy: true,
+      shield,
+      limits: { convertBrowser: { max: 1, windowMs: 60_000 } },
+    });
+    for (let i = 0; i < 6; i++) await convert(app, "8.8.8.8", "a");
+    for (let i = 0; i < 6; i++) await app.request("/api/convert/slot", { method: "POST", headers: as("8.8.8.8", "a") });
+    expect(shield.jailedIps()).toEqual([]);
+    expect((await app.request("/api/queue", { headers: as("8.8.8.8", "b") })).status).not.toBe(403);
+  });
+
+  it("defaults are roomy: 40 per person and 200 per IP every 10 min", async () => {
+    const app = createServerApp({ api: api(), trustProxy: true });
+    for (let i = 0; i < 40; i++) expect((await convert(app, "9.9.9.1", "solo")).status).not.toBe(429);
+    expect((await convert(app, "9.9.9.1", "solo")).status).toBe(429);
+    expect(waitText(1)).toBe("1 s");
+    expect(waitText(59_000)).toBe("59 s");
+    expect(waitText(61_000)).toBe("2 min");
   });
 });
 

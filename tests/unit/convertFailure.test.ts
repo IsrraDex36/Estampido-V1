@@ -61,4 +61,24 @@ describe("conversion failure card", () => {
   it("connection problems say so and offer retry", () => {
     expect(describeFailure(f("network", { status: 0 }))).toMatchObject({ tone: "connection", actions: ["retry"] });
   });
+
+  it("rate_limited is a pause, not «algo falló»: server's words, retries by itself only when short", () => {
+    const short = describeFailure(
+      f("rate_limited", {
+        status: 429,
+        retryAfterSec: 40,
+        message: "Creaste muchos stickers seguidos. Puedes crear otro en 40 s.",
+      }),
+    );
+    expect(short.title).toBe("Toma un respiro de unos minutos");
+    expect(short.title).not.toMatch(/falló/);
+    expect(short.body).toContain("Puedes crear otro en 40 s");
+    expect(short.tone).toBe("busy");
+    expect(short.autoRetrySec).toBe(40);
+    const long = describeFailure(
+      f("rate_limited", { status: 429, retryAfterSec: 400, message: "Puedes crear otro en 7 min." }),
+    );
+    expect(long.autoRetrySec).toBeUndefined(); // no 7-minute spinner
+    expect(long.actions).toContain("retry");
+  });
 });
