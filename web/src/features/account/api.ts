@@ -1,4 +1,4 @@
-import { unlinkSelf } from "@/features/self/endpoints";
+import { forgetSelf } from "@/features/self/endpoints";
 import type { CommunitySound, CommunitySticker, FavoriteKind, Me, MeUpdate, WhatsAppLink } from "@contract";
 import {
   infiniteQueryOptions,
@@ -62,20 +62,32 @@ export function useMe() {
   return useQuery(meOptions(qc));
 }
 
+/**
+ * Signed out: nothing of the previous account may linger (another account can
+ * sign in right after on the same browser). Public data stays cached.
+ */
+export function clearUserData(qc: QueryClient): void {
+  qc.setQueryData(queryKeys.account.me, null);
+  qc.setQueryData(queryKeys.bot.link, { state: "unlinked" } satisfies WhatsAppLink);
+  qc.removeQueries({ queryKey: queryKeys.account.stickers });
+  qc.removeQueries({ queryKey: queryKeys.social.following });
+  qc.removeQueries({ queryKey: queryKeys.social.feed });
+  qc.removeQueries({ queryKey: ["social", "packs", "mine"] });
+}
+
 export function useLogout() {
   const qc = useQueryClient();
   const clearAll = useFavorites((s) => s.clearAll);
   return useMutation({
     mutationKey: ["account", "logout"],
-    // Sign out = also remove this device from your WhatsApp (else it would sign right back in).
+    // Sign out = the server ends the session and revokes this browser's sealed WhatsApp
+    // sessions; here we forget ours at once and let WhatsApp drop the device in the background.
     mutationFn: async () => {
       await logout();
-      await unlinkSelf();
+      forgetSelf();
     },
     onSuccess: () => {
-      qc.setQueryData(queryKeys.account.me, null);
-      qc.setQueryData(queryKeys.bot.link, { state: "unlinked" } satisfies WhatsAppLink);
-      qc.removeQueries({ queryKey: queryKeys.account.stickers });
+      clearUserData(qc);
       clearAll();
       notify.success("Sesión cerrada en este navegador.");
     },
@@ -103,10 +115,13 @@ export function useDeleteAccount() {
   const clearAll = useFavorites((s) => s.clearAll);
   return useMutation({
     mutationKey: ["account", "delete"],
-    mutationFn: deleteAccount,
+    mutationFn: async () => {
+      const r = await deleteAccount();
+      forgetSelf(); // a linked browser must not recreate the account
+      return r;
+    },
     onSuccess: ({ removed }) => {
-      qc.setQueryData(queryKeys.account.me, null);
-      qc.setQueryData(queryKeys.bot.link, { state: "unlinked" } satisfies WhatsAppLink);
+      clearUserData(qc);
       void qc.invalidateQueries({ queryKey: queryKeys.community.all });
       void qc.invalidateQueries({ queryKey: queryKeys.creators.all });
       clearAll();

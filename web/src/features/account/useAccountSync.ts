@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { signInWithSelf } from "@/features/self/endpoints";
 import { useSelfStore } from "@/features/self/selfStore";
+import { ApiError } from "@/lib/api";
 import { useFavorites } from "@/features/community/store/favoritesStore";
 import { queryKeys } from "@/lib/query/keys";
 import { useMe } from "./api";
@@ -46,10 +47,20 @@ export function useAccountSync() {
     tried.current = session;
     signInWithSelf()
       .then((m) => qc.setQueryData(queryKeys.account.me, m))
-      .catch(() => {
-        // Never forget the session here: signing in is a bonus. Only a real send
-        // can tell the device is gone (and that path asks to link again).
+      .catch((err) => {
+        // Signed out here (revoked) or the session can't open in this browser: it's useless,
+        // forget it. Anything else (offline, busy) keeps it — signing in is just a bonus.
+        if (err instanceof ApiError && (err.code === "session_revoked" || err.code === "invalid" || err.status === 410)) {
+          useSelfStore.getState().setSession(null);
+        }
       });
+  }, [session, me, qc]);
+
+  // Another tab signed out (the shared session vanished): this tab follows.
+  const hadSession = useRef(session !== null);
+  useEffect(() => {
+    if (hadSession.current && session === null && me) void qc.invalidateQueries({ queryKey: queryKeys.account.me });
+    hadSession.current = session !== null;
   }, [session, me, qc]);
 
   useEffect(() => {

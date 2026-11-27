@@ -27,9 +27,21 @@ export const useSelfStore = create<SelfState>()(
       closeDialog: () => set({ dialog: { open: false } }),
     }),
     {
-      name: "estampido-wa-self",
+      name: "estampido-wa-self", // SELF_STORAGE_KEY
       storage: createJSONStorage(() => localStorage),
       partialize: (s) => ({ session: s.session, linkedAt: s.linkedAt }),
     },
   ),
 );
+
+/**
+ * Other tabs see sign-out / linking at once: the session lives in localStorage
+ * and each tab keeps its own copy in memory. Without this, a tab still holding
+ * the old session would sign the whole browser right back in.
+ */
+export const SELF_STORAGE_KEY = "estampido-wa-self";
+if (typeof window !== "undefined") {
+  window.addEventListener("storage", (e) => {
+    if (e.key === SELF_STORAGE_KEY || e.key === null) void useSelfStore.persist.rehydrate();
+  });
+}

@@ -516,12 +516,17 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     }
   };
   const BANNED = "Esta cuenta está bloqueada por incumplir las reglas de la comunidad.";
+  const REVOKED = "revoked" as const;
   /**
    * Open (or keep) the account session for the WhatsApp the bot identified.
    * Returns the user, or null when there's no identity or the account is banned.
    */
   const signInFrom = async (c: Context, body: Record<string, unknown>, client: string) => {
     if (typeof body.account !== "string" || !/^[0-9a-f]{64}$/.test(body.account)) return null;
+    // Signed out (or account deleted) in this browser after this session was sealed: it can't sign in.
+    // (A missing/NaN seal time compares false with everything: never let it through.)
+    if (typeof body.iat !== "number" || !Number.isFinite(body.iat)) return REVOKED;
+    if (await accounts.isSelfRevoked(body.account, client, body.iat)) return REVOKED;
     const { user } = await accounts.upsertFromLink(body.account, typeof body.phone === "string" ? body.phone : "");
     if (user.banned) return null;
     if (c.get("user")?.id !== user.id) cookie.write(c, await accounts.createSession(user.id, client));
@@ -555,7 +560,7 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       if (r.status === 200 && r.body.state === "linked" && typeof r.body.session === "string") {
         // Linking your own WhatsApp IS signing in (the account key never reaches the browser).
         const me = await signInFrom(c, r.body, client);
-        return c.json({ state: "linked", session: r.body.session, me });
+        return c.json({ state: "linked", session: r.body.session, me: me === REVOKED ? null : me });
       }
       return selfReply(c, r);
     } catch (err) {
@@ -574,6 +579,12 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       const r = await bot.self("/whoami", { client, session: body.session });
       if (r.status !== 200) return selfReply(c, r);
       const me = await signInFrom(c, r.body, client);
+      if (me === REVOKED) {
+        return c.json(
+          fail("session_revoked", "Cerraste sesión en este navegador. Vincula tu WhatsApp para entrar de nuevo."),
+          401,
+        );
+      }
       return me ? c.json({ me }) : c.json(fail("account_banned", BANNED), 403);
     } catch (err) {
       return botFailure(c, err, "self-signin");

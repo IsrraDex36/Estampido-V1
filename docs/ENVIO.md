@@ -116,3 +116,17 @@ El número del bot del admin ya no se usa para nada y queda apagado salvo
   (`companion_reg_refresh`), se genera uno nuevo y se vuelve a mostrar el QR.
 - Capacidad: máx. 4 conexiones a la vez, fila de 20; la versión de WhatsApp Web
   se consulta una vez cada 6 h para todos.
+
+### Cerrar sesión y revocación
+
+No se guardan sesiones en el servidor, así que «cerrar sesión» no puede borrar
+la sesión sellada (vive en el navegador). En su lugar, `POST /api/auth/logout`
+anota en `self_revocations` (huella de cuenta, huella del navegador, fecha). Al
+volver a entrar con `/api/self/signin`, el bot devuelve cuándo se selló la
+sesión (`iat`); si es anterior o igual a esa fecha → `401 session_revoked`.
+
+- Borrar la cuenta revoca todos los navegadores (`client_hash = "*"`).
+- Vincular otra vez sella una sesión nueva (`iat` posterior): entra normal.
+- Las revocaciones se purgan a los 200 días (ninguna sesión vive más de 180).
+- La web olvida la sesión al instante y pide a WhatsApp quitar el dispositivo
+  en segundo plano (`keepalive`); las pestañas se sincronizan por `storage`.

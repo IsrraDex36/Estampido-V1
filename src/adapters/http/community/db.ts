@@ -179,6 +179,14 @@ export const MIGRATIONS: readonly string[] = [
      key   TEXT PRIMARY KEY,
      value TEXT NOT NULL
    ) STRICT, WITHOUT ROWID;`,
+  // 7 — «tu propio WhatsApp» sign-out: sealed sessions issued before this moment can't
+  //     sign this account in again from this browser (nothing of the session is stored).
+  `CREATE TABLE self_revocations (
+     account_key TEXT NOT NULL,
+     client_hash TEXT NOT NULL,
+     revoked_at  INTEGER NOT NULL,
+     PRIMARY KEY (account_key, client_hash)
+   ) WITHOUT ROWID;`,
 ];
 
 export function openCommunityDb(path: string): DatabaseSync {

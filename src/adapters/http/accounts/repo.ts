@@ -92,6 +92,8 @@ const fromRow = (r: UserRow): User => ({
 });
 
 const USER_COLS = "id, handle, display_name, bio, avatar, phone_hint, created_at, banned_at";
+/** Revocation for every browser at once (account deleted). */
+export const ALL_BROWSERS = "*";
 export const hashToken = (token: string): string => createHash("sha256").update(token).digest("hex");
 const pick = <T>(list: readonly T[]): T => list[randomInt(list.length)] as T;
 
@@ -352,7 +354,39 @@ export class AccountRepo {
     (await this.q("DELETE FROM sessions WHERE client_hash = ?")).run(clientHash);
   }
 
+  /**
+   * Sign-out / account deletion: every «tu propio WhatsApp» session sealed up
+   * to now for this account in this browser stops signing in (a copy someone
+   * kept, another open tab). Linking again issues a newer one.
+   */
+  /** `clientHash` = ALL_BROWSERS revokes every browser (account deletion). */
+  async revokeSelfSessions(userId: string, clientHash: string): Promise<void> {
+    const row = (await this.q("SELECT account_key FROM users WHERE id = ?")).get(userId) as
+      | { account_key: string }
+      | undefined;
+    if (!row) return;
+    await this.revokeSelfByKey(row.account_key, clientHash);
+  }
+
+  async revokeSelfByKey(accountKey: string, clientHash: string): Promise<void> {
+    (
+      await this.q(
+        "INSERT INTO self_revocations (account_key, client_hash, revoked_at) VALUES (?, ?, ?) ON CONFLICT (account_key, client_hash) DO UPDATE SET revoked_at = excluded.revoked_at",
+      )
+    ).run(accountKey, clientHash, this.now());
+  }
+
+  /** Was a session issued at `issuedAt` revoked for this account in this browser? */
+  async isSelfRevoked(accountKey: string, clientHash: string, issuedAt: number): Promise<boolean> {
+    const row = (
+      await this.q("SELECT MAX(revoked_at) AS at FROM self_revocations WHERE account_key = ? AND client_hash IN (?, ?)")
+    ).get(accountKey, clientHash, ALL_BROWSERS) as { at: number | null };
+    return row.at !== null && issuedAt <= row.at;
+  }
+
   async purgeExpiredSessions(): Promise<number> {
+    // Revocations older than the longest a sealed session can live are pointless.
+    (await this.q("DELETE FROM self_revocations WHERE revoked_at <= ?")).run(this.now() - 200 * 86_400_000);
     return Number((await this.q("DELETE FROM sessions WHERE expires_at <= ?")).run(this.now()).changes);
   }
 

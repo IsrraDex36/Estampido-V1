@@ -516,7 +516,7 @@ describe("your WhatsApp is also your sign-in", () => {
   it("whoAmI: from the sealed session alone (no WhatsApp connection); other browser or junk refused", () => {
     const { sessions, socks } = setup();
     const sealed = sealSession(linked(), key, A);
-    expect(sessions.whoAmI(sealed, A)).toBe("5212290000000@s.whatsapp.net");
+    expect(sessions.whoAmI(sealed, A).jid).toBe("5212290000000@s.whatsapp.net");
     expect(socks).toHaveLength(0);
     expect(codeOf(tryWho(() => sessions.whoAmI(sealed, B)))).toBe("invalid");
     expect(codeOf(tryWho(() => sessions.whoAmI("s2.junk", A)))).toBe("invalid");
@@ -544,7 +544,7 @@ describe("regression: «vinculado» but every send asked to link again", () => {
     const r = await sessions.sendToSelf(sealed, A, [item]);
     expect(r.result).toEqual({ sent: 1 });
     expect(sent).toHaveLength(1);
-    expect(sessions.whoAmI(r.session, A)).toBe("5212290000000@s.whatsapp.net");
+    expect(sessions.whoAmI(r.session, A).jid).toBe("5212290000000@s.whatsapp.net");
   });
 
   it("a link that opens WITHOUT a device identity is «failed», never «linked» with a useless session", async () => {
@@ -572,7 +572,7 @@ describe("regression: «vinculado» but every send asked to link again", () => {
     expect(st.state).toBe("linked");
     await expect(sessions.sendToSelf(st.session, A, [item])).resolves.toMatchObject({ result: { sent: 1 } });
     expect(sent).toHaveLength(1);
-    expect(sessions.whoAmI(st.session, A)).toBe("5212290000000@s.whatsapp.net");
+    expect(sessions.whoAmI(st.session, A).jid).toBe("5212290000000@s.whatsapp.net");
   });
 });
 

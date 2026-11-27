@@ -198,7 +198,7 @@ export function createControlApp(
     if (!st) return c.json({ error: "La vinculación venció. Intenta otra vez.", code: "link_expired" }, 404);
     if (st.state !== "linked") return c.json(st);
     // The number never leaves the bot: the API gets the masked hint and the opaque account key.
-    return c.json({ state: "linked", session: st.session, ...identity(st.me) });
+    return c.json({ state: "linked", session: st.session, iat: st.iat, ...identity(st.me) });
   });
   /** Sign in again from a sealed session (no WhatsApp connection involved). */
   app.post("/self/whoami", async (c) => {
@@ -206,7 +206,8 @@ export function createControlApp(
     const parsed = selfLogout.safeParse(await c.req.json().catch(() => null));
     if (!parsed.success) return bad(c);
     try {
-      return c.json(identity(bot.self.whoAmI(parsed.data.session, parsed.data.client)));
+      const who = bot.self.whoAmI(parsed.data.session, parsed.data.client);
+      return c.json({ ...identity(who.jid), iat: who.iat });
     } catch (err) {
       return selfError(c, err);
     }

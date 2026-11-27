@@ -97,6 +97,16 @@ const INVALID = () =>
   new SessionError("Tu vinculación no es válida en este navegador. Vincula tu WhatsApp otra vez.", "invalid");
 
 export function openSession(sealed: string, key: Buffer, bind: string, now = Date.now()): SessionSnapshot {
+  return unseal(sealed, key, bind, now).s;
+}
+
+/** Like openSession, plus when it was sealed (sign-out revocations compare against it). */
+export function unseal(
+  sealed: string,
+  key: Buffer,
+  bind: string,
+  now = Date.now(),
+): { s: SessionSnapshot; iat: number } {
   const [v, data] = sealed.split(".");
   if (v !== VERSION || !data || data.length > 3_000_000) throw INVALID();
   let parsed: Sealed;
@@ -117,7 +127,7 @@ export function openSession(sealed: string, key: Buffer, bind: string, now = Dat
   if (now - parsed.iat > SESSION_MAX_AGE_MS) {
     throw new SessionError("Tu vinculación venció por falta de uso. Vincula tu WhatsApp otra vez.", "expired");
   }
-  return parsed.s;
+  return { s: parsed.s, iat: parsed.iat };
 }
 
 // ── in-memory auth state ────────────────────────────────────────────────────
@@ -378,7 +388,7 @@ type LinkState =
    */
   | { state: "pairing"; step: "connecting" | "preparing" }
   /** `me`: the linked WhatsApp's own jid — stays in the bot; control turns it into an opaque account key. */
-  | { state: "linked"; session: string; me: string }
+  | { state: "linked"; session: string; me: string; iat: number }
   | { state: "failed"; reason: string };
 
 /** Native sound sticker when there's sound, a plain sticker otherwise. */
@@ -515,9 +525,11 @@ export class SelfSessions {
             end();
             return;
           }
+          const iat = this.o.now();
           entry.status = {
             state: "linked",
-            session: sealSession(snap, this.o.sealKey, client, this.o.now()),
+            iat,
+            session: sealSession(snap, this.o.sealKey, client, iat),
             me: jidNormalizedUser(snap.creds.me?.id ?? s.user?.id ?? ""),
           };
           end();
@@ -580,10 +592,10 @@ export class SelfSessions {
    * unsealing). Owning a session sealed for this browser is the proof: that's
    * how a linked browser signs in again after its cookie is gone.
    */
-  whoAmI(sealed: string, client: string): string {
-    const snap = openSession(sealed, this.o.sealKey, client, this.o.now());
+  whoAmI(sealed: string, client: string): { jid: string; iat: number } {
+    const { s: snap, iat } = unseal(sealed, this.o.sealKey, client, this.o.now());
     if (!isPaired(snap.creds)) throw INVALID();
-    return jidNormalizedUser(snap.creds.me?.id ?? "");
+    return { jid: jidNormalizedUser(snap.creds.me?.id ?? ""), iat };
   }
 
   /** Open the person's session in memory, run `fn`, close; returns the refreshed sealed session. */

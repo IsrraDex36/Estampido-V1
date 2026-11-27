@@ -340,10 +340,10 @@ describe("control: «Tu propio WhatsApp»", () => {
     const results = await mkdtemp(join(tmpdir(), "sva-self-"));
     const me = "5212290001234@s.whatsapp.net";
     const self = {
-      linkStatus: () => ({ state: "linked", session: "s2.sealed-session", me }),
+      linkStatus: () => ({ state: "linked", session: "s2.sealed-session", me, iat: 123 }),
       whoAmI: (session: string, client: string) => {
         if (session !== "s2.sealed-session" || client !== A) throw new Error("x");
-        return me;
+        return { jid: me, iat: 77 };
       },
     };
     const app = createControlApp(
@@ -357,6 +357,7 @@ describe("control: «Tu propio WhatsApp»", () => {
     expect(body).toEqual({
       state: "linked",
       session: "s2.sealed-session",
+      iat: 123,
       phone: expect.stringContaining("1234"),
       account: accountKeyFor(me, SECRET),
     });
@@ -366,7 +367,7 @@ describe("control: «Tu propio WhatsApp»", () => {
       headers: auth,
       body: JSON.stringify({ client: A, session: "s2.sealed-session" }),
     });
-    expect(await who.json()).toMatchObject({ account: accountKeyFor(me, SECRET) });
+    expect(await who.json()).toMatchObject({ account: accountKeyFor(me, SECRET), iat: 77 });
     const bad = await app.request("/self/whoami", {
       method: "POST",
       headers: auth,

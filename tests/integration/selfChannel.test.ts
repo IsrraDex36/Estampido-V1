@@ -153,7 +153,7 @@ describe("linking your own WhatsApp signs you in (no bot number involved)", () =
 
   it("the moment the link lands: a session cookie + the profile; the account key never reaches the browser", async () => {
     await harnessWith(
-      { state: "linked", session: "s2.sealed", account: ACCOUNT, phone: "…0000" },
+      { state: "linked", session: "s2.sealed", account: ACCOUNT, phone: "…0000", iat: 1 },
       { status: 404, body: {} },
     );
     const r = await h.req("anon", "/api/self/link/L1");
@@ -169,7 +169,7 @@ describe("linking your own WhatsApp signs you in (no bot number involved)", () =
 
   it("the same WhatsApp from another browser = the same account", async () => {
     await harnessWith(
-      { state: "linked", session: "s2.a", account: ACCOUNT, phone: "…0000" },
+      { state: "linked", session: "s2.a", account: ACCOUNT, phone: "…0000", iat: 1 },
       { status: 404, body: {} },
     );
     const one = (await (await h.req("anon", "/api/self/link/L1")).json()) as { me: { id: string } };
@@ -189,7 +189,7 @@ describe("linking your own WhatsApp signs you in (no bot number involved)", () =
   });
 
   it("signed out but still linked: the sealed session signs you in again (bound to this browser)", async () => {
-    await harnessWith({ state: "waiting" }, { status: 200, body: { account: ACCOUNT, phone: "…0000" } });
+    await harnessWith({ state: "waiting" }, { status: 200, body: { account: ACCOUNT, phone: "…0000", iat: 1 } });
     const r = await h.req("anon", "/api/self/signin", { method: "POST", body: JSON.stringify({ session: "s2.mine" }) });
     expect(r.status).toBe(200);
     expect(((await r.json()) as { me: { handle: string } }).me.handle).toMatch(/^creador_/);

@@ -20,7 +20,7 @@ import {
   type Me,
   PROFILE_LIMITS,
 } from "../contract.js";
-import { type AccountRepo, HandleTakenError, MAX_FAVORITES, type User } from "./repo.js";
+import { type AccountRepo, ALL_BROWSERS, HandleTakenError, MAX_FAVORITES, type User } from "./repo.js";
 import type { AppEnv, SessionCookie } from "./session.js";
 
 const fail = (code: string, message: string): ApiErrorBody => ({ error: { code, message } });
@@ -127,8 +127,11 @@ export function accountRoutes({ accounts, community, bot, cookie, isFollowing }:
   /** Sign out = end the session AND unlink this browser (otherwise it would sign right back in). */
   app.post("/auth/logout", async (c) => {
     const token = cookie.read(c);
-    if (token) await accounts.deleteSession(token);
+    const user = c.get("user");
     const client = clientHash(c.req.header(CLIENT_HEADER));
+    // Sessions sealed so far for this account here can't sign back in (other tabs, kept copies).
+    if (user && client) await accounts.revokeSelfSessions(user.id, client);
+    if (token) await accounts.deleteSession(token);
     if (client) {
       await accounts.deleteSessionsForClient(client);
       await bot.unlink(client).catch(() => {}); // bot offline: the session is gone anyway
@@ -165,8 +168,10 @@ export function accountRoutes({ accounts, community, bot, cookie, isFollowing }:
     if (body?.confirm !== DELETE_ACCOUNT_CONFIRM) {
       return c.json(fail("confirm_required", `Escribe «${DELETE_ACCOUNT_CONFIRM}» para confirmar.`), 400);
     }
-    const removed = await accounts.deleteUser(user.id);
     const client = clientHash(c.req.header(CLIENT_HEADER));
+    // Before deleting: no linked browser (this one or any other) may silently recreate it.
+    await accounts.revokeSelfSessions(user.id, ALL_BROWSERS);
+    const removed = await accounts.deleteUser(user.id);
     if (client) await bot.unlink(client).catch(() => {});
     cookie.clear(c);
     console.log(`[cuentas] cuenta borrada (${removed} stickers)`);

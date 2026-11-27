@@ -6,6 +6,15 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **Cerrar sesión de verdad y volver a entrar sin trucos**:
+  - Al cerrar sesión, el servidor «revoca» las vinculaciones de ese navegador emitidas hasta ese momento (solo guarda huella de la cuenta + navegador + fecha, nada de la sesión): otra pestaña abierta o una copia guardada ya no pueden volver a meterte. Vincular otra vez funciona y conserva tu misma cuenta.
+  - Borrar la cuenta revoca **todos** los navegadores: antes, un navegador vinculado la recreaba al instante.
+  - «Cerrar sesión» es inmediato: quitar el dispositivo de WhatsApp sigue en segundo plano (antes podía tardar más de 25 s).
+  - Las pestañas se sincronizan: si cierras sesión en una, las demás también.
+  - No queda nada de la cuenta anterior en caché (seguidos, feed, packs, mis stickers) si entra otra cuenta en el mismo navegador.
+  - Una vinculación revocada o inválida se olvida sola; si el servidor solo está ocupado, se conserva.
+  - Defensa: una respuesta sin fecha de sellado (o con un valor no numérico) nunca inicia sesión.
+
 - **Vincular con código nunca funcionaba (solo QR)**, por dos motivos: (1) el código se pedía para «52 + 10 dígitos», pero WhatsApp identifica los celulares de México como «521 + 10» (Argentina «549»), así que el aviso nunca llegaba a tu cuenta; ahora se convierte solo. (2) Nos presentábamos como un navegador inventado, que WhatsApp rechaza para códigos; ahora como Chrome (en Dispositivos vinculados aparece «Chrome (Mac OS)», y el diálogo lo avisa). Además la vinculación propia renueva el QR cuando WhatsApp lo pide (antes el teléfono decía «No se pudo vincular»).
 - **Muchas personas a la vez**: la versión de WhatsApp Web se consulta una vez y se comparte (antes, una consulta por cada vinculación y cada envío). Pruebas de carga: 60 envíos simultáneos con máximo 4 conexiones y cada sticker en el chat de su dueño, ráfagas que exceden la fila reciben «ocupado» al instante, la misma cuenta en 5 pestañas nunca abre dos conexiones, 30 vinculaciones simultáneas aisladas por navegador, 40 envíos web en paralelo sin mezclar sesiones.
 

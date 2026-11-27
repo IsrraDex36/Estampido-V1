@@ -38,10 +38,27 @@ export async function sendToSelf(what: { results?: string[]; community?: string[
 
 /** Remove this device from your WhatsApp and forget the session here. */
 export async function unlinkSelf(): Promise<void> {
+  await forgetSelf().device;
+}
+
+/**
+ * Forget the session in this browser NOW (synchronously: nothing can sign back
+ * in with it), and ask WhatsApp to remove the device in the background — that
+ * takes seconds and must never hold the UI (`device` resolves when done).
+ */
+export function forgetSelf(): { device: Promise<void> } {
   const session = useSelfStore.getState().session;
   useSelfStore.getState().setSession(null);
-  if (!session) return;
-  await fetch("/api/self/logout", { method: "POST", headers: json(), body: JSON.stringify({ session }) }).catch(() => {});
+  if (!session) return { device: Promise.resolve() };
+  const device = fetch("/api/self/logout", {
+    method: "POST",
+    headers: json(),
+    body: JSON.stringify({ session }),
+    keepalive: true, // still sent if the page closes right after signing out
+  })
+    .then(() => undefined)
+    .catch(() => undefined);
+  return { device };
 }
 
 /** Signed out but this browser is linked: sign in again with the sealed session (no WhatsApp connection). */
