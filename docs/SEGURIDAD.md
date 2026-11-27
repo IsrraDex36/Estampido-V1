@@ -113,6 +113,14 @@ quien entró con su WhatsApp (un bot no tiene cuenta). Ver, escuchar, mandar y
 la comunidad siguen abiertos. Quien no tiene cuenta ve «Entra con tu WhatsApp
 para crear» con el botón para hacerlo. Apágalo cuando pase.
 
+### El bot y WhatsApp
+
+Si WhatsApp rechaza el número del bot (`código 403` en los logs: cuenta
+restringida o suspendida), el bot **no** reintenta en bucle: espera 15, 30 y
+luego 60 min entre intentos. Reintentar cada pocos segundos empeora la
+restricción y puede marcar la IP del servidor, que es la misma desde la que
+cada persona vincula su propio WhatsApp. `/admin` lo muestra en rojo.
+
 ## 5. Lista de verificación de cuentas y servidor
 
 - [ ] **2FA** (verificación en dos pasos) en Hetzner, Coolify, GitHub, Cloudflare y GoDaddy.

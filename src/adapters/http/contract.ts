@@ -426,7 +426,9 @@ export type AdminPairing =
   | { state: "waiting" }
   | { state: "qr"; qrSvg: string }
   | { state: "code"; code: string }
-  | { state: "connected"; phone: string };
+  | { state: "connected"; phone: string }
+  /** WhatsApp refuses the bot's number (restricted/banned); the bot retries slowly. */
+  | { state: "blocked"; retryAt: number };
 
 /** /api/admin/health — watchdog report (token-protected). */
 /** Owner moderation view of the community (every sticker, newest first; includes «solo el sonido»). */

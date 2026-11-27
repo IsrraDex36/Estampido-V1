@@ -7,7 +7,10 @@ import { ApiError } from "@/lib/api";
 import { type LinkStatus, linkStatus, startLink } from "./endpoints";
 import { useSelfStore } from "./selfStore";
 
-type Step = { kind: "intro" } | { kind: "linking"; id: string; status: LinkStatus } | { kind: "error"; message: string };
+type Step =
+  | { kind: "intro" }
+  | { kind: "linking"; id: string; status: LinkStatus; startedAt: number }
+  | { kind: "error"; message: string };
 
 /**
  * Link THIS person's WhatsApp as a device (like WhatsApp Web) so stickers go
@@ -36,7 +39,7 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
     setBusy(true);
     try {
       const id = await startLink(withPhone ? phone : undefined);
-      setStep({ kind: "linking", id, status: { state: "waiting" } });
+      setStep({ kind: "linking", id, status: { state: "waiting" }, startedAt: Date.now() });
     } catch (err) {
       setStep({ kind: "error", message: err instanceof ApiError ? err.message : "No se pudo empezar. Intenta otra vez." });
     } finally {
@@ -63,7 +66,12 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
           setStep({ kind: "error", message: status.reason });
           return;
         }
-        setStep({ kind: "linking", id: linkId, status });
+        setStep((prev) => ({
+          kind: "linking",
+          id: linkId,
+          status,
+          startedAt: prev.kind === "linking" ? prev.startedAt : Date.now(),
+        }));
       } catch {
         if (alive) setStep({ kind: "error", message: "La vinculación venció. Intenta otra vez." });
         return;
@@ -145,12 +153,20 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
   }
 
   const s = step.status;
-  return <Linking status={s} onRestart={() => setStep({ kind: "intro" })} />;
+  return <Linking status={s} startedAt={step.startedAt} onRestart={() => setStep({ kind: "intro" })} />;
 }
 
 /** The waiting screen: numbered steps for code (phone) or QR (computer), live status. */
-function Linking({ status: s, onRestart }: { status: LinkStatus; onRestart: () => void }) {
+function Linking({ status: s, startedAt, onRestart }: { status: LinkStatus; startedAt: number; onRestart: () => void }) {
   const [copied, setCopied] = useState(false);
+  // WhatsApp keeps a pairing code alive for ~2 minutes: show it counting down.
+  const [now, setNow] = useState(() => Date.now());
+  const showing = s.state === "code" || s.state === "qr";
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const left = Math.max(0, 120 - Math.floor((now - startedAt) / 1000));
   const steps =
     s.state === "qr"
       ? [
@@ -213,7 +229,9 @@ function Linking({ status: s, onRestart }: { status: LinkStatus; onRestart: () =
       )}
       <p className="flex items-center justify-center gap-2 text-[13px] text-muted-foreground" role="status">
         {s.state === "linked" ? <CircleCheckIcon className="size-4 text-sound" /> : <Loader2Icon className="size-4 animate-spin" />}
-        Esperando a tu WhatsApp… (el código vence en unos minutos)
+        {showing && left === 0
+          ? "El código ya pudo vencer: pide otro."
+          : `Esperando a tu WhatsApp… vence en ${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}`}
       </p>
       <button type="button" className="mx-auto block text-[12px] text-muted-foreground underline-offset-4 hover:underline" onClick={onRestart}>
         Pedir otro código / cambiar de método

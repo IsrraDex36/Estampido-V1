@@ -28,7 +28,26 @@ export type PairingState =
   | { kind: "waiting" }
   | { kind: "qr"; qr: string }
   | { kind: "code"; code: string }
-  | { kind: "connected"; id: string };
+  | { kind: "connected"; id: string }
+  /** WhatsApp refuses this number (403): restricted or banned. We back off instead of hammering. */
+  | { kind: "blocked"; code: number; retryAt: number };
+
+/**
+ * How long to wait before reconnecting. Never a tight loop: hammering
+ * WhatsApp after a refusal makes a restriction worse and can flag the
+ * server's IP (shared with everyone's own-WhatsApp links). Pure (tested).
+ * - 403 (forbidden: the number is restricted/banned) → 15 min, 30, 60 (max)
+ * - anything else → 2 s, 4, 8 … up to 5 min, with ±20 % jitter
+ */
+export function reconnectDelay(code: number | undefined, failures: number, rand: () => number = Math.random): number {
+  const n = Math.max(1, failures);
+  if (code === 403) return Math.min(60, 15 * 2 ** (n - 1)) * 60_000;
+  const base = Math.min(5 * 60_000, 2_000 * 2 ** (n - 1));
+  return Math.round(base * (0.8 + rand() * 0.4));
+}
+
+/** Consecutive failed connections (reset when one opens). */
+let failures = 0;
 
 /** "5215512345678" from "+52 1 55 1234 5678". Pure; null if implausible. */
 export function normalizePairingNumber(raw: string | undefined): string | null {
@@ -117,6 +136,7 @@ export async function connect(opts: ConnectOptions): Promise<void> {
     }
     if (connection === "open") {
       console.log(`✔ Conectado como ${sock.user?.id ?? "?"}`);
+      failures = 0;
       opts.onPairing?.({ kind: "connected", id: sock.user?.id ?? "?" });
       opts.onConnection?.(true, sock);
       onReady(sock);
@@ -149,8 +169,18 @@ export async function connect(opts: ConnectOptions): Promise<void> {
         void connect(opts);
         return;
       }
-      console.warn(`Conexión cerrada (código ${code ?? "?"}). Reconectando…`);
-      setTimeout(() => void connect(opts), 2_000);
+      failures++;
+      const wait = reconnectDelay(code, failures);
+      if (code === 403) {
+        // Log once per attempt with a clear meaning (not a scary flood every 2 s).
+        console.error(
+          `✘ WhatsApp rechazó el número del bot (403: cuenta restringida o bloqueada). Reintento en ${Math.round(wait / 60_000)} min. Revisa el teléfono del bot; si está suspendido, desvincúlalo en /admin y usa otro número. Los envíos a «tu propio WhatsApp» siguen funcionando.`,
+        );
+        opts.onPairing?.({ kind: "blocked", code, retryAt: Date.now() + wait });
+      } else {
+        console.warn(`Conexión cerrada (código ${code ?? "?"}). Reconectando en ${Math.round(wait / 1000)} s…`);
+      }
+      setTimeout(() => void connect(opts), wait);
     }
   });
 }

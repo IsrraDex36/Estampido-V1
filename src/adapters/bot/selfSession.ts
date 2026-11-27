@@ -467,7 +467,7 @@ export class SelfSessions {
             // already closed
           }
           if (statusOf(u) === DisconnectReason.restartRequired) void run().catch(() => this.fail(id));
-          else this.fail(id);
+          else this.fail(id, statusOf(u));
         }
       });
     };
@@ -480,10 +480,16 @@ export class SelfSessions {
     return id;
   }
 
-  private fail(id: string): void {
+  private fail(id: string, code?: number): void {
     const e = this.links.get(id);
-    if (e && e.status.state !== "linked")
-      e.status = { state: "failed", reason: "La vinculación no se completó. Intenta otra vez." };
+    if (!e || e.status.state === "linked") return;
+    const reason =
+      code === DisconnectReason.timedOut
+        ? "El código venció antes de escribirlo en WhatsApp (dura unos 2 minutos). Pide otro y escríbelo enseguida."
+        : code === DisconnectReason.forbidden
+          ? "WhatsApp no permitió vincular este número ahora. Intenta más tarde."
+          : "La vinculación no se completó. Intenta otra vez.";
+    e.status = { state: "failed", reason };
   }
 
   private dropLink(id: string): void {

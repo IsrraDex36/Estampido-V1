@@ -47,6 +47,7 @@ export type BotPairing =
   | { kind: "waiting" }
   | { kind: "qr"; qr: string }
   | { kind: "code"; code: string }
+  | { kind: "blocked"; code: number; retryAt: number }
   | { kind: "connected"; id: string };
 
 /** The bot answered with a known, user-facing failure (not linked, too fast…). */

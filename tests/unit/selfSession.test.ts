@@ -446,3 +446,20 @@ describe("what the person is told", () => {
     expect(new Set(["logged_out", "expired", "invalid"].map(relinkReason)).size).toBe(3);
   });
 });
+
+describe("why a link didn't finish", () => {
+  it("408: the code expired → tell them to ask for another and type it right away; 403 → try later", async () => {
+    for (const [code, re] of [
+      [DisconnectReason.timedOut, /venció antes de escribirlo/],
+      [DisconnectReason.forbidden, /no permitió vincular/],
+      [DisconnectReason.connectionClosed, /no se completó/],
+    ] as const) {
+      const { sessions } = setup({}, (s) => setTimeout(() => s.emit(closeWith(code)), 1));
+      const id = await sessions.startLink(A);
+      await wait(10);
+      const st = sessions.linkStatus(id, A);
+      expect(st?.state).toBe("failed");
+      expect((st as { reason: string }).reason).toMatch(re);
+    }
+  });
+});

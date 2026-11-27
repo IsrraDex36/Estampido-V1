@@ -140,6 +140,26 @@ function Status({
       </div>
     );
   }
+  if (data.state === "blocked") {
+    return (
+      <div className="space-y-4 rounded-3xl bg-destructive/10 p-6 ring-1 ring-destructive/40">
+        <div>
+          <p className="font-semibold text-destructive">WhatsApp rechazó el número del bot (403)</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">
+            Suele significar que la cuenta del bot quedó <b>restringida o suspendida</b>. El bot ya no reintenta cada 2
+            segundos: espera y vuelve a probar a las{" "}
+            {new Intl.DateTimeFormat("es-MX", { hour: "numeric", minute: "2-digit" }).format(new Date(data.retryAt))}.
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-[13px] text-muted-foreground">
+            <li>Abre WhatsApp en el teléfono del bot y revisa si muestra un aviso de cuenta suspendida.</li>
+            <li>Si está suspendida: desvincula aquí y vincula otro número.</li>
+            <li>«Enviar a mi WhatsApp» (cada quien con su propio WhatsApp) sigue funcionando sin el bot.</li>
+          </ul>
+        </div>
+        <UnlinkBot token={token} phone="del bot" onDone={onUnlinked} />
+      </div>
+    );
+  }
   if (data.state === "qr") {
     return (
       <div className="space-y-3">

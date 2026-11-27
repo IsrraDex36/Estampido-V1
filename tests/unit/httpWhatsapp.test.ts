@@ -231,6 +231,13 @@ describe("admin pairing (owner links the bot from /admin)", () => {
       adminToken: TOKEN,
     });
     expect(await (await down.request("/api/admin/pairing", { headers: auth })).json()).toEqual({ state: "offline" });
+
+    const blocked = await createApp({
+      store: new ResultStore(root),
+      bot: withPairing({ kind: "blocked", code: 403, retryAt: 123 }),
+      adminToken: TOKEN,
+    }).request("/api/admin/pairing", { headers: auth });
+    expect(await blocked.json()).toEqual({ state: "blocked", retryAt: 123 });
   });
 
   it("«Desvincular bot»: owner only, typed confirmation, then the bot logs out", async () => {

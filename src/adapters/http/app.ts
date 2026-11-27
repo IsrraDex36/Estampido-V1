@@ -401,6 +401,7 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     }
     if (p.kind === "code") return c.json({ state: "code", code: p.code } satisfies AdminPairing);
     if (p.kind === "connected") return c.json({ state: "connected", phone: maskPhone(p.id) } satisfies AdminPairing);
+    if (p.kind === "blocked") return c.json({ state: "blocked", retryAt: p.retryAt } satisfies AdminPairing);
     return c.json({ state: "waiting" } satisfies AdminPairing);
   });
 

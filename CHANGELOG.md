@@ -6,6 +6,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **El bot reintentaba cada 2 s cuando WhatsApp rechazaba su número (403)**: martilleaba a WhatsApp desde la IP del servidor (la misma que usan las vinculaciones de cada usuario). Ahora espera 15 → 30 → 60 min ante un 403 y crece de 2 s a 5 min ante otros cierres; `/admin` muestra «WhatsApp rechazó el número del bot» con qué revisar y cómo desvincularlo.
+- Vincular tu WhatsApp: si el código vence (408) se dice claro («pide otro y escríbelo enseguida»), con cuenta regresiva de 2 min en pantalla.
+
 - **«Tu WhatsApp quitó este dispositivo» aparecía aunque no fuera eso**: ahora cada causa tiene su mensaje (quitado desde el teléfono, vencido, o vinculación anterior a la actualización de seguridad).
 - Vincular tu WhatsApp: se espera a que WhatsApp termine el primer inicio (pre-llaves y notificaciones pendientes) antes de guardar la sesión, y las llaves restauradas conservan su tipo correcto (`Buffer`); los cierres de WhatsApp se registran con su código (sin datos) para diagnosticar.
 
