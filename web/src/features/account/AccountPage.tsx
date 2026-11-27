@@ -1,4 +1,4 @@
-import { AVATAR_COLORS, AVATAR_EMOJIS, DELETE_ACCOUNT_CONFIRM, type Me, PROFILE_LIMITS } from "@contract";
+import { AVATAR_COLORS, AVATAR_EMOJI_GROUPS, AVATAR_EMOJIS, DELETE_ACCOUNT_CONFIRM, type Me, PROFILE_LIMITS } from "@contract";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useId, useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
@@ -162,9 +162,9 @@ function ProfileForm({ me, form }: { me: Me; form: ProfileFormApi }) {
   const cleanHandle = handle.trim().toLowerCase();
   return (
     <form onSubmit={onSubmit} noValidate className="space-y-7">
-      <fieldset className="space-y-4">
+      <fieldset className="min-w-0 space-y-4">
         <legend className="mb-1 text-[14px] font-semibold">Tu avatar</legend>
-        <div className="flex items-center gap-4">
+        <div className="flex min-w-0 items-center gap-4">
           <Avatar avatar={`${emoji} ${color}`} size={64} label="Vista de tu avatar" />
           <div className="min-w-0 space-y-2">
             <p className="text-[12.5px] text-muted-foreground">Color de fondo</p>
@@ -190,30 +190,13 @@ function ProfileForm({ me, form }: { me: Me; form: ProfileFormApi }) {
             </div>
           </div>
         </div>
-        <div className="space-y-2">
-          <p className="text-[12.5px] text-muted-foreground">Emoji</p>
-          <div className="grid grid-cols-8 gap-1.5 sm:max-w-md" role="radiogroup" aria-label="Emoji">
-            {AVATAR_EMOJIS.map((e) => (
-              <button
-                key={e}
-                type="button"
-                role="radio"
-                aria-checked={emoji === e}
-                aria-label={e}
-                onClick={() => setValue("emoji", e, { shouldDirty: true, shouldValidate: true })}
-                className={cn(
-                  "grid aspect-square min-h-10 place-items-center rounded-xl text-xl transition-colors",
-                  emoji === e ? "bg-foreground/15 ring-2 ring-foreground" : "bg-muted/60 hover:bg-muted",
-                )}
-              >
-                {e}
-              </button>
-            ))}
-          </div>
-        </div>
+        <EmojiPicker
+          value={emoji}
+          onChange={(e) => setValue("emoji", e, { shouldDirty: true, shouldValidate: true })}
+        />
       </fieldset>
 
-      <fieldset className="grid gap-4 sm:grid-cols-2">
+      <fieldset className="grid min-w-0 gap-4 sm:grid-cols-2">
         <legend className="mb-3 text-[14px] font-semibold">Nombre y usuario</legend>
         <div className="space-y-1.5">
           <label htmlFor={ids.name} className="text-[13px] font-medium">
@@ -306,6 +289,57 @@ function ProfileForm({ me, form }: { me: Me; form: ProfileFormApi }) {
         {!isDirty && <span className="text-[12px] text-muted-foreground">Todo guardado.</span>}
       </div>
     </form>
+  );
+}
+
+type AvatarEmoji = (typeof AVATAR_EMOJIS)[number];
+
+/** 56 emojis in 5 groups (chips + one grid): a choice, not a wall. Opens on your current emoji's group. */
+function EmojiPicker({ value, onChange }: { value: string; onChange: (e: AvatarEmoji) => void }) {
+  const [group, setGroup] = useState(
+    () => AVATAR_EMOJI_GROUPS.find((g) => (g.emojis as readonly string[]).includes(value))?.id ?? AVATAR_EMOJI_GROUPS[0].id,
+  );
+  const current = AVATAR_EMOJI_GROUPS.find((g) => g.id === group) ?? AVATAR_EMOJI_GROUPS[0];
+  return (
+    <div className="min-w-0 space-y-2.5">
+      <p className="text-[12.5px] text-muted-foreground">Emoji</p>
+      <div className="flex gap-1.5 overflow-x-auto pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden" role="tablist" aria-label="Tipo de emoji">
+        {AVATAR_EMOJI_GROUPS.map((g) => (
+          <button
+            key={g.id}
+            type="button"
+            role="tab"
+            aria-selected={g.id === group}
+            onClick={() => setGroup(g.id)}
+            className={cn(
+              "flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-[13px] font-medium transition-colors",
+              g.id === group ? "bg-foreground text-background" : "bg-muted/60 text-muted-foreground hover:text-foreground",
+            )}
+          >
+            <span aria-hidden>{g.emojis[0]}</span>
+            {g.label}
+          </button>
+        ))}
+      </div>
+      <div className="grid grid-cols-6 gap-1.5 min-[400px]:grid-cols-8 sm:max-w-md" role="radiogroup" aria-label={`Emoji · ${current.label}`}>
+        {current.emojis.map((e) => (
+          <button
+            key={e}
+            type="button"
+            role="radio"
+            aria-checked={value === e}
+            aria-label={e}
+            onClick={() => onChange(e)}
+            className={cn(
+              "grid aspect-square min-h-10 place-items-center rounded-xl text-xl transition-colors",
+              value === e ? "bg-foreground/15 ring-2 ring-foreground" : "bg-muted/60 hover:bg-muted",
+            )}
+          >
+            {e}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
 

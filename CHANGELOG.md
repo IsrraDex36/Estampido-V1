@@ -41,6 +41,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Más avatares**: de 16 a 56 emojis en 5 grupos (Animales, Caras, Música, Comida, Cosas) con selector por pestañas que abre en el grupo de tu emoji actual, y de 6 a 10 colores (Menta, Turquesa, Arena, Gris azulado). Todos los avatares existentes siguen siendo válidos. Corregido: en el celular la sección del avatar se salía por la derecha (fieldset sin `min-w-0`).
+
 - **Monitores grandes (27")**: nuevo punto `4xl` (≥ 2240 px, 2560 sin escalar): contenedor de hasta 2240 px, una columna más en Comunidad, perfiles y colección, columna lateral más ancha y tarjetas de las filas un poco mayores. Revisado a 1920 y 2560 px sin desbordes.
 - **Mi cuenta, más clara**: dos columnas en escritorio — a la izquierda el formulario y mis stickers, a la derecha **«Así te ven»** (tu perfil público en vivo mientras escribes) y la sesión. Avatar con colores nombrados y ✓, emojis de 40 px, «Nombre y usuario» con ayuda y tu enlace, contador de «Sobre ti» que avisa al acercarse al límite, campos de 16 px en el celular (sin zoom) y barra fija de «Guardar cambios» en el celular cuando hay cambios. La sesión muestra si tu WhatsApp está conectado, el final de tu número y «¿Por qué es seguro?».
 - **Perfil público**: banner con el color del avatar, avatar grande, nombre legible fuera del banner, acciones con texto («Editar perfil», «Compartir»), estadísticas con las palabras de la app (Seguidores, Stickers, **Descargas**, **Favoritos**) y secciones con conteo.

@@ -295,8 +295,12 @@ export interface AdminReports {
 
 // ── Accounts & creators (login with WhatsApp) ──────────────────────────────
 
-/** Avatar = one of these emojis on one of these colors ("🐸 lime"). */
-export const AVATAR_EMOJIS = [
+/**
+ * Avatar = one of these emojis on one of these colors ("🐸 lime"). Grouped so
+ * the picker isn't a wall. Only ADD here: existing avatars must stay valid.
+ * Single-codepoint emojis (no ZWJ sequences): render the same everywhere.
+ */
+const AVATAR_ANIMALS = [
   "🐸",
   "🐱",
   "🐶",
@@ -305,16 +309,62 @@ export const AVATAR_EMOJIS = [
   "🐵",
   "🦄",
   "🐙",
+  "🐯",
+  "🐨",
+  "🐰",
+  "🐻",
+  "🐷",
+  "🐔",
+  "🦁",
+  "🐢",
+] as const;
+const AVATAR_FACES = [
   "👾",
   "🤖",
   "👻",
-  "🎧",
-  "🔥",
-  "⭐",
-  "🍕",
-  "🌮",
+  "😎",
+  "🤠",
+  "🥸",
+  "🤡",
+  "💀",
+  "👽",
+  "🎃",
+  "😺",
+  "🙈",
+  "🤓",
+  "😈",
+  "🥶",
+  "🫠",
 ] as const;
-export const AVATAR_COLORS = ["lime", "pink", "sky", "amber", "violet", "coral"] as const;
+const AVATAR_MUSIC = ["🎧", "🎤", "🎸", "🥁", "🎷", "🎺", "🎹", "🎉"] as const;
+const AVATAR_FOOD = ["🍕", "🌮", "🍔", "🍩", "🍉", "🍓", "🍿", "🧋"] as const;
+const AVATAR_THINGS = ["🔥", "⭐", "⚡", "💎", "🚀", "🎮", "⚽", "🌈"] as const;
+export const AVATAR_EMOJI_GROUPS = [
+  { id: "animales", label: "Animales", emojis: AVATAR_ANIMALS },
+  { id: "caras", label: "Caras", emojis: AVATAR_FACES },
+  { id: "musica", label: "Música", emojis: AVATAR_MUSIC },
+  { id: "comida", label: "Comida", emojis: AVATAR_FOOD },
+  { id: "cosas", label: "Cosas", emojis: AVATAR_THINGS },
+] as const;
+export const AVATAR_EMOJIS = [
+  ...AVATAR_ANIMALS,
+  ...AVATAR_FACES,
+  ...AVATAR_MUSIC,
+  ...AVATAR_FOOD,
+  ...AVATAR_THINGS,
+] as const;
+export const AVATAR_COLORS = [
+  "lime",
+  "pink",
+  "sky",
+  "amber",
+  "violet",
+  "coral",
+  "mint",
+  "teal",
+  "sand",
+  "slate",
+] as const;
 export type AvatarColor = (typeof AVATAR_COLORS)[number];
 
 /** Public handle: 3–20 lowercase letters, digits or _. */
