@@ -64,6 +64,7 @@ export {
   TextTIcon as TextIcon,
   SpeakerHighIcon as Volume2Icon,
   StarIcon,
+  ClipboardTextIcon as PasteIcon,
   SpeakerSlashIcon as VolumeXIcon,
   StackIcon as PackIcon,
   StopIcon as SquareIcon,

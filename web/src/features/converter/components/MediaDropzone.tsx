@@ -1,8 +1,9 @@
-import { GifIcon, ImageIcon, PlusIcon, SwapIcon, VideoIcon, XIcon } from "@/components/icons";
+import { GifIcon, ImageIcon, PasteIcon, PlusIcon, SwapIcon, VideoIcon, XIcon } from "@/components/icons";
 import { AnimatePresence } from "motion/react";
 import * as m from "motion/react-m";
-import { type DragEvent, useRef, useState } from "react";
+import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { canReadClipboard, mediaFromPaste, readClipboardMedia, wantsMediaPaste } from "@/lib/clipboard";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { selectBusy, useConverterStore } from "../store/converterStore";
@@ -11,6 +12,7 @@ import { notify } from "@/lib/notify";
 import { VideoEditor } from "./trim/VideoEditor";
 
 const KIND_LABEL = { video: "Video", gif: "GIF", image: "Imagen" } as const;
+const PASTE_KEY = typeof navigator !== "undefined" && /Mac|iPhone|iPad/.test(navigator.platform) ? "⌘V" : "Ctrl+V";
 
 /** Pick / drop the source clip, then preview it. Reads & writes the stores directly. */
 export function MediaDropzone() {
@@ -37,6 +39,26 @@ export function MediaDropzone() {
     resetPlayback();
     const refused = selectFiles(files);
     if (refused > 0) notify.warning(`${refused} ${refused === 1 ? "archivo no se pudo usar" : "archivos no se pudieron usar"}.`);
+  };
+
+  // Ctrl/⌘+V anywhere on the page: a screenshot, a copied image or a file copied on disk.
+  useEffect(() => {
+    const handler = (e: ClipboardEvent) => {
+      if (!wantsMediaPaste(e.target, e.clipboardData)) return;
+      const files = mediaFromPaste(e.clipboardData);
+      if (files.length === 0) return;
+      e.preventDefault();
+      applyPaste(files);
+    };
+    document.addEventListener("paste", handler);
+    return () => document.removeEventListener("paste", handler);
+  }, []);
+  // Phones have no Ctrl+V: a «Pegar» button reads the clipboard on tap.
+  const [canPaste] = useState(canReadClipboard);
+  const pasteFromButton = async () => {
+    const r = await readClipboardMedia();
+    if ("error" in r) return void notify.error(r.error, { id: "paste-error" });
+    applyPaste(r.files);
   };
 
   const picker = (
@@ -105,7 +127,7 @@ export function MediaDropzone() {
               className="h-9 shrink-0 rounded-full px-3.5"
               disabled={busy}
               onClick={() => inputRef.current?.click()}
-              title="Elegir otro video, GIF o imagen (o arrástralo encima)"
+              title={`Elegir otro video, GIF o imagen (o arrástralo encima, o pégalo con ${PASTE_KEY})`}
             >
               <SwapIcon className="size-4" />
               <span>
@@ -161,13 +183,37 @@ export function MediaDropzone() {
           </m.button>
           <div className="space-y-1.5">
             <p className="text-lg font-semibold tracking-tight">{dragging ? "Suéltalo aquí" : "Elige un clip"}</p>
-            <p className="text-sm text-muted-foreground">Video, GIF o imagen · arrástralo o haz clic · hasta 50 MB</p>
+            <p className="text-sm text-muted-foreground">
+              Video, GIF o imagen · arrástralo, haz clic
+              <span className="pointer-coarse:hidden"> o pégalo ({PASTE_KEY})</span> · hasta 50 MB
+            </p>
           </div>
+          {canPaste && (
+            <Button variant="secondary" className="h-10 rounded-full px-4" disabled={busy} onClick={() => void pasteFromButton()}>
+              <PasteIcon className="size-4" />
+              Pegar imagen copiada
+            </Button>
+          )}
           {picker}
         </m.div>
       )}
     </AnimatePresence>
   );
+}
+
+/** A paste becomes the clip (several → the rest wait in line), unless a conversion is running. */
+function applyPaste(files: File[]): void {
+  const store = useConverterStore.getState();
+  if (selectBusy(store)) return void notify.info("Espera a que termine para pegar otro clip.", { id: "paste" });
+  usePlaybackStore.getState().reset();
+  if (files.length > 1) {
+    const refused = store.selectFiles(files);
+    if (refused > 0) notify.warning(`${refused} ${refused === 1 ? "archivo no se pudo usar" : "archivos no se pudieron usar"}.`);
+  } else {
+    const error = store.selectFile(files[0] ?? null);
+    if (error) return void notify.error(error);
+  }
+  if (useConverterStore.getState().file) notify.success("Clip pegado", { id: "paste" });
 }
 
 function SourceImage({ url, name }: { url: string; name: string }) {
