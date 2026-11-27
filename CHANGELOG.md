@@ -6,6 +6,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **«Tu WhatsApp quitó este dispositivo» aparecía aunque no fuera eso**: ahora cada causa tiene su mensaje (quitado desde el teléfono, vencido, o vinculación anterior a la actualización de seguridad).
+- Vincular tu WhatsApp: se espera a que WhatsApp termine el primer inicio (pre-llaves y notificaciones pendientes) antes de guardar la sesión, y las llaves restauradas conservan su tipo correcto (`Buffer`); los cierres de WhatsApp se registran con su código (sin datos) para diagnosticar.
+
 - La fila de **Filtro** se salía del panel de ajustes en escritorio; ahora se queda dentro, se desliza y se desvanece a la derecha.
 
 ### Cambiado

@@ -75,6 +75,8 @@ function setup(
     sealKey: key,
     settleMs: 0,
     gapMs: 0,
+    linkSettleMaxMs: 5,
+    sendSettleMaxMs: 5,
     openTimeoutMs: 200,
     opTimeoutMs: 1_000,
     socket: async () => {
@@ -402,3 +404,45 @@ describe("sending to your own chat", () => {
 });
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+describe("robustness found in the field", () => {
+  it("restored keys stay Node Buffers (the Signal code calls Buffer methods on them)", async () => {
+    const sealed = sealSession(linked(), key, A);
+    const { state } = memoryAuthState(openSession(sealed, key, A));
+    const got = await state.keys.get("pre-key", ["1"]);
+    expect(Buffer.isBuffer((got["1"] as { public: unknown }).public)).toBe(true);
+    expect(Buffer.isBuffer(state.creds.noiseKey.private)).toBe(true);
+  });
+
+  it("linking waits for WhatsApp's first login to finish before handing out the session", async () => {
+    const { sessions } = setup({ linkSettleMaxMs: 2_000 }, (s) => {
+      setTimeout(() => s.emit({ connection: "open" }), 1);
+      setTimeout(() => s.emit({ receivedPendingNotifications: true }), 60);
+    });
+    const id = await sessions.startLink(A);
+    await wait(30);
+    expect(sessions.linkStatus(id, A)?.state).toBe("waiting"); // still settling: not sealed yet
+    await wait(60);
+    expect(sessions.linkStatus(id, A)?.state).toBe("linked");
+  });
+
+  it("disconnect codes are logged for diagnosis — never the session", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const sealed = sealSession(linked(), key, A);
+    const gone = setup({}, (s) => setTimeout(() => s.emit(closeWith(DisconnectReason.loggedOut)), 1));
+    await gone.sessions.sendToSelf(sealed, A, [{ webpPath: "/r/1/sticker.webp", animated: true }]).catch(() => {});
+    const logged = warn.mock.calls.map((c) => c.join(" ")).join("\n");
+    expect(logged).toContain("código 401");
+    expect(logged).not.toContain(sealed.slice(3, 30));
+  });
+});
+
+describe("what the person is told", () => {
+  it("a different message for each reason to link again", async () => {
+    const { relinkReason } = await import("../../web/src/features/self/useSelfSend.js");
+    expect(relinkReason("logged_out")).toMatch(/quitó este dispositivo/);
+    expect(relinkReason("expired")).toMatch(/venció/);
+    expect(relinkReason("invalid")).toMatch(/Actualizamos la seguridad/);
+    expect(new Set(["logged_out", "expired", "invalid"].map(relinkReason)).size).toBe(3);
+  });
+});

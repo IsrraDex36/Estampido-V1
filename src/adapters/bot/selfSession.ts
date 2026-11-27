@@ -128,7 +128,12 @@ export function memoryAuthState(from?: SessionSnapshot): {
   snapshot: () => SessionSnapshot;
 } {
   const creds = from?.creds ?? initAuthCreds();
-  const keys: SessionSnapshot["keys"] = structuredClone(from?.keys ?? {});
+  // Deep copy that keeps Node Buffers as Buffers (structuredClone turns them into plain
+  // Uint8Arrays, and the Signal code calls Buffer methods on keys).
+  const keys: SessionSnapshot["keys"] = JSON.parse(
+    JSON.stringify(from?.keys ?? {}, BufferJSON.replacer),
+    BufferJSON.reviver,
+  );
   const state: AuthenticationState = {
     creds,
     keys: {
@@ -186,6 +191,34 @@ type ConnUpdate = { connection?: string; qr?: string; lastDisconnect?: { error?:
 const statusOf = (u: ConnUpdate) =>
   (u.lastDisconnect?.error as { output?: { statusCode?: number } } | undefined)?.output?.statusCode;
 
+/**
+ * After «open», WhatsApp still delivers what's pending (pre-key checks, offline
+ * notifications). Leaving before that can leave the device half-registered:
+ * wait for it (bounded), then a short quiet period.
+ */
+function untilSettled(sock: SelfSocket, maxMs: number, quietMs: number): Promise<void> {
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(cap);
+      setTimeout(resolve, quietMs);
+    };
+    const cap = setTimeout(finish, maxMs);
+    sock.ev.on("connection.update", (u: ConnUpdate & { receivedPendingNotifications?: boolean }) => {
+      if (u.receivedPendingNotifications) finish();
+    });
+  });
+}
+
+/** Safe diagnostics: only the disconnect code (never numbers, keys or sessions). */
+const logClose = (where: string, u: ConnUpdate) => {
+  const code = statusOf(u);
+  if (code !== undefined && code !== DisconnectReason.restartRequired)
+    console.warn(`[self] ${where}: WhatsApp cerró con código ${code}`);
+};
+
 /** Resolves when the socket is open; rejects on logout/close/timeout. */
 function untilOpen(sock: SelfSocket, timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -199,6 +232,7 @@ function untilOpen(sock: SelfSocket, timeoutMs: number): Promise<void> {
         resolve();
       } else if (u.connection === "close") {
         clearTimeout(t);
+        logClose("envío", u);
         reject(
           statusOf(u) === DisconnectReason.loggedOut
             ? new SessionError("Tu WhatsApp quitó este dispositivo: vincúlalo otra vez.", "logged_out")
@@ -301,6 +335,9 @@ export interface SelfSessionsOptions {
   linkTtlMs?: number;
   /** Pauses (tests use 0). */
   settleMs?: number;
+  /** Max wait for WhatsApp's first-login tasks after linking / before sending. */
+  linkSettleMaxMs?: number;
+  sendSettleMaxMs?: number;
   gapMs?: number;
   socket?: SocketFactory;
   sendSticker?: (sock: SelfSocket, jid: string, item: SelfItem) => Promise<void>;
@@ -355,6 +392,8 @@ export class SelfSessions {
       maxPendingLinks: 30,
       linkTtlMs: 4 * 60_000,
       settleMs: 1_200,
+      linkSettleMaxMs: 20_000,
+      sendSettleMaxMs: 8_000,
       gapMs: 400,
       socket: realSocket,
       sendSticker: defaultSend,
@@ -415,10 +454,12 @@ export class SelfSessions {
         }
         if (u.connection === "open") {
           finished = true;
-          await sleep(this.o.settleMs * 2); // first key uploads settle
+          // Stay until WhatsApp finished the first login (pre-keys, pending notifications).
+          await untilSettled(s, this.o.linkSettleMaxMs, this.o.settleMs * 2);
           entry.status = { state: "linked", session: sealSession(snapshot(), this.o.sealKey, client, this.o.now()) };
           end();
         } else if (u.connection === "close") {
+          logClose("vinculación", u);
           // Right after scanning, WhatsApp asks for a reconnect with the new credentials.
           try {
             s.end(undefined); // never leave the old socket behind
@@ -479,7 +520,9 @@ export class SelfSessions {
         try {
           return await within(
             (async () => {
+              const settled = untilSettled(sock, this.o.sendSettleMaxMs, 0);
               await untilOpen(sock, this.o.openTimeoutMs);
+              await settled; // pending notifications first: a healthy session before sending
               const self = jidNormalizedUser(sock.user?.id ?? account);
               const result = await fn(sock, self);
               await sleep(this.o.settleMs); // receipts/key updates land before sealing

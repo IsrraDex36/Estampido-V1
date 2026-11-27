@@ -27,7 +27,8 @@ export function useSelfSend() {
       // Session no longer usable (device removed, expired, sealed for another browser/epoch): forget it, re-link.
       if (err instanceof ApiError && (err.status === 410 || ["logged_out", "invalid", "expired"].includes(err.code))) {
         useSelfStore.getState().setSession(null);
-        notify.error("Tu WhatsApp quitó este dispositivo. Vincúlalo otra vez.");
+        // Say what really happened (each one has a different fix for the person).
+        notify.error(relinkReason(err.code));
         useSelfStore.getState().openDialog(() => void run(what, label));
         return false;
       }
@@ -45,4 +46,16 @@ export function useSelfSend() {
   };
 
   return { linked, sending: state === "sending", sent: state === "sent", send };
+}
+
+/** Why we ask to link again, in plain words. Pure (tested). */
+export function relinkReason(code: string): string {
+  switch (code) {
+    case "logged_out":
+      return "Tu WhatsApp quitó este dispositivo (en Dispositivos vinculados). Vincúlalo otra vez.";
+    case "expired":
+      return "Tu vinculación venció por falta de uso. Vincula tu WhatsApp otra vez.";
+    default:
+      return "Actualizamos la seguridad de la vinculación: vincula tu WhatsApp otra vez (solo esta vez).";
+  }
 }
