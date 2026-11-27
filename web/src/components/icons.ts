@@ -22,6 +22,7 @@ export {
   BookmarkSimpleIcon as BookmarkIcon,
   CalendarDotsIcon as CalendarClockIcon,
   CaretDownIcon as ChevronDownIcon,
+  CaretLeftIcon as ChevronLeftIcon,
   CaretRightIcon as ChevronRightIcon,
   CaretUpIcon as ChevronUpIcon,
   CheckCircleIcon as CircleCheckIcon,

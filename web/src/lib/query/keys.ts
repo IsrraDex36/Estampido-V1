@@ -34,5 +34,6 @@ export const queryKeys = {
     sounds: (p: { sort: string; q: string; limit?: number }) => ["community", "sounds", p] as const,
     sound: (id: string) => ["community", "sound", id] as const,
     stats: ["community", "stats"] as const,
+    trending: ["community", "trending"] as const,
   },
 };

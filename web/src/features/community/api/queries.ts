@@ -1,7 +1,7 @@
 import { infiniteQueryOptions, keepPreviousData, queryOptions, useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { queryKeys } from "@/lib/query/keys";
 import type { CommunityFilters } from "../store/filters";
-import { fetchSound, fetchSounds, fetchStats, fetchStickers, type SoundQuery } from "./endpoints";
+import { fetchSound, fetchSounds, fetchStats, fetchStickers, fetchTrending, type SoundQuery } from "./endpoints";
 
 /**
  * Reusable query definitions (TanStack `queryOptions` / `infiniteQueryOptions`):
@@ -40,6 +40,10 @@ export const communityQueries = {
       queryFn: ({ signal }) => fetchStickers({ sort: "top", period: "week", category: null, query: "" }, null, signal, 10),
       select: (page) => page.items,
     }),
+
+  /** Grouped trends (cached 30 s on the server too). */
+  trending: () =>
+    queryOptions({ queryKey: queryKeys.community.trending, queryFn: ({ signal }) => fetchTrending(signal), staleTime: 30_000 }),
 
   stats: () => queryOptions({ queryKey: queryKeys.community.stats, queryFn: ({ signal }) => fetchStats(signal) }),
 };

@@ -384,6 +384,15 @@ export interface CommunitySound {
   createdAt: string;
 }
 
+/**
+ * Trends grouped for browsing (one request): the hottest right now, then one
+ * shelf per category, busiest first. Empty categories are left out.
+ */
+export interface CommunityTrending {
+  hot: CommunitySticker[];
+  shelves: { category: CommunityCategory; items: CommunitySticker[] }[];
+}
+
 export interface CommunityPage<T> {
   items: T[];
   /** Opaque; null = no more pages. */

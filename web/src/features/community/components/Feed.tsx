@@ -15,6 +15,7 @@ import { categoryById, FEED_SORTS, TOP_PERIODS } from "../model";
 import { selectFilters, selectHasFilters, useCommunityStore } from "../store/communityStore";
 import { InfiniteFooter } from "./InfiniteFooter";
 import { StickerCard, StickerCardSkeleton } from "./StickerCard";
+import { TrendingShelves } from "./TrendingShelves";
 
 const GRID = "grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-4 3xl:grid-cols-5";
 
@@ -24,8 +25,10 @@ export function Feed() {
   // Typing shouldn't fire a request per key: the query follows a deferred copy.
   const query = useDeferredValue(filters.query);
   const personal = filters.sort === "siguiendo";
+  // «Tendencias» with no category or search: grouped shelves instead of one endless wall.
+  const grouped = filters.sort === "hot" && !filters.category && !query.trim();
   const me = useMe();
-  const ranked = useStickerFeed({ ...filters, query }, !personal);
+  const ranked = useStickerFeed({ ...filters, query }, !personal && !grouped);
   const followingFeed = useInfiniteQuery({ ...socialQueries.feed(), enabled: personal && Boolean(me.data) });
   const feed = personal ? followingFeed : ranked;
   const hasFilters = useCommunityStore(selectHasFilters);
@@ -47,7 +50,9 @@ export function Feed() {
         <p className="text-[13px] text-muted-foreground" aria-live="polite">
           {personal
             ? "Lo nuevo de los creadores que sigues."
-            : `${scope ? `Filtrando por ${scope}. ` : ""}Toca un sticker para escucharlo; «Usar» lleva su sonido a tu clip.`}
+            : grouped
+              ? "Lo que más suena, por categoría. Desliza cada fila o toca «Ver todo»."
+              : `${scope ? `Filtrando por ${scope}. ` : ""}Toca un sticker para escucharlo; «Usar» lleva su sonido a tu clip.`}
         </p>
         {hasFilters && (
           <Button variant="ghost" size="sm" className="rounded-full" onClick={reset}>
@@ -56,7 +61,9 @@ export function Feed() {
         )}
       </div>
 
-      {personal && !me.isPending && !me.data ? (
+      {grouped ? (
+        <TrendingShelves empty={<EmptyFeed filtered={false} onReset={reset} />} />
+      ) : personal && !me.isPending && !me.data ? (
         <FollowingSignedOut />
       ) : feed.isPending ? (
         <div className={GRID} aria-busy="true">

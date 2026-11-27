@@ -5,8 +5,7 @@ import type {
   CommunitySticker,
   PublishRequest,
   ReportRequest,
-  ReportResponse,
-} from "@contract";
+  ReportResponse, CommunityTrending } from "@contract";
 import { clientHeaders, readJson } from "@/lib/api";
 import type { CommunityFilters } from "../store/filters";
 
@@ -47,6 +46,11 @@ export async function fetchSounds(
 
 export async function fetchSound(id: string, signal?: AbortSignal): Promise<CommunitySound> {
   return readJson(await fetch(`${BASE}/sounds/${encodeURIComponent(id)}`, { signal }));
+}
+
+/** «Tendencias» grouped: the hottest now + one shelf per category (one request). */
+export async function fetchTrending(signal?: AbortSignal): Promise<CommunityTrending> {
+  return readJson(await fetch(`${BASE}/trending`, { signal }));
 }
 
 export async function fetchStats(signal?: AbortSignal): Promise<CommunityStats> {

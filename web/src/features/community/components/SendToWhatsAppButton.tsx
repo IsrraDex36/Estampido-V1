@@ -9,7 +9,16 @@ import { cn } from "@/lib/utils";
  * one tap when this browser is linked; otherwise the link dialog opens and the
  * send runs as soon as the code arrives. Paused (disabled) while the bot is off.
  */
-export function SendToWhatsAppButton({ sticker, className }: { sticker: CommunitySticker; className?: string }) {
+export function SendToWhatsAppButton({
+  sticker,
+  className,
+  compact = false,
+}: {
+  sticker: CommunitySticker;
+  className?: string;
+  /** Round icon-only button (shelf cards). */
+  compact?: boolean;
+}) {
   const bot = useBotStatus();
   // Your own WhatsApp → your own «Tú» chat (works even while the Estampido number is offline).
   const self = useSelfSend();
@@ -23,6 +32,34 @@ export function SendToWhatsAppButton({ sticker, className }: { sticker: Communit
     : sent
       ? `«${sticker.title}» enviado a tu WhatsApp`
       : `Enviar «${sticker.title}» a mi WhatsApp`;
+
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!connected || sending}
+        aria-label={label}
+        title={label}
+        className={cn(
+          "grid size-8 place-items-center rounded-full transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed",
+          sent ? "bg-sound-soft text-sound" : "bg-sound text-background hover:bg-sound/90",
+          !connected && "bg-muted text-muted-foreground hover:bg-muted",
+          className,
+        )}
+      >
+        {bot !== undefined && !connected ? (
+          <PauseIcon className="size-3.5" weight="fill" />
+        ) : sending ? (
+          <Loader2Icon className="size-3.5 animate-spin" />
+        ) : sent ? (
+          <CheckIcon className="size-3.5" weight="bold" />
+        ) : (
+          <SendIcon className="size-3.5" weight="fill" />
+        )}
+      </button>
+    );
+  }
 
   return (
     <>

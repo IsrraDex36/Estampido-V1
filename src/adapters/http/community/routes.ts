@@ -16,6 +16,7 @@ import {
   type CommunitySound,
   type CommunityStats,
   type CommunitySticker,
+  type CommunityTrending,
 } from "../contract.js";
 import type { ResultStore } from "../resultStore.js";
 import {
@@ -112,12 +113,16 @@ export function communityRoutes(
     isAdmin?: (c: Context<AppEnv>) => boolean;
     /** Per-ACCOUNT publishing quota (a shared mobile IP must not limit a whole crowd). */
     publishQuota?: PublishQuota;
+    /** Clock (tests). */
+    now?: () => number;
   } = {},
 ): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
   const quota = opts.publishQuota ?? DEFAULT_PUBLISH_QUOTA;
   const perHour = new RateLimiter(quota.perHour, 60 * 60_000);
   const perDay = new RateLimiter(quota.perDay, 24 * 60 * 60_000);
+
+  const trending = trendingCache(repo, opts.now ?? Date.now);
 
   const list = async (query: Record<string, string>, onlySounds: boolean) => {
     const parsed = listSchema.safeParse(query);
@@ -217,6 +222,7 @@ export function communityRoutes(
       perHour.take(user.id);
       perDay.take(user.id);
     }
+    trending.invalidate(); // a new sticker can show up in «Tendencias» right away
     return c.json(toStickerDto((await repo.get(item.id)) ?? item), 201);
   });
 
@@ -254,6 +260,13 @@ export function communityRoutes(
     const s = await repo.get(c.req.param("id"));
     if (!s || s.soundSec === null || s.hidden) return c.json(fail("not_found", "Sonido no encontrado."), 404);
     return c.json(toSoundDto(s));
+  });
+
+  // Trends by category: one cheap request for the whole «Tendencias» view.
+  // 1 + 17 small indexed queries, cached briefly (and dropped on publish/remove).
+  app.get("/trending", async (c) => {
+    c.header("Cache-Control", "public, max-age=30");
+    return c.json(await trending.get());
   });
 
   app.get("/stats", async (c) => {
@@ -302,4 +315,60 @@ export function communityRoutes(
   });
 
   return app;
+}
+
+/** How many stickers each trending shelf shows (a glance, not a wall). */
+export const TRENDING_SHELF = 10;
+/** Global hot window used to order the categories. */
+const TRENDING_WINDOW = 60;
+const TRENDING_TTL_MS = 30_000;
+
+/**
+ * Builds and caches the grouped trends. Category order = where its first
+ * sticker appears in the global hot ranking (busiest first); categories with
+ * nothing hot right now follow, by their own top; empty ones are dropped.
+ */
+export function trendingCache(repo: CommunityRepo, now: () => number) {
+  let value: CommunityTrending | null = null;
+  let at = Number.NEGATIVE_INFINITY;
+  let inflight: Promise<CommunityTrending> | null = null;
+  const build = async (): Promise<CommunityTrending> => {
+    const base = { sort: "hot" as const, period: "week" as const, q: "" };
+    const global = await repo.page({ ...base, limit: TRENDING_WINDOW }, "stickers");
+    const globalItems = "error" in global ? [] : global.items;
+    const rankOf = new Map<string, number>();
+    globalItems.forEach((s, i) => {
+      if (!rankOf.has(s.category)) rankOf.set(s.category, i);
+    });
+    const shelves = (
+      await Promise.all(
+        COMMUNITY_CATEGORIES.map(async (cat) => {
+          const page = await repo.page({ ...base, category: cat.id, limit: TRENDING_SHELF }, "stickers");
+          return { category: cat.id, items: "error" in page ? [] : page.items.map(toStickerDto) };
+        }),
+      )
+    )
+      .filter((s) => s.items.length > 0)
+      .sort((a, b) => (rankOf.get(a.category) ?? TRENDING_WINDOW) - (rankOf.get(b.category) ?? TRENDING_WINDOW));
+    return { hot: globalItems.slice(0, TRENDING_SHELF).map(toStickerDto), shelves };
+  };
+  return {
+    get(): Promise<CommunityTrending> {
+      if (value && now() - at < TRENDING_TTL_MS) return Promise.resolve(value);
+      inflight ??= build()
+        .then((v) => {
+          value = v;
+          at = now();
+          return v;
+        })
+        .finally(() => {
+          inflight = null;
+        });
+      return inflight;
+    },
+    /** Something was published/removed: rebuild on the next request. */
+    invalidate(): void {
+      value = null;
+    },
+  };
 }

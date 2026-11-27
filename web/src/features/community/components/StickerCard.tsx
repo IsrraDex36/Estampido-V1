@@ -43,7 +43,18 @@ import { LinkDialog } from "@/features/bot/LinkDialog";
 import { SendToWhatsAppButton } from "./SendToWhatsAppButton";
 
 /** A published sticker: tap the cover to hear it; send it to WhatsApp, save, use its sound, share, download. */
-export function StickerCard({ sticker, rank, className }: { sticker: CommunitySticker; rank?: number; className?: string }) {
+export function StickerCard({
+  sticker,
+  rank,
+  className,
+  compact = false,
+}: {
+  sticker: CommunitySticker;
+  rank?: number;
+  className?: string;
+  /** Shelf version: title + creator and one row of icon actions (a glance, not a wall). */
+  compact?: boolean;
+}) {
   const saved = useFavorites((s) => sticker.id in s.stickers);
   const toggleFavorite = useToggleFavorite();
   const toggleSaved = () => toggleFavorite("sticker", sticker);
@@ -123,8 +134,45 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
         )}
       </div>
 
-      {/* Three fixed lines (title · who & what · numbers) and the actions pinned to
-          the bottom: every card in a row lines up, whatever its text. */}
+      {compact ? (
+        <div className="flex flex-1 flex-col gap-2 p-2.5">
+          <div className="min-w-0">
+            <h3 className="truncate text-[13.5px] leading-5 font-semibold tracking-tight" title={sticker.title}>
+              {sticker.title}
+            </h3>
+            {sticker.creator ? (
+              <Link
+                href={creatorHref(sticker.creator.handle)}
+                className="flex min-w-0 items-center gap-1.5 text-[12px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <Avatar avatar={sticker.creator.avatar} size={14} />
+                <span className="truncate">@{sticker.creator.handle}</span>
+              </Link>
+            ) : (
+              <p className="text-[12px] text-muted-foreground">Comunidad</p>
+            )}
+          </div>
+          <div className="mt-auto flex items-center justify-between text-muted-foreground">
+            <IconAction label={saved ? "Quitar de guardados" : "Guardar"} pressed={saved} onClick={toggleSaved}>
+              <BookmarkIcon className={cn("size-[17px]", saved && "text-foreground")} weight={saved ? "fill" : "bold"} />
+            </IconAction>
+            {sticker.sound && (
+              <Link
+                href={remixHref(sticker.id)}
+                aria-label="Usar este sonido en mi clip"
+                title="Usar este sonido en mi clip"
+                className="grid size-8 place-items-center rounded-full transition-colors hover:bg-muted"
+              >
+                <UseSoundIcon className="size-[17px] text-sound" weight="duotone" />
+              </Link>
+            )}
+            <MoreMenu sticker={sticker} />
+            <SendToWhatsAppButton sticker={sticker} compact />
+          </div>
+        </div>
+      ) : (
+      /* Three fixed lines (title · who & what · numbers) and the actions pinned to
+          the bottom: every card in a row lines up, whatever its text. */
       <div className="flex flex-1 flex-col gap-2.5 p-3">
         <div className="min-w-0 space-y-1">
           <h3 className="truncate text-[14px] leading-5 font-semibold tracking-tight" title={sticker.title}>
@@ -194,6 +242,7 @@ export function StickerCard({ sticker, rank, className }: { sticker: CommunitySt
           </div>
         </div>
       </div>
+      )}
     </article>
   );
 }
