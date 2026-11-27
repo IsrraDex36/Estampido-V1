@@ -79,17 +79,20 @@ function SendCard({ result }: { result: ConvertResponse }) {
             ? "Llega a tu chat «Tú» con sonido, desde tu propio WhatsApp."
             : "Conecta tu WhatsApp una vez y te lo mandas a ti mismo, con sonido.";
 
+  // Side by side only when the CARD is wide (container query), not the screen: in the
+  // three-column result layout the card is narrow even on a big monitor.
   return (
+    <div className="@container">
     <div
       className={cn(
-        "flex flex-col gap-3 rounded-2xl p-4 sm:flex-row sm:items-center",
+        "flex flex-col gap-3 rounded-2xl p-4 @lg:flex-row @lg:items-center",
         sent ? "bg-sound-soft" : "bg-muted/60",
       )}
       aria-live="polite"
     >
       <span
         className={cn(
-          "hidden size-11 shrink-0 place-items-center rounded-full sm:grid",
+          "hidden size-11 shrink-0 place-items-center rounded-full @lg:grid",
           sent ? "bg-sound text-background" : "bg-sound-soft text-sound",
         )}
       >
@@ -125,7 +128,7 @@ function SendCard({ result }: { result: ConvertResponse }) {
       </div>
       {connected || bot === undefined ? (
         <Button
-          className="h-12 shrink-0 rounded-full px-6 text-[15px] font-semibold sm:min-w-44"
+          className="h-12 w-full shrink-0 rounded-full px-6 text-[15px] font-semibold @lg:w-auto @lg:min-w-44"
           disabled={bot === undefined || sending}
           variant={sent ? "secondary" : "default"}
           onClick={doSend}
@@ -141,14 +144,14 @@ function SendCard({ result }: { result: ConvertResponse }) {
         </Button>
       ) : (
         // Paused: the only way to keep the sound without the bot is WhatsApp's own creator.
-        <div className="flex shrink-0 flex-col items-stretch gap-1.5 sm:items-end">
+        <div className="flex shrink-0 flex-col items-stretch gap-1.5 @lg:items-end">
           <Button className="h-12 rounded-full px-6 text-[15px] font-semibold" onClick={() => setCreatorOpen(true)}>
             <Volume2Icon data-icon="inline-start" />
             Crear con sonido en WhatsApp
           </Button>
           <button
             type="button"
-            className="text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+            className="min-h-8 text-[12px] text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
             onClick={() => (share ? void shareSticker(result.sticker.url) : window.location.assign(downloadUrl(result.sticker.url)))}
           >
             {share ? "o compartir como imagen (sin sonido)" : "o descargar el sticker (sin sonido)"}
@@ -157,6 +160,7 @@ function SendCard({ result }: { result: ConvertResponse }) {
         </div>
       )}
       <LinkDialog {...dialog} />
+    </div>
     </div>
   );
 }
