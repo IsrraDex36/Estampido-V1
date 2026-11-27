@@ -7,6 +7,7 @@ import { BotStatus } from "@/features/bot/BotStatus";
 import { FeedbackButton } from "@/features/feedback/FeedbackButton";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { TourButton } from "@/features/onboarding/TourButton";
+import { TrustLink } from "@/features/self/TrustInfo";
 
 const AUTHOR = { handle: "IsrraDex36", url: "https://github.com/IsrraDex36" } as const;
 const REPO_URL = "https://github.com/IsrraDex36/Estampido-V1";
@@ -62,7 +63,8 @@ export function AppFooter() {
           <Link href={ROUTES.privacy} className="underline-offset-4 hover:text-foreground hover:underline">
             Privacidad y términos
           </Link>{" "}
-          · <FeedbackButton>Enviar comentarios</FeedbackButton>
+          · <TrustLink label="¿Es seguro conectar WhatsApp?" className="text-[inherit] font-normal text-muted-foreground hover:text-foreground [&>svg]:hidden" /> ·{" "}
+          <FeedbackButton>Enviar comentarios</FeedbackButton>
         </p>
         <a
           href={AUTHOR.url}

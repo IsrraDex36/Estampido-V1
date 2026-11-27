@@ -27,11 +27,13 @@ export function PrivacyPage() {
           </li>
           <li>
             Al enviar, la conexión se abre unos segundos y se cierra. <b>No leemos ni guardamos</b> tus chats, contactos
-            ni mensajes; tu número solo se usa para pedir el código de vinculación y no se guarda.
+            ni mensajes. Tu número completo solo se usa para pedir el código y no se guarda: tu cuenta se reconoce por una
+            huella cifrada, y solo guardamos sus <b>últimos 4 dígitos</b> para que la identifiques.
           </li>
           <li>
-            Puedes quitarlo cuando quieras: «Desvincular mi WhatsApp» aquí, o en tu teléfono → Dispositivos vinculados.
-            Borrar los datos del navegador también borra la sesión.
+            Puedes quitarlo cuando quieras: «Cerrar sesión» aquí, o en tu teléfono → WhatsApp → Dispositivos vinculados
+            (aparece como «Chrome (Mac OS)»). Al cerrar sesión, esa conexión ya no sirve para volver a entrar. Borrar
+            los datos del navegador también la borra.
           </li>
           <li>
             Es una conexión no oficial de WhatsApp. Como solo te envías mensajes a ti, el riesgo de restricciones es muy

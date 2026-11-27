@@ -68,7 +68,7 @@ const STEPS: Step[] = [
           badge="Recomendado hoy"
           icon={<SendIcon />}
           title="Enviar a mi WhatsApp"
-          text="Vinculas tu número una sola vez (mandas un código desde tu WhatsApp, 10 segundos). Te llega al chat con Estampido como sticker con sonido, listo para usar."
+          text="Conectas tu WhatsApp una sola vez con un código (como WhatsApp Web) y te llega a tu chat «Tú» con sonido. Solo te escribimos a ti y no vemos tus chats."
         />
         <Path
           badge="Beta de WhatsApp"
@@ -112,12 +112,12 @@ const STEPS: Step[] = [
       <div className="space-y-2.5">
         <Fact title="Hoy">
           Recibir, guardar y reenviar stickers con sonido está llegando a todos. <b>Crearlos</b> en la app sigue en beta y
-          WhatsApp no ofrece una forma oficial para que otras apps los envíen. Por eso, hoy te los manda{" "}
-          <b>el número de Estampido</b>.
+          WhatsApp no ofrece una forma oficial para que otras apps los envíen. Por eso, hoy te los mandas{" "}
+          <b>tú mismo</b>, conectando tu WhatsApp a Estampido como un dispositivo (igual que WhatsApp Web).
         </Fact>
         <Fact title="Meta">
           Cuando WhatsApp abra la creación a todos, el camino «Crearlo tú en WhatsApp» será el principal: sin vincular
-          nada y sin depender de nuestro número. Estampido seguirá siendo el editor para dejarlo perfecto.
+          nada. Estampido seguirá siendo el editor para dejarlo perfecto.
         </Fact>
       </div>
     ),
@@ -132,7 +132,7 @@ const STEPS: Step[] = [
     body: (
       <ul className="space-y-2">
         <Bullet n="✓">
-          Se envían <b>solo a tu número</b>. No se quedan en la página: el servidor <b>los borra a los 30 minutos</b>.
+          Se envían <b>solo a tu chat «Tú»</b>, nunca a otras personas. El servidor <b>los borra a los 30 minutos</b>.
         </Bullet>
         <Bullet n="✓">
           Tu colección vive <b>solo en este navegador</b> y se borra al cerrar la pestaña.
@@ -141,7 +141,8 @@ const STEPS: Step[] = [
           Solo aparecen en <b>Comunidad</b> si <b>tú decides publicarlos</b>.
         </Bullet>
         <Bullet n="✓">
-          Vincular solo sirve para saber a qué chat enviarte. <b>No leemos tus chats.</b>
+          Al conectar tu WhatsApp <b>no leemos ni guardamos tus chats</b>: nos conectamos unos segundos solo para
+          enviarte, y la conexión queda cifrada en tu navegador. La quitas cuando quieras.
         </Bullet>
       </ul>
     ),

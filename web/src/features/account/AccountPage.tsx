@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useBotStatus } from "@/features/bot/api";
+import { TrustLink } from "@/features/self/TrustInfo";
 import { LinkDialog } from "@/features/bot/LinkDialog";
 import { InfiniteFooter } from "@/features/community/components/InfiniteFooter";
 import { StickerCard } from "@/features/community/components/StickerCard";
@@ -62,6 +63,7 @@ function SignedOut() {
       {bot?.available === false && (
         <p className="text-[12px] text-muted-foreground">WhatsApp está en pausa ahora; vuelve en un rato.</p>
       )}
+      <TrustLink />
       <LinkDialog open={open} onOpenChange={setOpen} />
     </div>
   );

@@ -29,6 +29,7 @@ import { cn } from "@/lib/utils";
 import { ActionTile } from "./ActionTile";
 import { CreateInWhatsApp, WhatsAppCreatorDialog } from "./CreateInWhatsApp";
 import { unlinkSelf } from "@/features/self/endpoints";
+import { TrustLink } from "@/features/self/TrustInfo";
 import { useSelfSend } from "@/features/self/useSelfSend";
 import { PublishButton } from "./PublishButton";
 
@@ -97,6 +98,7 @@ function SendCard({ result }: { result: ConvertResponse }) {
       <div className="min-w-0 flex-1">
         <p className="text-[15px] leading-tight font-semibold">{sent ? "¡Enviado a WhatsApp!" : "Mándalo a WhatsApp"}</p>
         <p className="mt-0.5 text-[13px] leading-snug text-muted-foreground">{subtitle}</p>
+        {!direct && !sent && connected && <TrustLink className="mt-1.5 text-[12.5px]" />}
         {direct && (
           <button
             type="button"

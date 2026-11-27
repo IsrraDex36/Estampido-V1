@@ -9,6 +9,7 @@ import { queryKeys } from "@/lib/query/keys";
 import { type LinkStatus, linkStatus, startLink } from "./endpoints";
 import { COUNTRIES, composePhone, countryByIso, guessCountry, phoneHint } from "./phone";
 import { useSelfStore } from "./selfStore";
+import { TrustLink, TrustPromises } from "./TrustInfo";
 
 type Step =
   | { kind: "intro" }
@@ -142,23 +143,14 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
           </div>
           <DialogTitle className="text-[20px]">Conecta tu WhatsApp</DialogTitle>
           <DialogDescription>
-            Te mandas los stickers a tu chat «Tú», con sonido, y entras a tu cuenta: perfil, favoritos y publicar.
+            Así te mandamos los stickers a tu chat «Tú», con sonido. También es tu cuenta para guardar favoritos y
+            publicar.
           </DialogDescription>
         </DialogHeader>
-        <ul className="space-y-2 text-[13px]">
-          {[
-            ["🔗", "Se vincula como un dispositivo, igual que WhatsApp Web (aparece como «Chrome (Mac OS)»)."],
-            ["🙋", "Solo te enviamos a ti, a tu chat «Tú». Nunca a otras personas."],
-            ["🔒", "No guardamos tus chats, contactos ni tu número. La sesión queda cifrada solo en este navegador."],
-            ["👤", "Tu cuenta se reconoce con una huella cifrada de tu número, nunca con el número."],
-            ["↩️", "Quítalo cuando quieras: aquí o en WhatsApp → Dispositivos vinculados."],
-          ].map(([e, t]) => (
-            <li key={t} className="flex gap-2.5">
-              <span aria-hidden>{e}</span>
-              <span className="text-muted-foreground">{t}</span>
-            </li>
-          ))}
-        </ul>
+        <TrustPromises />
+        <div className="flex justify-center">
+          <TrustLink />
+        </div>
         <div className="space-y-2">
           <div className="space-y-1">
             <label htmlFor="wa-country" className="block text-[13px] font-medium">
@@ -170,7 +162,7 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
                 aria-label="País"
                 value={iso}
                 onChange={(e) => chooseCountry(e.target.value)}
-                className="h-11 w-[7.5rem] shrink-0 rounded-xl bg-muted/60 px-2 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="h-11 w-[8.75rem] shrink-0 rounded-xl bg-muted/60 px-2 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 {COUNTRIES.map((c) => (
                   <option key={c.iso} value={c.iso}>
@@ -206,7 +198,7 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
           )}
         </div>
         <p className="text-center text-[11px] text-muted-foreground">
-          Es una conexión no oficial de WhatsApp. El riesgo es muy bajo porque solo te mandas mensajes a ti.
+          Conexión no oficial, como la de WhatsApp Web. Solo te mandas mensajes a ti, por eso el riesgo es muy bajo.
         </p>
       </>
     );
@@ -392,6 +384,9 @@ function Linked({ handle }: { handle: string | null }) {
           )}
         </DialogDescription>
       </DialogHeader>
+      <p className="text-[12px] text-muted-foreground">
+        Lo quitas cuando quieras: «Cerrar sesión» aquí, o en WhatsApp → Dispositivos vinculados.
+      </p>
     </div>
   );
 }

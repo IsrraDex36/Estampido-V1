@@ -9,6 +9,10 @@
  */
 export type { IconProps, IconWeight } from "@phosphor-icons/react";
 export {
+  ShieldCheckIcon,
+  EyeSlashIcon,
+  KeyIcon,
+  LinkBreakIcon,
   WhatsappLogoIcon as WhatsAppIcon,
   ArrowFatUpIcon as VoteIcon,
   ArrowLineRightIcon as ArrowRightToLineIcon,
