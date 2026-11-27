@@ -261,7 +261,8 @@ describe("pairing by CODE (only QR used to work)", () => {
     expect(sessions.linkStatus(id, browser(1))).toEqual({ state: "code", code: "ABCD-EFGH" });
     await sessions.startLink(browser(2), "5212291234567");
     await sessions.startLink(browser(3), "52 229 123 4567");
-    await expect(sessions.startLink(browser(4), "522291234567")).rejects.toMatchObject({ code: "rate_limited" });
+    for (let i = 4; i <= 10; i++) await sessions.startLink(browser(i), "522291234567");
+    await expect(sessions.startLink(browser(11), "522291234567")).rejects.toMatchObject({ code: "rate_limited" });
   });
 
   it("WhatsApp asks to rotate the QR secret: the QR shown is re-rendered with the new secret", async () => {

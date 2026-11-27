@@ -14,6 +14,7 @@ import {
   type SessionSnapshot,
   sealKeyFrom,
   sealSession,
+  waitText,
 } from "../../src/adapters/bot/selfSession.js";
 
 const secret = randomBytes(32);
@@ -301,12 +302,43 @@ describe("linking your own WhatsApp", () => {
     expect(sessions.linkStatus(id, B)).toBeNull();
   });
 
-  it("anti-harassment: max 3 codes per number per hour; other numbers unaffected; bad numbers refused", async () => {
+  it("anti-harassment: max 10 codes per number per hour; other numbers unaffected; bad numbers refused", async () => {
     const { sessions } = setup({}, () => {});
-    for (let i = 0; i < 3; i++) await sessions.startLink(A, "5212290000000");
+    for (let i = 0; i < 10; i++) await sessions.startLink(A, "5212290000000");
     await expect(sessions.startLink(B, "5212290000000")).rejects.toMatchObject({ code: "rate_limited" }); // even from another browser
     await expect(sessions.startLink(A, "5215511111111")).resolves.toBeTruthy();
     await expect(sessions.startLink(A, "12")).rejects.toMatchObject({ code: "invalid" });
+  });
+
+  it("rate limited: says how long to wait (minutes, rounded up) and offers the QR; frees up after the hour", async () => {
+    let t = 1_000_000;
+    const { sessions } = setup({ now: () => t, codesPerNumberPerHour: 2 }, () => {});
+    await sessions.startLink(A, "5212290000000");
+    t += 20 * 60_000;
+    await sessions.startLink(A, "5212290000000");
+    const err = await sessions.startLink(A, "5212290000000").catch((e: Error) => e);
+    expect(err).toMatchObject({ code: "rate_limited" });
+    expect((err as Error).message).toContain("40 min"); // the oldest code leaves the window in 40 min
+    expect((err as Error).message).toContain("QR");
+    await expect(sessions.startLink(A)).resolves.toBeTruthy(); // QR is never limited per number
+    t += 40 * 60_000;
+    await expect(sessions.startLink(A, "5212290000000")).resolves.toBeTruthy();
+  });
+
+  it("a successful link frees the number: relinking right after doesn't hit the limit", async () => {
+    const { sessions } = setup({ codesPerNumberPerHour: 2 });
+    await sessions.startLink(A, "5212290000000");
+    const id = await sessions.startLink(A, "5212290000000");
+    await until(() => sessions.linkStatus(id, A)?.state === "linked");
+    await expect(sessions.startLink(A, "5212290000000")).resolves.toBeTruthy();
+    await expect(sessions.startLink(A, "5212290000000")).resolves.toBeTruthy();
+  });
+
+  it("waitText: never «0 min», hours past 60", () => {
+    expect(waitText(1)).toBe("1 min");
+    expect(waitText(59_999)).toBe("1 min");
+    expect(waitText(40 * 60_000)).toBe("40 min");
+    expect(waitText(60 * 60_000)).toBe("1 h");
   });
 
   it("abandoned links close their socket by themselves; too many pending → busy", async () => {

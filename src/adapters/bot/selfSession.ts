@@ -372,7 +372,11 @@ export interface SelfSessionsOptions {
   openTimeoutMs?: number;
   /** Whole operation (connect + send N + close). */
   opTimeoutMs?: number;
-  /** Pairing-code requests per phone number per hour (anti-harassment). */
+  /**
+   * Pairing-code requests per phone number per hour (anti-harassment: each one
+   * makes the phone show a «link a device» prompt). Roomy enough for typos and
+   * expired codes; a successful link frees the number again.
+   */
   codesPerNumberPerHour?: number;
   /** Pending links at once. */
   maxPendingLinks?: number;
@@ -421,6 +425,12 @@ const defaultSend = async (sock: SelfSocket, jid: string, it: SelfItem) => {
 };
 
 const sleep = (ms: number) => (ms > 0 ? new Promise((r) => setTimeout(r, ms)) : Promise.resolve());
+/** «3 min», «45 min», «1 h» — rounded up, never «0 min». */
+export function waitText(ms: number): string {
+  const min = Math.max(1, Math.ceil(ms / 60_000));
+  return min >= 60 ? `${Math.ceil(min / 60)} h` : `${min} min`;
+}
+
 const phoneKey = (digits: string) => createHash("sha256").update(`estampido/phone/${digits}`).digest("hex");
 
 export class SelfSessions {
@@ -443,7 +453,7 @@ export class SelfSessions {
       maxWaiting: 20,
       openTimeoutMs: 25_000,
       opTimeoutMs: 140_000, // open (≤ 25 s) + settle (≤ 8 s) + budget (60 s) + one slow item (25 s) + margin
-      codesPerNumberPerHour: 3,
+      codesPerNumberPerHour: 10,
       maxPendingLinks: 30,
       linkTtlMs: 4 * 60_000,
       settleMs: 1_200,
@@ -482,8 +492,12 @@ export class SelfSessions {
     const typed = phone ? normalizePairingNumber(phone) : null;
     const number = typed ? toWhatsAppNumber(typed) : null;
     if (phone && !typed) throw new SessionError("Escribe tu número con código de país (ej. 52 229 …).", "invalid");
-    if (number && this.codes.take(phoneKey(number), this.o.now()) > 0) {
-      throw new SessionError("Ya pedimos varios códigos para ese número. Intenta en una hora.", "rate_limited");
+    const wait = number ? this.codes.take(phoneKey(number), this.o.now()) : 0;
+    if (wait > 0) {
+      throw new SessionError(
+        `Ya pedimos muchos códigos para ese número. Intenta en ${waitText(wait)} o vincula con el QR.`,
+        "rate_limited",
+      );
     }
     const id = randomUUID();
     const { state, snapshot } = memoryAuthState();
@@ -545,6 +559,7 @@ export class SelfSessions {
             return;
           }
           const iat = this.o.now();
+          if (number) this.codes.reset(phoneKey(number)); // linked: the next relink starts fresh
           entry.status = {
             state: "linked",
             iat,

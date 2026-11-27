@@ -26,6 +26,11 @@ export class RateLimiter {
     return recent.length >= this.max ? this.windowMs - (now - (recent[0] as number)) : 0;
   }
 
+  /** Forget every hit of `key` (e.g. the thing it guarded succeeded). */
+  reset(key: string): void {
+    this.hits.delete(key);
+  }
+
   /** Drop keys with no hit inside the window. */
   prune(now = Date.now()): void {
     for (const [key, times] of this.hits) {
