@@ -98,6 +98,16 @@ export function formFor({ media, audio, overlay }: ConvertFiles, fields: Convert
   return form;
 }
 
+/**
+ * No JSON answer: the proxy spoke, not the app. 502/503/504 there means the
+ * server is restarting (a deploy takes ~30 s) — say so, and come back by itself.
+ */
+export const UNAVAILABLE_MESSAGE = "Estampido se está actualizando. Lo intentamos de nuevo en unos segundos.";
+export function proxyFailure(status: number, retryAfter?: number): ApiError {
+  if (status === 502 || status === 503 || status === 504) return new ApiError(UNAVAILABLE_MESSAGE, "unavailable", status, retryAfter ?? 8);
+  return new ApiError(`Error HTTP ${status}`, "http", status, retryAfter);
+}
+
 /** Upload with progress (XHR: fetch has no upload progress). Resolves the 202 body. */
 function upload(form: FormData, slot: string, onProgress: ConvertCallbacks["onUploadProgress"], signal?: AbortSignal) {
   return new Promise<ConvertJobAccepted>((resolve, reject) => {
@@ -112,6 +122,7 @@ function upload(form: FormData, slot: string, onProgress: ConvertCallbacks["onUp
     xhr.onload = () => {
       if (xhr.status === 202) return resolve(xhr.response as ConvertJobAccepted);
       const body = xhr.response as (ApiErrorBody & { error: { retryAfterSec?: number } }) | null;
+      if (!body?.error) return reject(proxyFailure(xhr.status));
       reject(
         new ApiError(
           body?.error.message ?? `Error HTTP ${xhr.status}`,
@@ -158,6 +169,9 @@ export async function convertVideo(
   if (accepted.position > 0) onQueued?.(accepted.position, accepted.etaSec);
   else onProcessing?.(0, 0);
 
+  // A deploy restarts the server mid-job: keep following through the gap (≈ 30 s), then
+  // the job answers «expired» (it lived in the old process) and the card offers a retry.
+  let downSince: number | null = null;
   try {
     for (let i = 0; ; i++) {
       // Quick at first, then calmer (keeps hundreds of waiting people cheap for the server).
@@ -167,9 +181,14 @@ export async function convertVideo(
         st = await readJson<ConvertJobStatus>(await fetch(jobUrl, { headers, signal }));
       } catch (err) {
         if (signal?.aborted) throw new ApiError("Cancelado.", "aborted", 0);
+        if (err instanceof ApiError && err.code === "unavailable") {
+          downSince ??= Date.now();
+          if (Date.now() - downSince < POLL_DOWN_MAX_MS) continue;
+        }
         if (err instanceof ApiError && err.status > 0) throw err; // 404 expired, etc.
         continue; // a blip in the connection: keep following
       }
+      downSince = null;
       if (st.state === "queued") onQueued?.(st.position, st.etaSec);
       else if (st.state === "running") onProcessing?.(st.elapsedSec, st.expectedSec);
       else if (st.state === "done") return st.result;
@@ -192,8 +211,15 @@ export async function getQueueInfo(signal?: AbortSignal): Promise<QueueInfo | nu
 
 export const downloadUrl = (url: string): string => `${url}?download`;
 
+/** How long a job is followed while the server answers «restarting». */
+const POLL_DOWN_MAX_MS = 90_000;
+
 export async function readJson<T>(res: Response): Promise<T> {
   const body = (await res.json().catch(() => null)) as (T & Partial<ApiErrorBody>) | null;
+  if (!res.ok && !body?.error) {
+    const ra = Number(res.headers.get("Retry-After"));
+    throw proxyFailure(res.status, Number.isFinite(ra) && ra > 0 ? ra : undefined);
+  }
   if (!res.ok || !body) {
     throw new ApiError(
       body?.error?.message ?? `Error HTTP ${res.status}`,

@@ -81,6 +81,15 @@ export function describeFailure(f: ConvertFailure, opts: { hq?: boolean } = {}):
         tips: ["Prueba exportarlo de nuevo desde tu galería o con otra app.", "Si es un video muy largo, recórtalo primero."],
         actions: ["choose_file", "retry"],
       };
+    case "unavailable":
+      return {
+        tone: "connection",
+        title: "Estampido se está actualizando",
+        body: "No es tu archivo: el servidor se está reiniciando (tarda unos segundos). Lo intentamos de nuevo por ti.",
+        tips: [],
+        actions: ["retry"],
+        autoRetrySec: Math.min(30, Math.max(5, f.retryAfterSec ?? 8)),
+      };
     case "network":
     case "upload_failed":
       return {
