@@ -140,6 +140,21 @@ function Status({
       </div>
     );
   }
+  if (data.state === "disabled") {
+    return (
+      <div className="space-y-2 rounded-3xl bg-card p-6 ring-1 ring-border">
+        <p className="font-semibold">Bot del admin apagado (no hace falta)</p>
+        <p className="text-[13px] text-muted-foreground">
+          Cada persona vincula <b>su propio WhatsApp</b>: así entra a su cuenta y se manda los stickers a su chat «Tú».
+          Ningún número tuyo envía mensajes a otros, así que no hay riesgo de bloqueo para ti.
+        </p>
+        <p className="text-[12px] text-muted-foreground">
+          Solo si algún día quieres que la gente mande videos a un número del bot: variable <code>SVA_ADMIN_BOT=1</code> en
+          Coolify.
+        </p>
+      </div>
+    );
+  }
   if (data.state === "blocked") {
     return (
       <div className="space-y-4 rounded-3xl bg-destructive/10 p-6 ring-1 ring-destructive/40">

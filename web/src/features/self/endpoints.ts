@@ -1,3 +1,4 @@
+import type { Me } from "@contract";
 import { clientHeaders, readJson } from "@/lib/api";
 import { useSelfStore } from "./selfStore";
 
@@ -7,7 +8,8 @@ export type LinkStatus =
   | { state: "waiting" }
   | { state: "qr"; qrSvg: string }
   | { state: "code"; code: string }
-  | { state: "linked"; session: string }
+  /** `me`: linking also signs you in (null if the account is blocked). */
+  | { state: "linked"; session: string; me?: Me | null }
   | { state: "failed"; reason: string };
 
 export async function startLink(phone?: string): Promise<string> {
@@ -38,4 +40,15 @@ export async function unlinkSelf(): Promise<void> {
   useSelfStore.getState().setSession(null);
   if (!session) return;
   await fetch("/api/self/logout", { method: "POST", headers: json(), body: JSON.stringify({ session }) }).catch(() => {});
+}
+
+/** Signed out but this browser is linked: sign in again with the sealed session (no WhatsApp connection). */
+export async function signInWithSelf(): Promise<Me> {
+  const session = useSelfStore.getState().session;
+  if (!session) throw new Error("not_linked");
+  return (
+    await readJson<{ me: Me }>(
+      await fetch("/api/self/signin", { method: "POST", headers: json(), body: JSON.stringify({ session }) }),
+    )
+  ).me;
 }

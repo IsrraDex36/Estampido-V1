@@ -331,9 +331,51 @@ describe("control: «Tu propio WhatsApp»", () => {
     await rm(results, { recursive: true, force: true });
   });
 
+  it("a finished link: the API gets the masked number and the SAME account key as the old sign-in — never the number", async () => {
+    const { accountKeyFor } = await import("../../src/adapters/bot/accountKey.js");
+    const SECRET = Buffer.alloc(32, 7);
+    const results = await mkdtemp(join(tmpdir(), "sva-self-"));
+    const me = "5212290001234@s.whatsapp.net";
+    const self = {
+      linkStatus: () => ({ state: "linked", session: "s2.sealed-session", me }),
+      whoAmI: (session: string, client: string) => {
+        if (session !== "s2.sealed-session" || client !== A) throw new Error("x");
+        return me;
+      },
+    };
+    const app = createControlApp(
+      { current: () => null, links: () => null, self: self as never },
+      TOKEN,
+      results,
+      SECRET,
+    );
+    const r = await app.request(`/self/link/L1?client=${A}`, { headers: auth });
+    const body = (await r.json()) as Record<string, string>;
+    expect(body).toEqual({
+      state: "linked",
+      session: "s2.sealed-session",
+      phone: expect.stringContaining("1234"),
+      account: accountKeyFor(me, SECRET),
+    });
+    expect(JSON.stringify(body)).not.toContain("5212290001234");
+    const who = await app.request("/self/whoami", {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ client: A, session: "s2.sealed-session" }),
+    });
+    expect(await who.json()).toMatchObject({ account: accountKeyFor(me, SECRET) });
+    const bad = await app.request("/self/whoami", {
+      method: "POST",
+      headers: auth,
+      body: JSON.stringify({ client: A, session: "short" }),
+    });
+    expect(bad.status).toBe(400);
+    await rm(results, { recursive: true, force: true });
+  });
+
   it("all self routes need the control token", async () => {
     const { app, results } = await makeApp();
-    for (const path of ["/self/link", "/self/send", "/self/logout"]) {
+    for (const path of ["/self/link", "/self/send", "/self/logout", "/self/whoami"]) {
       expect((await app.request(path, { method: "POST" })).status).toBe(401);
     }
     await rm(results, { recursive: true, force: true });

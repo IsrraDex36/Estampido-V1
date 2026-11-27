@@ -90,3 +90,17 @@ que lleva a baneos).
 | Agotar recursos                                   | 4 conexiones a la vez, fila acotada, tiempo máximo por operación, vinculaciones abandonadas se cierran solas |
 | Fugas por logs o cachés                           | Los errores no incluyen la sesión; respuestas con `no-store`                                                 |
 | «Bomba» comprimida dentro de una sesión           | Descompresión con tope (16 MB)                                                                               |
+
+### Cuenta = tu propio WhatsApp
+
+Al terminar la vinculación, el bot deriva la **misma huella de cuenta** que usaba
+el inicio con código EST- (`HMAC(secreto, número)`) y se la da solo a la API,
+junto con el número enmascarado (`…1234`). La API abre la sesión (cookie) y
+responde `{ state: "linked", session, me }`; el navegador nunca ve la huella.
+
+Si la cookie vence, `POST /api/self/signin { session }` vuelve a entrar: el bot
+solo **abre el sello** (atado a ese navegador) para saber de quién es; no se
+conecta a WhatsApp.
+
+El número del bot del admin ya no se usa para nada y queda apagado salvo
+`SVA_ADMIN_BOT=1`.

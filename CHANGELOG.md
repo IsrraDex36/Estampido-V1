@@ -16,6 +16,9 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Ya no hace falta el número del bot del admin**: vincular tu propio WhatsApp (código o QR) es también **entrar a tu cuenta** (perfil, favoritos, publicar). Misma cuenta que antes para quien ya entraba con el código EST- (la huella cifrada del número es la misma). Si la cookie vence, el navegador vinculado vuelve a entrar solo, sin conectarse a WhatsApp. «Cerrar sesión» también quita el dispositivo.
+- El bot del admin queda **apagado por defecto** (`SVA_ADMIN_BOT=1` para encenderlo): sin conexión, sin reintentos, sin riesgo para ningún número; `/admin` lo explica. El indicador del encabezado ahora dice «Vincular WhatsApp» / «WhatsApp vinculado».
+
 - **Vincular tu WhatsApp, más claro**: pasos numerados para código (celular) y QR (computadora), botón «Copiar código», aviso de que el código vence y «Pedir otro código / cambiar de método».
 
 - **Card de sticker de la comunidad pulida**: el sticker ocupa todo el cuadro (sin hueco abajo), la duración va como etiqueta arriba a la izquierda y ▶ es un botón redondo discreto abajo a la derecha (verde mientras suena); texto en 3 líneas (título · @creador y categoría · cifras), acciones alineadas; con el bot en pausa el botón dice «Envío en pausa».

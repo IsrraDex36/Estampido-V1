@@ -69,8 +69,8 @@ export function AccountMenu() {
     );
   }
 
-  // Signing in needs the bot (it receives the code); hide the button when it can't.
-  if (me.isPending || !bot?.connected) return dialog;
+  // Signing in = linking your own WhatsApp (needs the WhatsApp service up).
+  if (me.isPending || bot?.available === false) return dialog;
   return (
     <>
       <Button

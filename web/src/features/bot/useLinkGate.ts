@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useMe } from "@/features/account/api";
-import { useBotStatus, useLink } from "./api";
+import { useSelfStore } from "@/features/self/selfStore";
+import { useBotStatus } from "./api";
 
 /**
  * «Send needs a linked WhatsApp» (or, with needsAccount, «publish needs to be
@@ -9,12 +10,11 @@ import { useBotStatus, useLink } from "./api";
  * (the user sent the code from WhatsApp). Closing the dialog drops it.
  */
 export function useLinkGate({ needsAccount = false }: { needsAccount?: boolean } = {}) {
-  const link = useLink();
   // Owner's local mode: no link needed, the API sends to the bot's own chat.
   const selfSend = useBotStatus()?.selfSend === true;
   const [open, setOpen] = useState(false);
   const pending = useRef<(() => void) | null>(null);
-  const linked = link.data?.state === "linked";
+  const linked = useSelfStore((s) => s.session !== null);
   const signedIn = useMe().data != null;
   const ready = needsAccount ? signedIn : linked;
 
@@ -40,5 +40,5 @@ export function useLinkGate({ needsAccount = false }: { needsAccount?: boolean }
     if (!v) pending.current = null;
   }, []);
 
-  return { gate, linked, phone: link.data?.state === "linked" ? link.data.phone : null, dialog: { open, onOpenChange } };
+  return { gate, linked, dialog: { open, onOpenChange } };
 }

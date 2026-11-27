@@ -402,6 +402,7 @@ export function createApp(deps: AppDeps = {}): ApiApp {
     if (p.kind === "code") return c.json({ state: "code", code: p.code } satisfies AdminPairing);
     if (p.kind === "connected") return c.json({ state: "connected", phone: maskPhone(p.id) } satisfies AdminPairing);
     if (p.kind === "blocked") return c.json({ state: "blocked", retryAt: p.retryAt } satisfies AdminPairing);
+    if (p.kind === "disabled") return c.json({ state: "disabled" } satisfies AdminPairing);
     return c.json({ state: "waiting" } satisfies AdminPairing);
   });
 
@@ -514,6 +515,18 @@ export function createApp(deps: AppDeps = {}): ApiApp {
       return botFailure(c, err, "self");
     }
   };
+  const BANNED = "Esta cuenta está bloqueada por incumplir las reglas de la comunidad.";
+  /**
+   * Open (or keep) the account session for the WhatsApp the bot identified.
+   * Returns the user, or null when there's no identity or the account is banned.
+   */
+  const signInFrom = async (c: Context, body: Record<string, unknown>, client: string) => {
+    if (typeof body.account !== "string" || !/^[0-9a-f]{64}$/.test(body.account)) return null;
+    const { user } = await accounts.upsertFromLink(body.account, typeof body.phone === "string" ? body.phone : "");
+    if (user.banned) return null;
+    if (c.get("user")?.id !== user.id) cookie.write(c, await accounts.createSession(user.id, client));
+    return accounts.me(user);
+  };
   /** The browser this belongs to (sessions and links are bound to it). */
   const selfClient = (c: Context): string | null => clientHash(c.req.header(CLIENT_HEADER));
   const noClient = (c: Context) => c.json(fail("bad_client", "Falta el identificador del navegador."), 400);
@@ -539,9 +552,31 @@ export function createApp(deps: AppDeps = {}): ApiApp {
         const qrSvg = await QRCode.toString(r.body.qr, { type: "svg", margin: 2, errorCorrectionLevel: "L" });
         return c.json({ state: "qr", qrSvg });
       }
+      if (r.status === 200 && r.body.state === "linked" && typeof r.body.session === "string") {
+        // Linking your own WhatsApp IS signing in (the account key never reaches the browser).
+        const me = await signInFrom(c, r.body, client);
+        return c.json({ state: "linked", session: r.body.session, me });
+      }
       return selfReply(c, r);
     } catch (err) {
       return botFailure(c, err, "self-link");
+    }
+  });
+  /** A linked browser whose cookie is gone signs in again with its sealed session (no WhatsApp connection). */
+  app.post("/self/signin", async (c) => {
+    c.header("Cache-Control", "no-store");
+    const body = (await c.req.json().catch(() => null)) as { session?: unknown } | null;
+    if (typeof body?.session !== "string") return c.json(fail("bad_request", "Falta tu sesión de WhatsApp."), 400);
+    const client = selfClient(c);
+    if (!client) return noClient(c);
+    if (!bot.self) return c.json(fail("not_found", "No disponible."), 404);
+    try {
+      const r = await bot.self("/whoami", { client, session: body.session });
+      if (r.status !== 200) return selfReply(c, r);
+      const me = await signInFrom(c, r.body, client);
+      return me ? c.json({ me }) : c.json(fail("account_banned", BANNED), 403);
+    } catch (err) {
+      return botFailure(c, err, "self-signin");
     }
   });
   app.post("/self/send", async (c) => {

@@ -43,7 +43,7 @@ export const JSON_BODY_LIMIT = 256 * 1024;
 /** Routes that receive files (they enforce their own size limits). */
 const UPLOAD_PATHS = /^\/api\/convert$/;
 /** Routes that receive the sealed self-channel session. */
-const SESSION_PATHS = /^\/api\/self\/(send|logout)$/;
+const SESSION_PATHS = /^\/api\/self\/(send|logout|signin)$/;
 export const DEFAULT_LIMITS = {
   convert: { max: 15, windowMs: 10 * MIN }, // CPU-heavy
   slot: { max: 20, windowMs: 10 * MIN },
@@ -73,7 +73,7 @@ const RULES: { name: Exclude<LimitName, "api" | "adminFail">; method: string; pa
   // so one IP rotating browser ids can't fill the line for everyone.
   { name: "slot", method: "POST", path: /^\/api\/convert\/slot$/ },
   { name: "selfLink", method: "POST", path: /^\/api\/self\/link$/ },
-  { name: "selfSend", method: "POST", path: /^\/api\/self\/(send|logout)$/ },
+  { name: "selfSend", method: "POST", path: /^\/api\/self\/(send|logout|signin)$/ },
   { name: "linkCode", method: "POST", path: /^\/api\/whatsapp\/link$/ },
   { name: "send", method: "POST", path: /^\/api\/(results|community\/stickers)\/[^/]+\/whatsapp$/ },
   { name: "publish", method: "POST", path: /^\/api\/community\/stickers$/ },

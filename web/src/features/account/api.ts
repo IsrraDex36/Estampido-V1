@@ -1,3 +1,4 @@
+import { unlinkSelf } from "@/features/self/endpoints";
 import type { CommunitySound, CommunitySticker, FavoriteKind, Me, MeUpdate, WhatsAppLink } from "@contract";
 import {
   infiniteQueryOptions,
@@ -66,7 +67,11 @@ export function useLogout() {
   const clearAll = useFavorites((s) => s.clearAll);
   return useMutation({
     mutationKey: ["account", "logout"],
-    mutationFn: logout,
+    // Sign out = also remove this device from your WhatsApp (else it would sign right back in).
+    mutationFn: async () => {
+      await logout();
+      await unlinkSelf();
+    },
     onSuccess: () => {
       qc.setQueryData(queryKeys.account.me, null);
       qc.setQueryData(queryKeys.bot.link, { state: "unlinked" } satisfies WhatsAppLink);

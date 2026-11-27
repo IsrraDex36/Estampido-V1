@@ -170,6 +170,11 @@ export function createControlApp(
     .strict();
   const selfLogout = z.object({ client: clientField, session: z.string().min(10).max(3_000_000) }).strict();
   const bad = (c: Context) => c.json({ error: "Solicitud no válida.", code: "invalid" }, 400);
+  /** Same account key as the code-to-bot sign-in had: the same person keeps the same account. */
+  const identity = (jid: string) => ({
+    phone: maskJid(jid),
+    ...(accountSecret && jid ? { account: accountKeyFor(jid, accountSecret) } : {}),
+  });
 
   app.post("/self/link", async (c) => {
     if (!bot.self) return c.json({ error: "No disponible." }, 404);
@@ -185,7 +190,21 @@ export function createControlApp(
     const client = c.req.query("client") ?? "";
     if (!isClientHash(client)) return bad(c);
     const st = bot.self?.linkStatus(c.req.param("id"), client);
-    return st ? c.json(st) : c.json({ error: "La vinculación venció. Intenta otra vez.", code: "invalid" }, 404);
+    if (!st) return c.json({ error: "La vinculación venció. Intenta otra vez.", code: "invalid" }, 404);
+    if (st.state !== "linked") return c.json(st);
+    // The number never leaves the bot: the API gets the masked hint and the opaque account key.
+    return c.json({ state: "linked", session: st.session, ...identity(st.me) });
+  });
+  /** Sign in again from a sealed session (no WhatsApp connection involved). */
+  app.post("/self/whoami", async (c) => {
+    if (!bot.self) return c.json({ error: "No disponible." }, 404);
+    const parsed = selfLogout.safeParse(await c.req.json().catch(() => null));
+    if (!parsed.success) return bad(c);
+    try {
+      return c.json(identity(bot.self.whoAmI(parsed.data.session, parsed.data.client)));
+    } catch (err) {
+      return selfError(c, err);
+    }
   });
   app.post("/self/send", async (c) => {
     if (!bot.self) return c.json({ error: "No disponible." }, 404);

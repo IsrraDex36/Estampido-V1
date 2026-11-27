@@ -128,3 +128,95 @@ describe("browser identity is required", () => {
     expect(calls).toEqual([]);
   });
 });
+
+describe("linking your own WhatsApp signs you in (no bot number involved)", () => {
+  const ACCOUNT = "c".repeat(64);
+  async function harnessWith(
+    linked: Record<string, unknown>,
+    whoami: { status: number; body: Record<string, unknown> },
+  ) {
+    h.close();
+    const bot = {
+      status: async () => ({ available: true, connected: false }),
+      send: async () => ({ delivered: "sticker" as const }),
+      linkStatus: async () => ({ state: "unlinked" as const }),
+      unlink: async () => {},
+      self: async (path: string, body?: unknown) => {
+        calls.push({ path, body: body as Call["body"] });
+        if (path.startsWith("/link/")) return { status: 200, body: linked };
+        if (path === "/whoami") return whoami;
+        return { status: 200, body: { id: "L1" } };
+      },
+    };
+    h = await makeHarness(dir, undefined, { bot: bot as never });
+  }
+
+  it("the moment the link lands: a session cookie + the profile; the account key never reaches the browser", async () => {
+    await harnessWith(
+      { state: "linked", session: "s2.sealed", account: ACCOUNT, phone: "…0000" },
+      { status: 404, body: {} },
+    );
+    const r = await h.req("anon", "/api/self/link/L1");
+    expect(r.status).toBe(200);
+    const body = (await r.json()) as { state: string; session: string; me: { handle: string } };
+    expect(body.state).toBe("linked");
+    expect(body.session).toBe("s2.sealed");
+    expect(body.me.handle).toMatch(/^creador_/);
+    expect(JSON.stringify(body)).not.toContain(ACCOUNT);
+    expect(r.headers.get("set-cookie")).toMatch(/session|sid|est/i);
+    expect(r.headers.get("cache-control")).toBe("no-store");
+  });
+
+  it("the same WhatsApp from another browser = the same account", async () => {
+    await harnessWith(
+      { state: "linked", session: "s2.a", account: ACCOUNT, phone: "…0000" },
+      { status: 404, body: {} },
+    );
+    const one = (await (await h.req("anon", "/api/self/link/L1")).json()) as { me: { id: string } };
+    const two = (await (await h.req("beto", "/api/self/link/L1")).json()) as { me: { id: string } };
+    expect(two.me.id).toBe(one.me.id);
+  });
+
+  it("a bad or missing account key never creates an account (still linked for sending)", async () => {
+    for (const account of [undefined, "nope", "C".repeat(64), `${"c".repeat(63)}'`]) {
+      await harnessWith({ state: "linked", session: "s2.x", account, phone: "…0" }, { status: 404, body: {} });
+      const r = await h.req("anon", "/api/self/link/L1");
+      const body = (await r.json()) as { me: unknown; session: string };
+      expect(body.session).toBe("s2.x");
+      expect(body.me).toBeNull();
+      expect(r.headers.get("set-cookie")).toBeNull();
+    }
+  });
+
+  it("signed out but still linked: the sealed session signs you in again (bound to this browser)", async () => {
+    await harnessWith({ state: "waiting" }, { status: 200, body: { account: ACCOUNT, phone: "…0000" } });
+    const r = await h.req("anon", "/api/self/signin", { method: "POST", body: JSON.stringify({ session: "s2.mine" }) });
+    expect(r.status).toBe(200);
+    expect(((await r.json()) as { me: { handle: string } }).me.handle).toMatch(/^creador_/);
+    expect(calls.at(-1)).toMatchObject({ path: "/whoami", body: { session: "s2.mine" } });
+    expect(calls.at(-1)?.body?.client).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("sign-in refusals: no session, no browser id, session that doesn't open here", async () => {
+    await harnessWith(
+      { state: "waiting" },
+      { status: 400, body: { error: "Tu vinculación no es válida", code: "invalid" } },
+    );
+    expect((await h.req("anon", "/api/self/signin", { method: "POST", body: "{}" })).status).toBe(400);
+    expect(
+      (
+        await h.anonymous("/api/self/signin", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ session: "s2.x" }),
+        })
+      ).status,
+    ).toBe(400);
+    const r = await h.req("anon", "/api/self/signin", {
+      method: "POST",
+      body: JSON.stringify({ session: "s2.stolen" }),
+    });
+    expect(r.status).toBe(400);
+    expect(r.headers.get("set-cookie")).toBeNull();
+  });
+});

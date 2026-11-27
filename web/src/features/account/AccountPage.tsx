@@ -53,13 +53,15 @@ function SignedOut() {
       <Mascot size={88} />
       <h1 className="display text-3xl">Entra con tu WhatsApp</h1>
       <p className="text-[14px] text-muted-foreground">
-        Sin contraseñas ni correo: envías un código desde tu WhatsApp y listo. Tendrás tu perfil de creador, tus favoritos en
+        Sin contraseñas ni correo: vinculas tu WhatsApp (con un código o QR) y listo. Tendrás tu perfil de creador, tus favoritos en
         todos tus dispositivos y podrás publicar en la comunidad.
       </p>
-      <Button className="h-11 rounded-full px-6" disabled={!bot?.connected} onClick={() => setOpen(true)}>
+      <Button className="h-11 rounded-full px-6" disabled={bot?.available === false} onClick={() => setOpen(true)}>
         Entrar con WhatsApp
       </Button>
-      {!bot?.connected && <p className="text-[12px] text-muted-foreground">El bot está desconectado ahora; vuelve en un rato.</p>}
+      {bot?.available === false && (
+        <p className="text-[12px] text-muted-foreground">WhatsApp está en pausa ahora; vuelve en un rato.</p>
+      )}
       <LinkDialog open={open} onOpenChange={setOpen} />
     </div>
   );

@@ -1,9 +1,11 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { CheckIcon, CircleCheckIcon, CopyIcon, Loader2Icon } from "@/components/icons";
 import { Mascot } from "@/components/pixel/Mascot";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ApiError } from "@/lib/api";
+import { queryKeys } from "@/lib/query/keys";
 import { type LinkStatus, linkStatus, startLink } from "./endpoints";
 import { useSelfStore } from "./selfStore";
 
@@ -31,6 +33,7 @@ const onPhone = () => typeof matchMedia !== "undefined" && matchMedia("(pointer:
 
 function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
   const setSession = useSelfStore((s) => s.setSession);
+  const qc = useQueryClient();
   const [step, setStep] = useState<Step>({ kind: "intro" });
   const [phone, setPhone] = useState("52");
   const [busy, setBusy] = useState(false);
@@ -58,6 +61,7 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
         if (!alive) return;
         if (status.state === "linked") {
           setSession(status.session);
+          if (status.me) qc.setQueryData(queryKeys.account.me, status.me); // linking = signed in
           onDone();
           after?.();
           return;
@@ -83,7 +87,7 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
       alive = false;
       clearTimeout(t);
     };
-  }, [linkId, setSession, onDone, after]);
+  }, [linkId, setSession, onDone, after, qc]);
 
   if (step.kind === "intro") {
     const digits = phone.replace(/\D/g, "");
@@ -93,14 +97,17 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
           <div className="mx-auto grid size-20 place-items-center rounded-full bg-stage">
             <Mascot size={56} mood="singing" />
           </div>
-          <DialogTitle className="text-[20px]">Envíatelos a tu propio WhatsApp</DialogTitle>
-          <DialogDescription>Llegan a tu chat «Tú», con sonido, y desde ahí los guardas o reenvías.</DialogDescription>
+          <DialogTitle className="text-[20px]">Conecta tu WhatsApp</DialogTitle>
+          <DialogDescription>
+            Te mandas los stickers a tu chat «Tú», con sonido, y entras a tu cuenta: perfil, favoritos y publicar.
+          </DialogDescription>
         </DialogHeader>
         <ul className="space-y-2 text-[13px]">
           {[
             ["🔗", "Estampido se vincula a tu WhatsApp como un dispositivo (igual que WhatsApp Web)."],
             ["🙋", "Solo te enviamos a ti, a tu chat «Tú». Nunca a otras personas."],
             ["🔒", "No guardamos tus chats, contactos ni tu número. La sesión queda cifrada solo en este navegador."],
+            ["👤", "Tu cuenta se reconoce con una huella cifrada de tu número, nunca con el número."],
             ["↩️", "Quítalo cuando quieras: aquí o en WhatsApp → Dispositivos vinculados."],
           ].map(([e, t]) => (
             <li key={t} className="flex gap-2.5">

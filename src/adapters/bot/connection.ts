@@ -30,7 +30,9 @@ export type PairingState =
   | { kind: "code"; code: string }
   | { kind: "connected"; id: string }
   /** WhatsApp refuses this number (403): restricted or banned. We back off instead of hammering. */
-  | { kind: "blocked"; code: number; retryAt: number };
+  | { kind: "blocked"; code: number; retryAt: number }
+  /** The owner's bot number is turned off (SVA_ADMIN_BOT): everyone uses their own WhatsApp. */
+  | { kind: "disabled" };
 
 /**
  * How long to wait before reconnecting. Never a tight loop: hammering

@@ -428,7 +428,9 @@ export type AdminPairing =
   | { state: "code"; code: string }
   | { state: "connected"; phone: string }
   /** WhatsApp refuses the bot's number (restricted/banned); the bot retries slowly. */
-  | { state: "blocked"; retryAt: number };
+  | { state: "blocked"; retryAt: number }
+  /** The owner's bot number is off (SVA_ADMIN_BOT); not needed for anything. */
+  | { state: "disabled" };
 
 /** /api/admin/health — watchdog report (token-protected). */
 /** Owner moderation view of the community (every sticker, newest first; includes «solo el sonido»). */

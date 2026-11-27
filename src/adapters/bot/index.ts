@@ -59,10 +59,18 @@ console.log(
 const cleaned = await cleanupTempDirs(BOT_TMP_PREFIX);
 if (cleaned) console.log(`Limpieza: ${cleaned} carpeta(s) temporal(es) huérfana(s) borradas.`);
 
+/**
+ * The owner's own bot number (people message it; it signs browsers in with
+ * EST- codes) is OPTIONAL now: everyone links their own WhatsApp instead.
+ * Off unless SVA_ADMIN_BOT=1 — no connection, no reconnect loop, no risk to
+ * a number. This process still serves «tu propio WhatsApp» either way.
+ */
+const adminBotEnabled = /^(1|true|yes|si|sí)$/i.test(process.env.SVA_ADMIN_BOT ?? "");
+
 // Current socket (replaced on reconnect) for the local control endpoint.
 let current: WASocket | null = null;
 // Linking progress, served (token-protected) to the web's /admin page.
-let pairing: PairingState = { kind: "waiting" };
+let pairing: PairingState = adminBotEnabled ? { kind: "waiting" } : { kind: "disabled" };
 const botAge = new BotAgeStore();
 // One link store per bot number (kept across reconnects; a new number starts empty).
 const stores = new Map<string, LinkStore>();
@@ -104,45 +112,50 @@ const watchdog = new Watchdog(
   },
   { autoRelink: /^(1|true|yes|si|sí)$/i.test(process.env.SVA_WATCHDOG_AUTORELINK ?? "") },
 );
-setInterval(() => void watchdog.tick(), 30_000).unref();
-if (webhook) console.log("Vigilante: alertas también por webhook.");
+if (adminBotEnabled) {
+  setInterval(() => void watchdog.tick(), 30_000).unref();
+  if (webhook) console.log("Vigilante: alertas también por webhook.");
+} else {
+  console.log("Bot del admin APAGADO (SVA_ADMIN_BOT): cada persona vincula su propio WhatsApp.");
+}
 
-await connect({
-  authDir: authDir(),
-  onConnection: (open) => watchdog.connectionChanged(open),
-  onLoggedOut: () => watchdog.markUnlinked("cerrada desde el teléfono"),
-  logLevel: process.env.SVA_LOG ?? "warn",
-  pairingNumber: process.env.SVA_PAIRING_NUMBER,
-  onPairing: (s) => {
-    pairing = s;
-  },
-  onReady: (sock) => {
-    current = sock;
-    // Warm-up: remember when this number started, so a new number sends gently.
-    const digits = jidDigits(sock.user?.id);
-    if (digits) {
-      void botAge.firstSeen(digits).then((at) => {
-        humanizer.volume.setFirstSeen(at);
-        const day = humanizer.volume.ageDays();
-        const l = humanizer.volume.limits();
-        console.log(`Ritmo: número en el día ${day} de calentamiento · máx. ${l.perMinute}/min y ${l.perHour}/h.`);
+if (adminBotEnabled)
+  await connect({
+    authDir: authDir(),
+    onConnection: (open) => watchdog.connectionChanged(open),
+    onLoggedOut: () => watchdog.markUnlinked("cerrada desde el teléfono"),
+    logLevel: process.env.SVA_LOG ?? "warn",
+    pairingNumber: process.env.SVA_PAIRING_NUMBER,
+    onPairing: (s) => {
+      pairing = s;
+    },
+    onReady: (sock) => {
+      current = sock;
+      // Warm-up: remember when this number started, so a new number sends gently.
+      const digits = jidDigits(sock.user?.id);
+      if (digits) {
+        void botAge.firstSeen(digits).then((at) => {
+          humanizer.volume.setFirstSeen(at);
+          const day = humanizer.volume.ageDays();
+          const l = humanizer.volume.limits();
+          console.log(`Ritmo: número en el día ${day} de calentamiento · máx. ${l.perMinute}/min y ${l.perHour}/h.`);
+        });
+      }
+      registerHandlers(sock, {
+        debug,
+        links: linksFor(sock) ?? undefined,
+        allowed,
+        capture,
+        captureDir: resolve("captures"),
+        sendMode,
+        defaultFit,
+        ratePerMinute,
+        selfChatOnly,
+        onInbound: (ok) => (ok ? watchdog.inbound() : watchdog.decryptFailure()),
+        metadata: { packName: process.env.SVA_PACK || undefined, publisher: process.env.SVA_AUTHOR || undefined },
       });
-    }
-    registerHandlers(sock, {
-      debug,
-      links: linksFor(sock) ?? undefined,
-      allowed,
-      capture,
-      captureDir: resolve("captures"),
-      sendMode,
-      defaultFit,
-      ratePerMinute,
-      selfChatOnly,
-      onInbound: (ok) => (ok ? watchdog.inbound() : watchdog.decryptFailure()),
-      metadata: { packName: process.env.SVA_PACK || undefined, publisher: process.env.SVA_AUTHOR || undefined },
-    });
-  },
-});
+    },
+  });
 
 // "Enviar a mi WhatsApp" from the web goes through this localhost-only endpoint.
 const live = () => (current && (current.ws as { isOpen?: boolean }).isOpen !== false ? current : null);

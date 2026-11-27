@@ -1,7 +1,9 @@
 import type { FavoriteKind } from "@contract";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
-import { useLink } from "@/features/bot/api";
+import { useEffect, useRef } from "react";
+import { signInWithSelf } from "@/features/self/endpoints";
+import { useSelfStore } from "@/features/self/selfStore";
+import { ApiError } from "@/lib/api";
 import { useFavorites } from "@/features/community/store/favoritesStore";
 import { queryKeys } from "@/lib/query/keys";
 import { useMe } from "./api";
@@ -33,13 +35,23 @@ const flag = {
  */
 export function useAccountSync() {
   const qc = useQueryClient();
-  const linkState = useLink().data?.state;
+  const session = useSelfStore((s) => s.session);
   const me = useMe().data;
   const userId = me?.id ?? null;
+  const tried = useRef<string | null>(null);
 
+  // Linked WhatsApp but signed out (cookie expired, other tab signed out…): sign in
+  // again from the sealed session — once per session, no WhatsApp connection.
   useEffect(() => {
-    if (linkState === "linked" && me === null) void qc.invalidateQueries({ queryKey: queryKeys.account.me });
-  }, [linkState, me, qc]);
+    if (!session || me !== null || tried.current === session) return;
+    tried.current = session;
+    signInWithSelf()
+      .then((m) => qc.setQueryData(queryKeys.account.me, m))
+      .catch((err) => {
+        // The session no longer opens here (old format, expired, other browser): forget it.
+        if (err instanceof ApiError && [400, 410].includes(err.status)) useSelfStore.getState().setSession(null);
+      });
+  }, [session, me, qc]);
 
   useEffect(() => {
     if (!userId) return;

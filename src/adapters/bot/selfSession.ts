@@ -348,7 +348,8 @@ type LinkState =
   | { state: "waiting" }
   | { state: "qr"; qr: string }
   | { state: "code"; code: string }
-  | { state: "linked"; session: string }
+  /** `me`: the linked WhatsApp's own jid — stays in the bot; control turns it into an opaque account key. */
+  | { state: "linked"; session: string; me: string }
   | { state: "failed"; reason: string };
 
 /** Native sound sticker when there's sound, a plain sticker otherwise. */
@@ -456,7 +457,12 @@ export class SelfSessions {
           finished = true;
           // Stay until WhatsApp finished the first login (pre-keys, pending notifications).
           await untilSettled(s, this.o.linkSettleMaxMs, this.o.settleMs * 2);
-          entry.status = { state: "linked", session: sealSession(snapshot(), this.o.sealKey, client, this.o.now()) };
+          const snap = snapshot();
+          entry.status = {
+            state: "linked",
+            session: sealSession(snap, this.o.sealKey, client, this.o.now()),
+            me: jidNormalizedUser(snap.creds.me?.id ?? s.user?.id ?? ""),
+          };
           end();
         } else if (u.connection === "close") {
           logClose("vinculación", u);
@@ -509,6 +515,17 @@ export class SelfSessions {
   }
 
   // ── using a session ───────────────────────────────────────────────────────
+
+  /**
+   * Who this sealed session belongs to — WITHOUT connecting to WhatsApp (just
+   * unsealing). Owning a session sealed for this browser is the proof: that's
+   * how a linked browser signs in again after its cookie is gone.
+   */
+  whoAmI(sealed: string, client: string): string {
+    const snap = openSession(sealed, this.o.sealKey, client, this.o.now());
+    if (!snap.creds.registered || !snap.creds.me?.id) throw INVALID();
+    return jidNormalizedUser(snap.creds.me.id);
+  }
 
   /** Open the person's session in memory, run `fn`, close; returns the refreshed sealed session. */
   private async withSession<T>(

@@ -463,3 +463,35 @@ describe("why a link didn't finish", () => {
     }
   });
 });
+
+describe("your WhatsApp is also your sign-in", () => {
+  it("a finished link says whose WhatsApp it is (device suffix dropped) — only to its browser", async () => {
+    const { sessions } = setup();
+    const id = await sessions.startLink(A);
+    await wait(20);
+    const st = sessions.linkStatus(id, A) as { state: string; me: string };
+    expect(st.state).toBe("linked");
+    expect(st.me).toBe("5212290000000@s.whatsapp.net");
+  });
+
+  it("whoAmI: from the sealed session alone (no WhatsApp connection); other browser or junk refused", () => {
+    const { sessions, socks } = setup();
+    const sealed = sealSession(linked(), key, A);
+    expect(sessions.whoAmI(sealed, A)).toBe("5212290000000@s.whatsapp.net");
+    expect(socks).toHaveLength(0);
+    expect(codeOf(tryWho(() => sessions.whoAmI(sealed, B)))).toBe("invalid");
+    expect(codeOf(tryWho(() => sessions.whoAmI("s2.junk", A)))).toBe("invalid");
+    expect(codeOf(tryWho(() => sessions.whoAmI(sealSession({ creds: initAuthCreds(), keys: {} }, key, A), A)))).toBe(
+      "invalid",
+    );
+  });
+});
+
+function tryWho(fn: () => unknown): unknown {
+  try {
+    fn();
+    return null;
+  } catch (e) {
+    return e;
+  }
+}
