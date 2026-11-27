@@ -6,6 +6,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **«Vinculado» pero al enviar pedía vincular otra vez**: se exigía `creds.registered`, que Baileys solo marca al vincular con código (con QR nunca), así que la sesión parecía inválida y se borraba. Ahora se valida lo que ambos caminos sí dejan (tu identidad y la firma del dispositivo); una vinculación sin ellas se reporta como fallida, nunca como «vinculado». Además, errores de formato, tiempos de espera o saturación ya no borran la sesión (solo «quitado del teléfono», «vencida» o «inválida»), ni tampoco un reingreso a la cuenta fallido. Los rechazos se registran como `[self] send rechazado: <código>` (sin datos).
+
 - **El bot reintentaba cada 2 s cuando WhatsApp rechazaba su número (403)**: martilleaba a WhatsApp desde la IP del servidor (la misma que usan las vinculaciones de cada usuario). Ahora espera 15 → 30 → 60 min ante un 403 y crece de 2 s a 5 min ante otros cierres; `/admin` muestra «WhatsApp rechazó el número del bot» con qué revisar y cómo desvincularlo.
 - Vincular tu WhatsApp: si el código vence (408) se dice claro («pide otro y escríbelo enseguida»), con cuenta regresiva de 2 min en pantalla.
 

@@ -219,6 +219,17 @@ const logClose = (where: string, u: ConnUpdate) => {
     console.warn(`[self] ${where}: WhatsApp cerró con código ${code}`);
 };
 
+/**
+ * A finished pairing. NOT `creds.registered`: Baileys sets that only on the
+ * pairing-CODE path; QR pairings never set it (that check made every QR-linked
+ * session look invalid → «vinculado» but every send asked to link again).
+ * What both paths do set at pair-success: our own jid and the signed device
+ * identity (`account`) WhatsApp issued to this device.
+ */
+export function isPaired(creds: Partial<AuthenticationCreds>): boolean {
+  return Boolean(creds.me?.id && creds.account);
+}
+
 /** Resolves when the socket is open; rejects on logout/close/timeout. */
 function untilOpen(sock: SelfSocket, timeoutMs: number): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -458,6 +469,13 @@ export class SelfSessions {
           // Stay until WhatsApp finished the first login (pre-keys, pending notifications).
           await untilSettled(s, this.o.linkSettleMaxMs, this.o.settleMs * 2);
           const snap = snapshot();
+          if (!isPaired(snap.creds)) {
+            // Never tell the browser «linked» with a session that can't be used.
+            console.warn("[self] vinculación: conexión abierta sin identidad de dispositivo");
+            entry.status = { state: "failed", reason: "WhatsApp no terminó de vincular. Intenta otra vez." };
+            end();
+            return;
+          }
           entry.status = {
             state: "linked",
             session: sealSession(snap, this.o.sealKey, client, this.o.now()),
@@ -523,8 +541,8 @@ export class SelfSessions {
    */
   whoAmI(sealed: string, client: string): string {
     const snap = openSession(sealed, this.o.sealKey, client, this.o.now());
-    if (!snap.creds.registered || !snap.creds.me?.id) throw INVALID();
-    return jidNormalizedUser(snap.creds.me.id);
+    if (!isPaired(snap.creds)) throw INVALID();
+    return jidNormalizedUser(snap.creds.me?.id ?? "");
   }
 
   /** Open the person's session in memory, run `fn`, close; returns the refreshed sealed session. */
@@ -534,8 +552,8 @@ export class SelfSessions {
     fn: (sock: SelfSocket, self: string) => Promise<T>,
   ): Promise<{ result: T; session: string }> {
     const snap = openSession(sealed, this.o.sealKey, client, this.o.now()); // invalid/expired: fail fast, no socket
-    if (!snap.creds.registered || !snap.creds.me?.id) throw INVALID();
-    const account = jidNormalizedUser(snap.creds.me.id);
+    if (!isPaired(snap.creds)) throw INVALID();
+    const account = jidNormalizedUser(snap.creds.me?.id ?? "");
     return this.lock.run(account, () =>
       this.gate.run(async () => {
         const { state, snapshot } = memoryAuthState(snap);

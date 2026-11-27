@@ -133,7 +133,11 @@ export function createControlApp(
     send_failed: 502,
   } as const;
   const selfError = (c: Context, err: unknown) => {
-    if (err instanceof SessionError) return c.json({ error: err.message, code: err.code }, SELF_STATUS[err.code]);
+    if (err instanceof SessionError) {
+      // Diagnosis without data: only the reason code (never the session, number or files).
+      if (err.code !== "rate_limited") console.warn(`[self] ${c.req.path.split("/")[2] ?? "?"} rechazado: ${err.code}`);
+      return c.json({ error: err.message, code: err.code }, SELF_STATUS[err.code]);
+    }
     console.error("[self]", err instanceof Error ? err.message : "error"); // never log request bodies (sessions)
     return c.json({ error: "No se pudo completar con tu WhatsApp.", code: "send_failed" }, 502);
   };
@@ -169,7 +173,8 @@ export function createControlApp(
     })
     .strict();
   const selfLogout = z.object({ client: clientField, session: z.string().min(10).max(3_000_000) }).strict();
-  const bad = (c: Context) => c.json({ error: "Solicitud no válida.", code: "invalid" }, 400);
+  // «bad_request», never «invalid»: the web forgets the session only on «invalid» (session unusable).
+  const bad = (c: Context) => c.json({ error: "Solicitud no válida.", code: "bad_request" }, 400);
   /** Same account key as the code-to-bot sign-in had: the same person keeps the same account. */
   const identity = (jid: string) => ({
     phone: maskJid(jid),
@@ -190,7 +195,7 @@ export function createControlApp(
     const client = c.req.query("client") ?? "";
     if (!isClientHash(client)) return bad(c);
     const st = bot.self?.linkStatus(c.req.param("id"), client);
-    if (!st) return c.json({ error: "La vinculación venció. Intenta otra vez.", code: "invalid" }, 404);
+    if (!st) return c.json({ error: "La vinculación venció. Intenta otra vez.", code: "link_expired" }, 404);
     if (st.state !== "linked") return c.json(st);
     // The number never leaves the bot: the API gets the masked hint and the opaque account key.
     return c.json({ state: "linked", session: st.session, ...identity(st.me) });
@@ -219,7 +224,7 @@ export function createControlApp(
           audioPath: it.audioPath ? await assertResultFile(it.audioPath, sendableRoots(), /\.ogg$/) : undefined,
         })),
       ).catch(() => null);
-      if (!items) return c.json({ error: "Uno de los stickers no se puede enviar.", code: "invalid" }, 400);
+      if (!items) return c.json({ error: "Uno de los stickers no se puede enviar.", code: "bad_request" }, 400);
       const { result, session } = await bot.self.sendToSelf(parsed.data.session, parsed.data.client, items);
       return c.json({ sent: result.sent, session });
     } catch (err) {

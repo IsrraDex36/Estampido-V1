@@ -3,7 +3,6 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef } from "react";
 import { signInWithSelf } from "@/features/self/endpoints";
 import { useSelfStore } from "@/features/self/selfStore";
-import { ApiError } from "@/lib/api";
 import { useFavorites } from "@/features/community/store/favoritesStore";
 import { queryKeys } from "@/lib/query/keys";
 import { useMe } from "./api";
@@ -47,9 +46,9 @@ export function useAccountSync() {
     tried.current = session;
     signInWithSelf()
       .then((m) => qc.setQueryData(queryKeys.account.me, m))
-      .catch((err) => {
-        // The session no longer opens here (old format, expired, other browser): forget it.
-        if (err instanceof ApiError && [400, 410].includes(err.status)) useSelfStore.getState().setSession(null);
+      .catch(() => {
+        // Never forget the session here: signing in is a bonus. Only a real send
+        // can tell the device is gone (and that path asks to link again).
       });
   }, [session, me, qc]);
 

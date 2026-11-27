@@ -297,7 +297,10 @@ describe("control: «Tu propio WhatsApp»", () => {
       },
       { session: "s2.xxxxxxxxxx", items: [{ webpPath: "/x.webp", animated: true }] },
     ]) {
-      expect((await post("/self/send", body)).status).toBe(400);
+      const r = await post("/self/send", body);
+      expect(r.status).toBe(400);
+      // Never «invalid» (that code makes the browser forget a good session).
+      expect(((await r.json()) as { code: string }).code).toBe("bad_request");
     }
     await rm(results, { recursive: true, force: true });
   });

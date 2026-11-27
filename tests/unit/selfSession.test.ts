@@ -22,11 +22,24 @@ const A = "a".repeat(64); // browser A (client hash)
 const B = "b".repeat(64); // browser B
 const ME = "5212290000000:7@s.whatsapp.net";
 
-/** A linked (registered) snapshot, as after a real pairing. */
-function linked(id = ME): SessionSnapshot {
+/** The signed device identity WhatsApp hands a device at pair-success (shape only). */
+const DEVICE_IDENTITY = {
+  details: Buffer.from([1]),
+  accountSignatureKey: Buffer.from([2]),
+  accountSignature: Buffer.from([3]),
+  deviceSignature: Buffer.from([4]),
+};
+
+/**
+ * A paired snapshot, as after a real pairing. `via: "qr"` is what Baileys
+ * really leaves after a QR pairing: `registered` stays FALSE (only the
+ * pairing-code path sets it).
+ */
+function linked(id = ME, via: "code" | "qr" = "code"): SessionSnapshot {
   const creds = initAuthCreds();
-  creds.registered = true;
+  creds.registered = via === "code";
   creds.me = { id, name: "Yo" };
+  creds.account = DEVICE_IDENTITY as never;
   return { creds, keys: { "pre-key": { "1": { public: Buffer.from([1, 2]), private: Buffer.from([3]) } } } as never };
 }
 
@@ -79,8 +92,18 @@ function setup(
     sendSettleMaxMs: 5,
     openTimeoutMs: 200,
     opTimeoutMs: 1_000,
-    socket: async () => {
+    socket: async (state) => {
       const s = new FakeSock();
+      // Like Baileys at pair-success: our jid + the signed device identity land in creds
+      // before «open» (and `registered` is NOT touched — that's the pairing-code path only).
+      const emit = s.emit.bind(s);
+      s.emit = (u) => {
+        if (u.connection === "open") {
+          state.creds.me ??= { id: ME, name: "Yo" };
+          state.creds.account ??= DEVICE_IDENTITY as never;
+        }
+        emit(u);
+      };
       socks.push(s);
       script(s, socks.length);
       return s as unknown as SelfSocket;
@@ -495,3 +518,67 @@ function tryWho(fn: () => unknown): unknown {
     return e;
   }
 }
+
+describe("regression: «vinculado» but every send asked to link again", () => {
+  const item = { webpPath: "/r/1/sticker.webp", animated: true };
+
+  it("a QR-linked session (Baileys leaves registered=false) sends, renews and signs in", async () => {
+    const { sessions, sent } = setup();
+    const sealed = sealSession(linked(ME, "qr"), key, A);
+    const r = await sessions.sendToSelf(sealed, A, [item]);
+    expect(r.result).toEqual({ sent: 1 });
+    expect(sent).toHaveLength(1);
+    expect(sessions.whoAmI(r.session, A)).toBe("5212290000000@s.whatsapp.net");
+  });
+
+  it("a link that opens WITHOUT a device identity is «failed», never «linked» with a useless session", async () => {
+    const { sessions } = setup({}, (s) => setTimeout(() => s.emit({ connection: "open" }), 1));
+    // Factory fills creds on open; simulate WhatsApp not issuing an identity:
+    const bare = setup({
+      socket: async () => {
+        const s = new FakeSock();
+        setTimeout(() => s.emit({ connection: "open" }), 1);
+        return s as unknown as SelfSocket;
+      },
+    });
+    const ok = await sessions.startLink(A);
+    const bad = await bare.sessions.startLink(A);
+    await wait(30);
+    expect(sessions.linkStatus(ok, A)?.state).toBe("linked");
+    const st = bare.sessions.linkStatus(bad, A) as { state: string; reason?: string };
+    expect(st.state).toBe("failed");
+    expect(st.reason).toMatch(/no terminó de vincular/);
+  });
+
+  it("whatever a real link hands out can be used right away (link → send → whoAmI)", async () => {
+    const { sessions, sent } = setup();
+    const id = await sessions.startLink(A);
+    await wait(20);
+    const st = sessions.linkStatus(id, A) as { state: string; session: string };
+    expect(st.state).toBe("linked");
+    await expect(sessions.sendToSelf(st.session, A, [item])).resolves.toMatchObject({ result: { sent: 1 } });
+    expect(sent).toHaveLength(1);
+    expect(sessions.whoAmI(st.session, A)).toBe("5212290000000@s.whatsapp.net");
+  });
+});
+
+describe("the browser forgets the session ONLY when the session is unusable", () => {
+  it("relink on logged_out / expired / invalid session; never on bad requests, timeouts, busy or limits", async () => {
+    const { mustRelink } = await import("../../web/src/features/self/useSelfSend.js");
+    expect(mustRelink(410, "logged_out")).toBe(true);
+    expect(mustRelink(410, "expired")).toBe(true);
+    expect(mustRelink(400, "invalid")).toBe(true);
+    for (const [status, code] of [
+      [400, "bad_request"],
+      [404, "link_expired"],
+      [504, "timeout"],
+      [503, "busy"],
+      [429, "rate_limited"],
+      [502, "send_failed"],
+      [503, "bot_unavailable"],
+      [404, "invalid"], // not a session answer
+    ] as const) {
+      expect(mustRelink(status, code), `${status} ${code}`).toBe(false);
+    }
+  });
+});

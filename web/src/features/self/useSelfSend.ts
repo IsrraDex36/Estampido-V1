@@ -25,7 +25,7 @@ export function useSelfSend() {
     } catch (err) {
       setState("idle");
       // Session no longer usable (device removed, expired, sealed for another browser/epoch): forget it, re-link.
-      if (err instanceof ApiError && (err.status === 410 || ["logged_out", "invalid", "expired"].includes(err.code))) {
+      if (err instanceof ApiError && mustRelink(err.status, err.code)) {
         useSelfStore.getState().setSession(null);
         // Say what really happened (each one has a different fix for the person).
         notify.error(relinkReason(err.code));
@@ -58,4 +58,13 @@ export function relinkReason(code: string): string {
     default:
       return "Actualizamos la seguridad de la vinculación: vincula tu WhatsApp otra vez (solo esta vez).";
   }
+}
+
+/**
+ * Only when the SESSION itself is unusable (device removed, expired, sealed for
+ * another browser/epoch). Malformed requests, timeouts, busy, rate limits:
+ * keep the session and just report the error. Pure (tested).
+ */
+export function mustRelink(status: number, code: string): boolean {
+  return code === "logged_out" || code === "expired" || (code === "invalid" && (status === 400 || status === 410));
 }
