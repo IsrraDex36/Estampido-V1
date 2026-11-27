@@ -21,6 +21,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Cambiado
 
+- **Número por país (LatAm + España + EE. UU.)**: selector de país con su lada y cuántos dígitos lleva (22 países), adivinado por el idioma y la zona horaria del navegador (Lima → Perú) y recordado. Valida en vivo («Faltan 3 dígitos (Perú: 9)»), acepta el número pegado con `+51`/`0051`, quita prefijos locales (0 inicial, 044/045 y «1» en México, «9» y «0 … 15» en Argentina) y muestra exactamente para qué número se pedirá el código.
+
 - **Ya no hace falta el número del bot del admin**: vincular tu propio WhatsApp (código o QR) es también **entrar a tu cuenta** (perfil, favoritos, publicar). Misma cuenta que antes para quien ya entraba con el código EST- (la huella cifrada del número es la misma). Si la cookie vence, el navegador vinculado vuelve a entrar solo, sin conectarse a WhatsApp. «Cerrar sesión» también quita el dispositivo.
 - El bot del admin queda **apagado por defecto** (`SVA_ADMIN_BOT=1` para encenderlo): sin conexión, sin reintentos, sin riesgo para ningún número; `/admin` lo explica. El indicador del encabezado ahora dice «Vincular WhatsApp» / «WhatsApp vinculado».
 

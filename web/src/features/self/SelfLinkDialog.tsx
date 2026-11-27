@@ -7,6 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { ApiError } from "@/lib/api";
 import { queryKeys } from "@/lib/query/keys";
 import { type LinkStatus, linkStatus, startLink } from "./endpoints";
+import { COUNTRIES, composePhone, countryByIso, guessCountry, phoneHint } from "./phone";
 import { useSelfStore } from "./selfStore";
 
 type Step =
@@ -29,20 +30,49 @@ export function SelfLinkDialog() {
   );
 }
 
+/** Event-time clock (kept out of render code). */
+const clock = () => Date.now();
+
+const COUNTRY_KEY = "estampido-wa-country";
+/** Last country used here, else a guess from the browser's language and time zone. */
+function initialCountry(): string {
+  try {
+    const saved = localStorage.getItem(COUNTRY_KEY);
+    if (saved && COUNTRIES.some((c) => c.iso === saved)) return saved;
+  } catch {
+    // storage blocked
+  }
+  return guessCountry(
+    typeof navigator === "undefined" ? undefined : navigator.language,
+    Intl.DateTimeFormat().resolvedOptions().timeZone,
+  );
+}
+
 const onPhone = () => typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
 
 function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
   const setSession = useSelfStore((s) => s.setSession);
   const qc = useQueryClient();
   const [step, setStep] = useState<Step>({ kind: "intro" });
-  const [phone, setPhone] = useState("52");
+  const [iso, setIso] = useState(initialCountry);
+  const [phone, setPhone] = useState("");
+  const country = countryByIso(iso);
+  const check = composePhone(country, phone);
+  const chooseCountry = (next: string) => {
+    setIso(next);
+    try {
+      localStorage.setItem(COUNTRY_KEY, next);
+    } catch {
+      // private mode: we'll guess again next time
+    }
+  };
   const [busy, setBusy] = useState(false);
 
   const begin = async (withPhone: boolean) => {
     setBusy(true);
     try {
-      const id = await startLink(withPhone ? phone : undefined);
-      setStep({ kind: "linking", id, status: { state: "waiting" }, startedAt: Date.now() });
+      const id = await startLink(withPhone && check.ok ? check.digits : undefined);
+      setStep({ kind: "linking", id, status: { state: "waiting" }, startedAt: clock() });
     } catch (err) {
       setStep({ kind: "error", message: err instanceof ApiError ? err.message : "No se pudo empezar. Intenta otra vez." });
     } finally {
@@ -90,7 +120,6 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
   }, [linkId, setSession, onDone, after, qc]);
 
   if (step.kind === "intro") {
-    const digits = phone.replace(/\D/g, "");
     return (
       <>
         <DialogHeader className="flex flex-col items-center px-8 text-center">
@@ -117,21 +146,43 @@ function Body({ after, onDone }: { after?: () => void; onDone: () => void }) {
           ))}
         </ul>
         <div className="space-y-2">
-          <label className="block space-y-1 text-[13px] font-medium">
-            Tu número de WhatsApp (con código de país)
-            <input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              inputMode="tel"
-              autoComplete="tel"
-              placeholder="52 229 000 0000"
-              className="h-11 w-full rounded-xl bg-muted/60 px-3 text-[16px] font-normal tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            />
-            <span className="block text-[11px] font-normal text-muted-foreground">
-              México: 52 y tus 10 dígitos. Solo para pedir el código; no se guarda.
+          <div className="space-y-1">
+            <label htmlFor="wa-country" className="block text-[13px] font-medium">
+              Tu número de WhatsApp
+            </label>
+            <div className="flex gap-2">
+              <select
+                id="wa-country"
+                aria-label="País"
+                value={iso}
+                onChange={(e) => chooseCountry(e.target.value)}
+                className="h-11 w-[7.5rem] shrink-0 rounded-xl bg-muted/60 px-2 text-[15px] outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {COUNTRIES.map((c) => (
+                  <option key={c.iso} value={c.iso}>
+                    {c.flag} {c.name} +{c.dial}
+                  </option>
+                ))}
+              </select>
+              <input
+                aria-label={`Número sin el +${country.dial}`}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                inputMode="tel"
+                autoComplete="tel-national"
+                placeholder={country.example}
+                aria-invalid={phoneHint(country, check) ? true : undefined}
+                className="h-11 min-w-0 flex-1 rounded-xl bg-muted/60 px-3 text-[16px] tracking-wide outline-none focus-visible:ring-2 focus-visible:ring-ring aria-[invalid]:ring-2 aria-[invalid]:ring-destructive/50"
+              />
+            </div>
+            <span className="block text-[11px] text-muted-foreground" aria-live="polite">
+              {phoneHint(country, check) ??
+                (check.ok
+                  ? `Pediremos el código para +${country.dial} ${check.national}. No se guarda.`
+                  : `${country.flag} +${country.dial} y tu número (${country.lengths.join(" u ")} dígitos). Solo para pedir el código; no se guarda.`)}
             </span>
-          </label>
-          <Button className="h-12 w-full rounded-full font-semibold" disabled={busy || digits.length < 10} onClick={() => void begin(true)}>
+          </div>
+          <Button className="h-12 w-full rounded-full font-semibold" disabled={busy || !check.ok} onClick={() => void begin(true)}>
             {busy && <Loader2Icon className="size-4 animate-spin" />} Obtener código
           </Button>
           {!onPhone() && (
