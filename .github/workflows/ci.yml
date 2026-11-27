@@ -38,7 +38,15 @@ jobs:
           echo "FFPROBE_PATH=/opt/ffmpeg/bin/ffprobe" >> "$GITHUB_ENV"
 
       - name: Install webpmux (optional cross-check in tests)
-        run: sudo apt-get update && sudo apt-get install -y webp
+        # Optional: the tests skip the cross-check without it. The runner image ships
+        # third-party apt repos (e.g. packages.microsoft.com) that sometimes answer
+        # 403 / unsigned and make `apt-get update` fail the whole job: drop them
+        # (we only need Ubuntu's own archive) and never fail CI over this step.
+        continue-on-error: true
+        run: |
+          sudo rm -f /etc/apt/sources.list.d/microsoft*.list /etc/apt/sources.list.d/microsoft*.sources
+          sudo apt-get update -o Acquire::Retries=3 || true
+          sudo apt-get install -y --no-install-recommends webp
 
       - name: Install dependencies
         run: |
