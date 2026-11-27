@@ -6,6 +6,8 @@ Cambios notables de Estampido. Formato inspirado en [Keep a Changelog](https://k
 
 ### Corregido
 
+- **Seguridad: llaves de cifrado en los logs.** La librería de cifrado de WhatsApp (libsignal) imprimía sesiones completas («Closing session: SessionEntry { privKey… rootKey… }») en los logs del bot. Ahora el bot filtra esas líneas y cualquier objeto con material de llaves antes de que lleguen a la consola.
+
 - **Cerrar sesión de verdad y volver a entrar sin trucos**:
   - Al cerrar sesión, el servidor «revoca» las vinculaciones de ese navegador emitidas hasta ese momento (solo guarda huella de la cuenta + navegador + fecha, nada de la sesión): otra pestaña abierta o una copia guardada ya no pueden volver a meterte. Vincular otra vez funciona y conserva tu misma cuenta.
   - Borrar la cuenta revoca **todos** los navegadores: antes, un navegador vinculado la recreaba al instante.

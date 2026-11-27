@@ -11,6 +11,7 @@ import { registerHandlers } from "./handlers.js";
 import { humanizer } from "./humanize.js";
 import { LinkStore } from "./links.js";
 import { installRawCapture } from "./rawCapture.js";
+import { installLogRedaction } from "./redactLogs.js";
 import type { SendMode } from "./saudio.js";
 import { BOT_TMP_PREFIX } from "./saudio.js";
 import { SelfSessions, sealKeyFrom } from "./selfSession.js";
@@ -19,6 +20,9 @@ import { installRawEncode } from "./soundSticker.js";
 import { cleanupTempDirs } from "./tempCleanup.js";
 import { BotAgeStore } from "./volume.js";
 import { Watchdog } from "./watchdog.js";
+
+// FIRST: never let Signal session objects (people's encryption keys) reach the logs.
+installLogRedaction();
 
 /**
  * WhatsApp bot (Baileys, unofficial → use a secondary number).
